@@ -59,6 +59,13 @@ const baseFramesGridStyles: React.CSSProperties = {
   marginBottom: '16px'
 };
 
+const framesScrollContainerStyles: React.CSSProperties = {
+  width: '100%',
+  overflowX: 'visible',
+  paddingBottom: '0',
+  WebkitOverflowScrolling: 'touch'
+};
+
 const frameWrapperBaseStyles: React.CSSProperties = {
   position: 'relative',
   borderRadius: '10px',
@@ -197,9 +204,11 @@ export const Scorecard: React.FC<ScorecardProps> = ({
   const gridStyles = useMemo<React.CSSProperties>(
     () => ({
       ...baseFramesGridStyles,
-      gridTemplateColumns: compact ? 'repeat(5, minmax(70px, 1fr))' : baseFramesGridStyles.gridTemplateColumns,
-      gap: compact ? '10px' : baseFramesGridStyles.gap,
-      marginBottom: compact ? '12px' : baseFramesGridStyles.marginBottom
+      gap: compact ? '8px' : baseFramesGridStyles.gap,
+      marginBottom: compact ? '12px' : baseFramesGridStyles.marginBottom,
+      gridTemplateColumns: compact
+        ? 'repeat(5, minmax(60px, 1fr))'
+        : baseFramesGridStyles.gridTemplateColumns
     }),
     [compact]
   );
@@ -296,39 +305,70 @@ export const Scorecard: React.FC<ScorecardProps> = ({
           )}
         </div>
         
-        <div style={gridStyles}>
-          {game.frames.map((frame, index) => {
-            const frameNumber = index + 1;
-            return renderFrame(
-              frameNumber,
+        {compact ? (
+          <div style={framesScrollContainerStyles}>
+            <div style={gridStyles}>
+              {game.frames.map((frame, index) => {
+                const frameNumber = index + 1;
+                return renderFrame(
+                  frameNumber,
+                  <FrameBox
+                    frameNumber={frameNumber}
+                    frameDisplay={formatFrameDisplay(frame, frameNumber)}
+                    compact={compact}
+                  />,
+                  frameIssues.get(frameNumber),
+                  index
+                );
+              })}
+              {renderFrame(
+                10,
+                <FrameBox
+                  frameNumber={10}
+                  frameDisplay={formatTenthFrameDisplay(game.tenthFrame)}
+                  isTenthFrame={true}
+                  compact={compact}
+                />,
+                frameIssues.get(10),
+                9
+              )}
+            </div>
+          </div>
+        ) : (
+          <div style={gridStyles}>
+            {game.frames.map((frame, index) => {
+              const frameNumber = index + 1;
+              return renderFrame(
+                frameNumber,
+                <FrameBox
+                  frameNumber={frameNumber}
+                  frameDisplay={formatFrameDisplay(frame, frameNumber)}
+                  compact={compact}
+                />,
+                frameIssues.get(frameNumber),
+                index
+              );
+            })}
+            {renderFrame(
+              10,
               <FrameBox
-                frameNumber={frameNumber}
-                frameDisplay={formatFrameDisplay(frame, frameNumber)}
+                frameNumber={10}
+                frameDisplay={formatTenthFrameDisplay(game.tenthFrame)}
+                isTenthFrame={true}
                 compact={compact}
               />,
-              frameIssues.get(frameNumber),
-              index
-            );
-          })}
-          {renderFrame(
-            10,
-            <FrameBox
-              frameNumber={10}
-              frameDisplay={formatTenthFrameDisplay(game.tenthFrame)}
-              isTenthFrame={true}
-              compact={compact}
-            />,
-            frameIssues.get(10),
-            9
-          )}
-        </div>
+              frameIssues.get(10),
+              9
+            )}
+          </div>
+        )}
 
         {onFrameSelect && (
           <div style={helperTextStyles}>
             {disableEditing
               ? 'Finish processing to edit frames'
               : compact
-              ? 'Tap a frame to edit (scroll for more)'
+              ? 'Tap a frame to edit'
               : 'Tap any frame to correct rolls or totals'}
           </div>
         )}

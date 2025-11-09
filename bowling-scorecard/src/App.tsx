@@ -314,7 +314,9 @@ function App() {
       minWidth: isMobile ? '100%' : scorecardContainerStyles.minWidth,
       maxWidth: isMobile ? '100%' : scorecardContainerStyles.maxWidth,
       maxHeight: isMobile ? '52vh' : undefined,
-      overflowY: isMobile ? ('auto' as const) : ('visible' as const)
+      overflowY: isMobile ? ('auto' as const) : ('visible' as const),
+      overflowX: isMobile ? ('auto' as const) : ('visible' as const),
+      WebkitOverflowScrolling: isMobile ? ('touch' as const) : undefined
     }),
     [isMobile]
   );
