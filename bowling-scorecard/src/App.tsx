@@ -1,9 +1,16 @@
-import { useState, useEffect, useCallback, useMemo } from 'react';
+import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { Scorecard } from './components/Scorecard';
 import { FrameCorrectionModal } from './components/FrameCorrectionModal';
 import { PlayerNameModal } from './components/PlayerNameModal';
 import { Game } from './types/bowling';
 import { extractScoresFromImage } from './utils/scoreExtractor';
+import { initClientDiagnostics, logClientEvent } from './utils/clientDiagnostics';
+
+type ErrorDiagnostics = {
+  endpoint?: string;
+  status?: number;
+  occurredAt: string;
+};
 
 const loadingContainerStyles: React.CSSProperties = {
   minHeight: '100vh',
@@ -139,6 +146,21 @@ const emptyStateTextStyles: React.CSSProperties = {
   lineHeight: 1.5
 };
 
+const previewPlaceholderStyles: React.CSSProperties = {
+  width: '100%',
+  height: '100%',
+  minHeight: '220px',
+  display: 'flex',
+  alignItems: 'center',
+  justifyContent: 'center',
+  textAlign: 'center',
+  padding: '16px',
+  color: '#475569',
+  backgroundColor: '#f8fafc',
+  border: '1px dashed #cbd5f5',
+  borderRadius: '12px'
+};
+
 function App() {
   const [games, setGames] = useState<Game[]>([]);
   const [currentGameIndex, setCurrentGameIndex] = useState(0);
@@ -154,6 +176,58 @@ function App() {
     }
     return window.innerWidth <= 640;
   });
+  const [previewPlaceholder, setPreviewPlaceholder] = useState<string | null>(null);
+  const [errorDiagnostics, setErrorDiagnostics] = useState<ErrorDiagnostics | null>(null);
+  const cameraInputRef = useRef<HTMLInputElement | null>(null);
+
+  const reportExtractionFailure = useCallback(
+    (
+      message: string,
+      details?: {
+        endpoint?: string;
+        status?: number;
+        context?: Record<string, unknown>;
+        stack?: string;
+      }
+    ) => {
+      setExtractionError(message);
+      setErrorDiagnostics({
+        endpoint: details?.endpoint,
+        status: details?.status,
+        occurredAt: new Date().toISOString()
+      });
+      void logClientEvent({
+        level: 'error',
+        message,
+        stack: details?.stack,
+        context: {
+          ...details?.context,
+          endpoint: details?.endpoint,
+          status: details?.status
+        }
+      });
+    },
+    []
+  );
+
+  const isHeicFile = (file: File) => {
+    const mime = file.type?.toLowerCase() ?? '';
+    const name = file.name?.toLowerCase() ?? '';
+    return (
+      mime === 'image/heic' ||
+      mime === 'image/heif' ||
+      mime === 'image/heic-sequence' ||
+      mime === 'image/heif-sequence' ||
+      name.endsWith('.heic') ||
+      name.endsWith('.heif') ||
+      name.endsWith('.heifs')
+    );
+  };
+
+  const isHeicDataUrl = (dataUrl: string) => {
+    const lowercase = dataUrl.slice(0, 40).toLowerCase();
+    return lowercase.startsWith('data:image/heic') || lowercase.startsWith('data:image/heif');
+  };
 
   useEffect(() => {
     const handleResize = () => {
@@ -168,32 +242,66 @@ function App() {
     return () => window.removeEventListener('resize', handleResize);
   }, []);
 
+  useEffect(() => {
+    const teardown = initClientDiagnostics();
+    return () => {
+      teardown?.();
+    };
+  }, []);
+
   const handleImageUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
-    const file = event.target.files?.[0];
+    const inputEl = event.target;
+    const file = inputEl.files?.[0];
     if (file) {
+      const shouldDelayPreview = isHeicFile(file);
       const reader = new FileReader();
       reader.onload = async (e) => {
         const imageData = e.target?.result as string;
-        setUploadedImage(imageData);
+        const treatAsHeic = shouldDelayPreview || isHeicDataUrl(imageData);
+        if (treatAsHeic) {
+          setPreviewPlaceholder('Preview will appear after we convert your HEIC photo...');
+          setUploadedImage(null);
+        } else {
+          setUploadedImage(imageData);
+          setPreviewPlaceholder(null);
+        }
         setExtractionError(null);
+        setErrorDiagnostics(null);
         setIsProcessing(true);
         
         try {
-          const result = await extractScoresFromImage(file);
+          const result = await extractScoresFromImage(imageData);
           
           if (result.success && result.games && result.games.length > 0) {
             setGames(result.games);
             setCurrentGameIndex(0);
+            setErrorDiagnostics(null);
+            if (result.normalizedImageDataUrl) {
+              setUploadedImage(result.normalizedImageDataUrl);
+              setPreviewPlaceholder(null);
+            } else if (treatAsHeic) {
+              setPreviewPlaceholder('Preview unavailable for this format, please review the extracted frames below.');
+            }
           } else {
-            setExtractionError(result.error || 'Failed to extract scores');
+            const message = result.error || 'Failed to extract scores';
+            reportExtractionFailure(message, {
+              endpoint: result.endpoint,
+              status: result.status,
+              context: { source: 'handleImageUpload' }
+            });
           }
         } catch (error) {
-          setExtractionError(`Processing failed: ${error instanceof Error ? error.message : 'Unknown error'}`);
+          const message = `Processing failed: ${error instanceof Error ? error.message : 'Unknown error'}`;
+          reportExtractionFailure(message, {
+            context: { source: 'handleImageUpload' },
+            stack: error instanceof Error ? error.stack : undefined
+          });
         } finally {
           setIsProcessing(false);
         }
       };
       reader.readAsDataURL(file);
+      inputEl.value = '';
     }
   };
 
@@ -201,6 +309,7 @@ function App() {
     try {
       setIsProcessing(true);
       setExtractionError(null);
+       setErrorDiagnostics(null);
       const response = await fetch('/test-scorecard.jpg');
       const blob = await response.blob();
       
@@ -210,7 +319,9 @@ function App() {
         const dataUrl = e.target?.result as string;
         
         setUploadedImage(dataUrl);
+        setPreviewPlaceholder(null);
         setExtractionError(null);
+        setErrorDiagnostics(null);
         
         try {
           // Process the image with OpenAI
@@ -219,12 +330,25 @@ function App() {
           if (result.success && result.games && result.games.length > 0) {
             setGames(result.games);
             setCurrentGameIndex(0);
+            if (result.normalizedImageDataUrl) {
+              setUploadedImage(result.normalizedImageDataUrl);
+              setPreviewPlaceholder(null);
+            }
           } else {
-            setExtractionError(result.error || 'Failed to extract scores from test image');
+            const message = result.error || 'Failed to extract scores from test image';
+            reportExtractionFailure(message, {
+              endpoint: result.endpoint,
+              status: result.status,
+              context: { source: 'loadTestImage' }
+            });
             console.log('Raw OpenAI response:', result.rawText);
           }
         } catch (error) {
-          setExtractionError(`Processing failed: ${error instanceof Error ? error.message : 'Unknown error'}`);
+          const message = `Processing failed: ${error instanceof Error ? error.message : 'Unknown error'}`;
+          reportExtractionFailure(message, {
+            context: { source: 'loadTestImage' },
+            stack: error instanceof Error ? error.stack : undefined
+          });
         } finally {
           setIsProcessing(false);
         }
@@ -233,10 +357,14 @@ function App() {
       reader.readAsDataURL(blob);
       
     } catch (error) {
-      setExtractionError(`Failed to load test image: ${error instanceof Error ? error.message : 'Unknown error'}`);
+      const message = `Failed to load test image: ${error instanceof Error ? error.message : 'Unknown error'}`;
+      reportExtractionFailure(message, {
+        context: { source: 'loadTestImage.fetch' },
+        stack: error instanceof Error ? error.stack : undefined
+      });
       setIsProcessing(false);
     }
-  }, []);
+  }, [reportExtractionFailure]);
 
   const shouldAutoLoadTestImage = process.env.REACT_APP_ENABLE_AUTO_TEST_IMAGE === 'true';
 
@@ -248,6 +376,7 @@ function App() {
       setCurrentGameIndex(0);
       setUploadedImage(null);
       setExtractionError(null);
+      setErrorDiagnostics(null);
       setIsProcessing(false);
     }
   }, [loadTestImage, shouldAutoLoadTestImage]);
@@ -506,6 +635,33 @@ function App() {
             ...buttonStyles,
             width: isMobile ? '100%' : 'auto',
             opacity: controlsLocked ? 0.6 : 1,
+            cursor: controlsLocked ? 'not-allowed' : 'pointer',
+            backgroundColor: '#0f172a'
+          }}
+          onClick={() => {
+            if (controlsLocked) {
+              return;
+            }
+            cameraInputRef.current?.click();
+          }}
+          disabled={controlsLocked}
+        >
+          Capture Photo
+        </button>
+        <input
+          ref={cameraInputRef}
+          type="file"
+          accept="image/*"
+          capture="environment"
+          style={{ display: 'none' }}
+          onChange={handleImageUpload}
+        />
+        <button
+          type="button"
+          style={{
+            ...buttonStyles,
+            width: isMobile ? '100%' : 'auto',
+            opacity: controlsLocked ? 0.6 : 1,
             cursor: controlsLocked ? 'not-allowed' : 'pointer'
           }}
           onClick={() => {
@@ -520,11 +676,17 @@ function App() {
         </button>
       </div>
 
-      {uploadedImage && displayedGame ? (
+      {displayedGame ? (
         <div style={uploadContainerStyles}>
           <div style={responsiveLayoutStyles}>
             <div style={responsiveImageWrapperStyles}>
-              <img src={uploadedImage} alt="Uploaded scorecard" style={responsiveImageStyles} />
+              {uploadedImage ? (
+                <img src={uploadedImage} alt="Uploaded scorecard" style={responsiveImageStyles} />
+              ) : (
+                <div style={previewPlaceholderStyles}>
+                  {previewPlaceholder ?? 'Upload an image to see a preview once processing finishes.'}
+                </div>
+              )}
             </div>
             <div style={responsiveScorecardStyles}>
               <Scorecard
@@ -538,27 +700,6 @@ function App() {
           </div>
           {hasMultipleGames && paginationControls}
         </div>
-      ) : displayedGame ? (
-        <>
-          <div
-            style={{
-              display: 'flex',
-              justifyContent: 'center',
-              marginTop: '24px'
-            }}
-          >
-            <div style={responsiveScorecardStyles}>
-              <Scorecard
-                game={displayedGame}
-                onFrameSelect={handleFrameSelect}
-                onPlayerNameClick={handlePlayerNameClick}
-                disableEditing={controlsLocked}
-                compact={isMobile}
-              />
-            </div>
-          </div>
-          {hasMultipleGames && <div style={{ marginTop: '16px' }}>{paginationControls}</div>}
-        </>
       ) : (
         <div style={emptyStateStyles}>
           <h3 style={emptyStateTitleStyles}>Upload a bowling scorecard</h3>
@@ -632,6 +773,25 @@ function App() {
         >
           <p style={{ fontSize: '16px', fontWeight: 'bold' }}>Error:</p>
           <p style={{ fontSize: '14px' }}>{extractionError}</p>
+          {errorDiagnostics && (
+            <div style={{ marginTop: '8px', fontSize: '12px', color: '#7f1d1d' }}>
+              {errorDiagnostics.endpoint && (
+                <p style={{ margin: 0 }}>
+                  Endpoint:{' '}
+                  <code style={{ fontSize: '11px' }}>{errorDiagnostics.endpoint}</code>
+                </p>
+              )}
+              {typeof errorDiagnostics.status === 'number' && (
+                <p style={{ margin: 0 }}>Status code: {errorDiagnostics.status}</p>
+              )}
+              <p style={{ margin: 0 }}>
+                Recorded at:{' '}
+                {new Date(errorDiagnostics.occurredAt).toLocaleString(undefined, {
+                  hour12: false
+                })}
+              </p>
+            </div>
+          )}
         </div>
       )}
     </div>

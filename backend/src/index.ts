@@ -8,6 +8,7 @@ import { BOWLING_EXTRACTION_PROMPT } from './prompts/bowling.js';
 import { runProvider } from './providers/index.js';
 import type { ProviderName } from './providers/types.js';
 import { logger } from './utils/logger.js';
+import { normalizeImageDataUrl } from './utils/image.js';
 
 const PORT = Number(process.env.PORT) || 4000;
 const DEFAULT_PROVIDER = (process.env.DEFAULT_PROVIDER as ProviderName) ?? 'anthropic';
@@ -61,6 +62,13 @@ const requestSchema = z.object({
   prompt: z.string().optional()
 });
 
+const clientLogSchema = z.object({
+  level: z.enum(['debug', 'info', 'warn', 'error']).default('info'),
+  message: z.string().min(1),
+  stack: z.string().optional(),
+  context: z.record(z.any()).optional()
+});
+
 app.get('/health', (_req: Request, res: Response) => {
   res.json({
     status: 'ok',
@@ -88,21 +96,25 @@ app.post('/api/extract-scores', async (req: Request, res: Response) => {
       includeRawResponse: process.env.INCLUDE_LLM_RAW === 'true'
     });
 
+    const normalizedImage = await normalizeImageDataUrl(parsed.imageDataUrl);
+
     const result = await runProvider(provider, {
-      imageDataUrl: parsed.imageDataUrl,
+      imageDataUrl: normalizedImage.dataUrl,
       prompt: parsed.prompt ?? BOWLING_EXTRACTION_PROMPT
     });
 
     logger.info('Extracted bowling scores successfully', {
       provider,
       requestId,
-      gameCount: result.games.length
+      gameCount: result.games.length,
+      convertedImage: normalizedImage.converted
     });
 
     res.json({
       success: true,
       provider,
       games: result.games,
+      normalizedImageDataUrl: normalizedImage.dataUrl,
       rawResponse: process.env.INCLUDE_LLM_RAW === 'true' ? result.rawText : undefined
     });
   } catch (error) {
@@ -118,6 +130,49 @@ app.post('/api/extract-scores', async (req: Request, res: Response) => {
     res.status(statusCode).json({
       success: false,
       error: message
+    });
+  }
+});
+
+app.post('/api/client-logs', (req: Request, res: Response) => {
+  try {
+    const payload = clientLogSchema.parse(req.body);
+    const requestId = res.locals.requestId as string | undefined;
+    const userAgent = req.header('user-agent') ?? 'unknown';
+
+    const attributes = {
+      ...payload.context,
+      requestId,
+      userAgent,
+      clientStack: payload.stack,
+      source: 'client'
+    };
+
+    switch (payload.level) {
+      case 'error':
+        logger.error(payload.message, undefined, attributes);
+        break;
+      case 'warn':
+        logger.warn(payload.message, attributes);
+        break;
+      case 'debug':
+        logger.debug(payload.message, attributes);
+        break;
+      default:
+        logger.info(payload.message, attributes);
+        break;
+    }
+
+    res.status(204).end();
+  } catch (error) {
+    const requestId = res.locals.requestId as string | undefined;
+    logger.warn('Invalid client log payload', {
+      error: error instanceof Error ? error.message : 'unknown',
+      requestId
+    });
+    res.status(400).json({
+      success: false,
+      error: 'Invalid client log payload'
     });
   }
 });

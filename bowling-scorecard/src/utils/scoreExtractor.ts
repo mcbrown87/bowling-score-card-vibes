@@ -1,4 +1,5 @@
 import { Game } from '../types/bowling';
+import { resolveApiBaseUrl } from './api';
 
 export interface ExtractionResult {
   success: boolean;
@@ -6,6 +7,9 @@ export interface ExtractionResult {
   game?: Game;    // Keep for backward compatibility
   error?: string;
   rawText?: string;
+  normalizedImageDataUrl?: string;
+  endpoint?: string;
+  status?: number;
 }
 
 export const extractScoresFromImage = async (imageFile: string | File): Promise<ExtractionResult> => {
@@ -24,15 +28,17 @@ export const extractScoresFromImage = async (imageFile: string | File): Promise<
     });
   }
 
+  const baseUrl = resolveApiBaseUrl();
+  const endpoint = `${baseUrl}/api/extract-scores`;
+
   try {
-    const baseUrl = process.env.REACT_APP_API_BASE_URL ?? 'http://localhost:4000';
     // Emit diagnostic log so we can verify which endpoint the browser will call.
     // eslint-disable-next-line no-console
     console.info('extractScoresFromImage request', {
       baseUrl,
       payloadBytes: imageDataUrl.length
     });
-    const response = await fetch(`${baseUrl}/api/extract-scores`, {
+    const response = await fetch(endpoint, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json'
@@ -49,7 +55,9 @@ export const extractScoresFromImage = async (imageFile: string | File): Promise<
       return {
         success: false,
         error: message,
-        rawText: data?.rawResponse
+        rawText: data?.rawResponse,
+        endpoint,
+        status: response.status
       };
     }
 
@@ -58,12 +66,17 @@ export const extractScoresFromImage = async (imageFile: string | File): Promise<
       success: true,
       games,
       game: games[0],
-      rawText: data.rawResponse
+      rawText: data.rawResponse,
+      normalizedImageDataUrl:
+        typeof data.normalizedImageDataUrl === 'string' ? data.normalizedImageDataUrl : undefined,
+      endpoint,
+      status: response.status
     };
   } catch (error) {
     return {
       success: false,
       error: `Extraction failed: ${error instanceof Error ? error.message : 'Unknown error'}`,
+      endpoint
     };
   }
 };
