@@ -1,6 +1,6 @@
-import type { ProviderName, ProviderRequest, ProviderResult } from './types.js';
-import { anthropicProvider } from './anthropicProvider.js';
-import { openaiProvider } from './openaiProvider.js';
+import type { ProviderName, ProviderRequest, ProviderResult } from './types';
+import { anthropicProvider } from './anthropicProvider';
+import { openaiProvider } from './openaiProvider';
 
 export const runProvider = async (
   provider: ProviderName,

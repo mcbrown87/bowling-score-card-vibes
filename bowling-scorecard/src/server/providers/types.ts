@@ -1,4 +1,4 @@
-import type { Game } from '../types/bowling.js';
+import type { Game } from '@/types/bowling';
 
 export interface ProviderRequest {
   imageDataUrl: string;

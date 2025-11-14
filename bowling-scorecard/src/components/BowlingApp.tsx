@@ -1,10 +1,14 @@
+'use client';
+/* eslint-disable @next/next/no-img-element */
+
 import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
-import { Scorecard } from './components/Scorecard';
-import { FrameCorrectionModal } from './components/FrameCorrectionModal';
-import { PlayerNameModal } from './components/PlayerNameModal';
-import { Game } from './types/bowling';
-import { extractScoresFromImage } from './utils/scoreExtractor';
-import { initClientDiagnostics, logClientEvent } from './utils/clientDiagnostics';
+import type { CSSProperties } from 'react';
+import { Scorecard } from './Scorecard';
+import { FrameCorrectionModal } from './FrameCorrectionModal';
+import { PlayerNameModal } from './PlayerNameModal';
+import { Game } from '../types/bowling';
+import { extractScoresFromImage } from '../utils/scoreExtractor';
+import { initClientDiagnostics, logClientEvent } from '../utils/clientDiagnostics';
 
 type ErrorDiagnostics = {
   endpoint?: string;
@@ -12,24 +16,24 @@ type ErrorDiagnostics = {
   occurredAt: string;
 };
 
-const loadingContainerStyles: React.CSSProperties = {
+const loadingContainerStyles: CSSProperties = {
   minHeight: '100vh',
   display: 'flex',
   alignItems: 'center',
   justifyContent: 'center'
 };
 
-const loadingTextStyles: React.CSSProperties = {
+const loadingTextStyles: CSSProperties = {
   fontSize: '20px'
 };
 
-const appContainerStyles: React.CSSProperties = {
+const appContainerStyles: CSSProperties = {
   minHeight: '100vh',
   paddingTop: '32px',
   paddingBottom: '32px'
 };
 
-const buttonContainerStyles: React.CSSProperties = {
+const buttonContainerStyles: CSSProperties = {
   display: 'flex',
   justifyContent: 'center',
   alignItems: 'center',
@@ -38,7 +42,7 @@ const buttonContainerStyles: React.CSSProperties = {
   marginTop: '24px'
 };
 
-const buttonStyles: React.CSSProperties = {
+const buttonStyles: CSSProperties = {
   backgroundColor: '#2563eb',
   color: 'white',
   fontWeight: 'bold',
@@ -51,18 +55,18 @@ const buttonStyles: React.CSSProperties = {
   transition: 'background-color 0.2s'
 };
 
-const uploadContainerStyles: React.CSSProperties = {
+const uploadContainerStyles: CSSProperties = {
   display: 'flex',
   flexDirection: 'column',
   alignItems: 'center',
   marginTop: '24px'
 };
 
-const fileInputStyles: React.CSSProperties = {
+const fileInputStyles: CSSProperties = {
   marginBottom: '16px'
 };
 
-const summaryBoxStyles: React.CSSProperties = {
+const summaryBoxStyles: CSSProperties = {
   marginTop: '16px',
   padding: '12px 16px',
   borderRadius: '8px',
@@ -73,7 +77,7 @@ const summaryBoxStyles: React.CSSProperties = {
   fontWeight: 500
 };
 
-const warningBoxStyles: React.CSSProperties = {
+const warningBoxStyles: CSSProperties = {
   marginTop: '16px',
   padding: '12px 16px',
   borderRadius: '8px',
@@ -82,18 +86,18 @@ const warningBoxStyles: React.CSSProperties = {
   color: '#9a3412'
 };
 
-const warningTitleStyles: React.CSSProperties = {
+const warningTitleStyles: CSSProperties = {
   fontSize: '16px',
   fontWeight: 'bold',
   marginBottom: '8px'
 };
 
-const warningListStyles: React.CSSProperties = {
+const warningListStyles: CSSProperties = {
   margin: 0,
   paddingLeft: '18px'
 };
 
-const imageWrapperStyles: React.CSSProperties = {
+const imageWrapperStyles: CSSProperties = {
   position: 'relative',
   display: 'inline-block',
   marginTop: '16px',
@@ -102,13 +106,13 @@ const imageWrapperStyles: React.CSSProperties = {
   overflow: 'hidden'
 };
 
-const imageStyles: React.CSSProperties = {
+const imageStyles: CSSProperties = {
   maxWidth: '600px',
   maxHeight: '400px',
   display: 'block'
 };
 
-const contentLayoutStyles: React.CSSProperties = {
+const contentLayoutStyles: CSSProperties = {
   display: 'flex',
   flexWrap: 'wrap',
   gap: '24px',
@@ -118,13 +122,13 @@ const contentLayoutStyles: React.CSSProperties = {
   marginTop: '24px'
 };
 
-const scorecardContainerStyles: React.CSSProperties = {
+const scorecardContainerStyles: CSSProperties = {
   flex: '1 1 480px',
   minWidth: '320px',
   maxWidth: '640px'
 };
 
-const emptyStateStyles: React.CSSProperties = {
+const emptyStateStyles: CSSProperties = {
   marginTop: '56px',
   display: 'flex',
   flexDirection: 'column',
@@ -134,19 +138,19 @@ const emptyStateStyles: React.CSSProperties = {
   color: '#475569'
 };
 
-const emptyStateTitleStyles: React.CSSProperties = {
+const emptyStateTitleStyles: CSSProperties = {
   fontSize: '24px',
   fontWeight: 700,
   color: '#0f172a'
 };
 
-const emptyStateTextStyles: React.CSSProperties = {
+const emptyStateTextStyles: CSSProperties = {
   fontSize: '16px',
   maxWidth: '480px',
   lineHeight: 1.5
 };
 
-const previewPlaceholderStyles: React.CSSProperties = {
+const previewPlaceholderStyles: CSSProperties = {
   width: '100%',
   height: '100%',
   minHeight: '220px',
@@ -161,7 +165,7 @@ const previewPlaceholderStyles: React.CSSProperties = {
   borderRadius: '12px'
 };
 
-function App() {
+function BowlingApp() {
   const [games, setGames] = useState<Game[]>([]);
   const [currentGameIndex, setCurrentGameIndex] = useState(0);
   const [uploadedImage, setUploadedImage] = useState<string | null>(null);
@@ -366,7 +370,7 @@ function App() {
     }
   }, [reportExtractionFailure]);
 
-  const shouldAutoLoadTestImage = process.env.REACT_APP_ENABLE_AUTO_TEST_IMAGE === 'true';
+  const shouldAutoLoadTestImage = process.env.NEXT_PUBLIC_ENABLE_AUTO_TEST_IMAGE === 'true';
 
   useEffect(() => {
     if (shouldAutoLoadTestImage) {
@@ -417,7 +421,7 @@ function App() {
     [games]
   );
 
-  const responsiveButtonContainerStyles = useMemo<React.CSSProperties>(
+  const responsiveButtonContainerStyles = useMemo<CSSProperties>(
     () => ({
       ...buttonContainerStyles,
       flexDirection: isMobile ? ('column' as const) : ('row' as const),
@@ -427,7 +431,7 @@ function App() {
     [isMobile]
   );
 
-  const responsiveLayoutStyles = useMemo<React.CSSProperties>(
+  const responsiveLayoutStyles = useMemo<CSSProperties>(
     () => ({
       ...contentLayoutStyles,
       flexDirection: isMobile ? ('column' as const) : ('row' as const),
@@ -798,4 +802,4 @@ function App() {
   );
 }
 
-export default App;
+export default BowlingApp;

@@ -28,3 +28,16 @@ export type FrameDisplay = {
   roll3?: string;
   frameScore: number | null;
 };
+
+export interface ExtractionPayload {
+  players?: Array<{
+    playerName?: string;
+    frames?: unknown[];
+    tenthFrame?: unknown;
+    totalScore?: number;
+  }>;
+  playerName?: string;
+  frames?: unknown[];
+  tenthFrame?: unknown;
+  totalScore?: number;
+}

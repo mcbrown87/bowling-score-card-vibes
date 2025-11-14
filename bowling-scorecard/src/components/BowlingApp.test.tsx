@@ -1,9 +1,9 @@
 import { render, screen, waitFor } from '@testing-library/react';
-import App from './App';
-import { Game } from './types/bowling';
-import { extractScoresFromImage } from './utils/scoreExtractor';
+import BowlingApp from './BowlingApp';
+import { Game } from '../types/bowling';
+import { extractScoresFromImage } from '../utils/scoreExtractor';
 
-jest.mock('./utils/scoreExtractor');
+jest.mock('../utils/scoreExtractor');
 
 const mockedExtractScores = extractScoresFromImage as jest.MockedFunction<typeof extractScoresFromImage>;
 
@@ -58,10 +58,10 @@ afterAll(() => {
   global.FileReader = originalFileReader;
 });
 
-const originalAutoLoadEnv = process.env.REACT_APP_ENABLE_AUTO_TEST_IMAGE;
+const originalAutoLoadEnv = process.env.NEXT_PUBLIC_ENABLE_AUTO_TEST_IMAGE;
 
 beforeEach(() => {
-  process.env.REACT_APP_ENABLE_AUTO_TEST_IMAGE = 'true';
+  process.env.NEXT_PUBLIC_ENABLE_AUTO_TEST_IMAGE = 'true';
   const sampleGames = [buildSampleGame('Player One', 60), buildSampleGame('Player Two', 40)];
   mockedExtractScores.mockResolvedValue({
     success: true,
@@ -85,20 +85,21 @@ afterEach(() => {
 
 afterAll(() => {
   if (originalAutoLoadEnv === undefined) {
-    delete process.env.REACT_APP_ENABLE_AUTO_TEST_IMAGE;
+    delete process.env.NEXT_PUBLIC_ENABLE_AUTO_TEST_IMAGE;
   } else {
-    process.env.REACT_APP_ENABLE_AUTO_TEST_IMAGE = originalAutoLoadEnv;
+    process.env.NEXT_PUBLIC_ENABLE_AUTO_TEST_IMAGE = originalAutoLoadEnv;
   }
 });
 
 test('renders scorecards after OCR extraction completes', async () => {
-  render(<App />);
+  render(<BowlingApp />);
 
   await waitFor(() => expect(mockedExtractScores).toHaveBeenCalled());
 
-  expect(await screen.findByText('Player One')).toBeInTheDocument();
-  expect(await screen.findByText('Player Two')).toBeInTheDocument();
-  expect(
-    await screen.findByText(/Successfully extracted scores for 2 players/i)
-  ).toBeInTheDocument();
+  const playerOneBadges = await screen.findAllByText('Player One');
+  const playerTwoBadges = await screen.findAllByText('Player Two');
+
+  expect(playerOneBadges.length).toBeGreaterThan(0);
+  expect(playerTwoBadges.length).toBeGreaterThan(0);
+  expect(await screen.findByText(/Extracted 2 players/i)).toBeInTheDocument();
 });

@@ -1,5 +1,5 @@
 import { Buffer } from 'node:buffer';
-import { logger } from './logger.js';
+import { logger } from './logger';
 
 const heicMediaTypes = new Set([
   'image/heic',

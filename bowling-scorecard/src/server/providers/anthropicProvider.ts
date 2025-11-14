@@ -1,9 +1,9 @@
 import Anthropic from '@anthropic-ai/sdk';
-import type { ProviderRequest, ProviderResult } from './types.js';
-import { parseDataUrl } from '../utils/dataUrl.js';
-import { extractJsonFromText } from '../utils/parseJsonFromText.js';
-import { convertExtractionPayload } from '../utils/convertExtractedData.js';
-import type { ExtractionPayload } from '../types/bowling.js';
+import type { ProviderRequest, ProviderResult } from './types';
+import { parseDataUrl } from '../utils/dataUrl';
+import { extractJsonFromText } from '../utils/parseJsonFromText';
+import { convertExtractionPayload } from '../utils/convertExtractedData';
+import type { ExtractionPayload } from '@/types/bowling';
 
 const getClient = () => {
   const apiKey = process.env.ANTHROPIC_API_KEY;

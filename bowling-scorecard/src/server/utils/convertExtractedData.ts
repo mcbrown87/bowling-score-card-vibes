@@ -1,4 +1,4 @@
-import type { ExtractionPayload, Game, Frame, TenthFrame } from '../types/bowling.js';
+import type { ExtractionPayload, Game, Frame, TenthFrame } from '@/types/bowling';
 
 type RawFrame = {
   frameNumber?: number;

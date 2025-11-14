@@ -1,9 +1,9 @@
 import OpenAI from 'openai';
 import type { ChatCompletionMessageParam } from 'openai/resources/chat/completions';
-import type { ProviderRequest, ProviderResult } from './types.js';
-import { extractJsonFromText } from '../utils/parseJsonFromText.js';
-import { convertExtractionPayload } from '../utils/convertExtractedData.js';
-import type { ExtractionPayload } from '../types/bowling.js';
+import type { ProviderRequest, ProviderResult } from './types';
+import { extractJsonFromText } from '../utils/parseJsonFromText';
+import { convertExtractionPayload } from '../utils/convertExtractedData';
+import type { ExtractionPayload } from '@/types/bowling';
 
 const getClient = () => {
   const apiKey = process.env.OPENAI_API_KEY;
@@ -41,7 +41,7 @@ export const openaiProvider = async ({ imageDataUrl, prompt }: ProviderRequest):
 
   for (let attempt = 0; attempt < 5; attempt += 1) {
     const response = await client.chat.completions.create({
-      model: process.env.OPENAI_MODEL ?? 'gpt-4o-mini',
+      model: process.env.OPENAI_MODEL ?? 'gpt-4o',
       max_tokens: 4000,
       temperature: 0.1,
       messages
