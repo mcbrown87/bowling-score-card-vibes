@@ -260,8 +260,8 @@ const convertToGame = (raw: ExtractionPayload | PlayerPayload): Game => {
     });
   }
 
-  const tenthFrameSource =
-    raw?.tenthFrame ??
+  const tenthFrameSource: Partial<RawFrame> =
+    (raw?.tenthFrame as Partial<RawFrame> | undefined) ??
     rawFrames.find((frame) => Number(frame?.frameNumber) === 10) ??
     rawFrames[9] ??
     {};
