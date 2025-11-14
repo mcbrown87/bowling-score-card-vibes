@@ -3,7 +3,6 @@ primary_region = "iad"
 
 [build]
   dockerfile = "bowling-scorecard/Dockerfile.fly"
-  context = "bowling-scorecard"
 
 [env]
   NODE_ENV = "production"
