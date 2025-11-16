@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { Frame, Game, Roll } from '../types/bowling';
 import { recalculateGame } from '../utils/recalculateGame';
 
@@ -44,20 +44,6 @@ const labelStyles: React.CSSProperties = {
   color: '#0f172a'
 };
 
-const numberInputStyles: React.CSSProperties = {
-  width: '88px',
-  padding: '10px 10px',
-  borderRadius: '8px',
-  border: '1px solid #cbd5f5',
-  fontSize: '16px'
-};
-
-const rollInputsRowStyles: React.CSSProperties = {
-  display: 'flex',
-  gap: '12px',
-  flexWrap: 'wrap'
-};
-
 const helperStyles: React.CSSProperties = {
   fontSize: '13px',
   color: '#64748b'
@@ -89,6 +75,99 @@ const primaryButtonStyles: React.CSSProperties = {
   ...actionButtonStyles,
   backgroundColor: '#2563eb',
   color: 'white'
+};
+
+const rollSectionStyles: React.CSSProperties = {
+  display: 'flex',
+  flexDirection: 'column',
+  gap: '12px'
+};
+
+const pinsGridStyles: React.CSSProperties = {
+  display: 'grid',
+  gridTemplateColumns: 'repeat(auto-fit, minmax(54px, 1fr))',
+  gap: '8px'
+};
+
+const rollButtonBaseStyles: React.CSSProperties = {
+  borderRadius: '12px',
+  padding: '10px 0',
+  border: '1px solid #cbd5f5',
+  backgroundColor: '#fff',
+  fontWeight: 600,
+  fontSize: '16px',
+  cursor: 'pointer'
+};
+
+const rollButtonActiveStyles: React.CSSProperties = {
+  backgroundColor: '#2563eb',
+  borderColor: '#1d4ed8',
+  color: '#fff',
+  boxShadow: '0 6px 15px rgba(37, 99, 235, 0.35)'
+};
+
+const rollButtonDisabledStyles: React.CSSProperties = {
+  opacity: 0.45,
+  cursor: 'not-allowed'
+};
+
+const quickActionsRowStyles: React.CSSProperties = {
+  display: 'flex',
+  flexWrap: 'wrap',
+  gap: '8px'
+};
+
+const quickActionButtonStyles: React.CSSProperties = {
+  borderRadius: '999px',
+  border: '1px solid #e2e8f0',
+  padding: '6px 14px',
+  backgroundColor: '#f1f5f9',
+  fontSize: '14px',
+  fontWeight: 600,
+  color: '#0f172a',
+  cursor: 'pointer'
+};
+
+const pinsOptions = Array.from({ length: 11 }, (_, value) => value);
+
+interface RollSelectorProps {
+  label: string;
+  value: number;
+  onSelect: (pins: number) => void;
+  maxPins?: number;
+  disabled?: boolean;
+  helper?: string;
+}
+
+const RollSelector: React.FC<RollSelectorProps> = ({ label, value, onSelect, maxPins = 10, disabled, helper }) => {
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', flex: 1 }}>
+      <div style={labelStyles}>{label}</div>
+      <div style={pinsGridStyles}>
+        {pinsOptions.map((pins) => {
+          const optionDisabled = Boolean(disabled) || pins > maxPins;
+          const baseStyle = { ...rollButtonBaseStyles, ...(pins === value ? rollButtonActiveStyles : {}) };
+          return (
+            <button
+              key={`${label}-${pins}`}
+              type="button"
+              disabled={optionDisabled}
+              aria-pressed={pins === value}
+              style={{ ...baseStyle, ...(optionDisabled ? rollButtonDisabledStyles : {}) }}
+              onClick={() => {
+                if (!optionDisabled) {
+                  onSelect(pins);
+                }
+              }}
+            >
+              {pins}
+            </button>
+          );
+        })}
+      </div>
+      {helper ? <p style={helperStyles}>{helper}</p> : null}
+    </div>
+  );
 };
 
 const clampPins = (value: unknown): number => {
@@ -164,13 +243,76 @@ export const FrameCorrectionModal: React.FC<FrameCorrectionModalProps> = ({
     isTenthFrame
   ]);
 
+  const secondRollMax = useMemo(() => {
+    if (!isTenthFrame) {
+      return roll1 === 10 ? 0 : Math.max(0, 10 - roll1);
+    }
+
+    if (roll1 === 10) {
+      return 10;
+    }
+
+    return Math.max(0, 10 - roll1);
+  }, [isTenthFrame, roll1]);
+
+  const isSecondRollDisabled = !isTenthFrame && roll1 === 10;
+  const canEditRoll3 = isTenthFrame && (roll1 === 10 || roll1 + roll2 === 10);
+
+  useEffect(() => {
+    if (!isTenthFrame) {
+      if (roll1 === 10 && roll2 !== 0) {
+        setRoll2(0);
+        return;
+      }
+      const max = Math.max(0, 10 - roll1);
+      if (roll2 > max) {
+        setRoll2(max);
+      }
+      return;
+    }
+
+    if (roll1 !== 10) {
+      const max = Math.max(0, 10 - roll1);
+      if (roll2 > max) {
+        setRoll2(max);
+      }
+    }
+  }, [isTenthFrame, roll1, roll2]);
+
+  useEffect(() => {
+    if (!isTenthFrame && roll3 !== 0) {
+      setRoll3(0);
+    }
+    if (isTenthFrame && !canEditRoll3 && roll3 !== 0) {
+      setRoll3(0);
+    }
+  }, [canEditRoll3, isTenthFrame, roll3]);
+
+  const applyStrike = () => {
+    setRoll1(10);
+    if (!isTenthFrame) {
+      setRoll2(0);
+    }
+  };
+
+  const applySpare = () => {
+    if (roll1 >= 10) {
+      return;
+    }
+    setRoll2(10 - roll1);
+  };
+
   const handleApply = () => {
     const nextGame: Game = JSON.parse(JSON.stringify(game));
 
     if (isTenthFrame) {
       nextGame.tenthFrame = normalizeTenthFrame({
         ...nextGame.tenthFrame,
-        rolls: [{ pins: clampPins(roll1) }, { pins: clampPins(roll2) }, { pins: clampPins(roll3) }]
+        rolls: [
+          { pins: clampPins(roll1) },
+          { pins: clampPins(roll2) },
+          { pins: clampPins(canEditRoll3 ? roll3 : 0) }
+        ]
       });
     } else {
       const nextFrame = normalizeRegularFrame(nextGame.frames[frameIndex], [
@@ -189,52 +331,60 @@ export const FrameCorrectionModal: React.FC<FrameCorrectionModalProps> = ({
         <div>
           <div style={titleStyles}>{frameLabel} — Correct score</div>
           <p style={{ fontSize: '14px', color: '#475569', marginTop: '4px' }}>
-            Update the rolls for this frame. Running totals will refresh automatically when you save.
+            Tap a value for each roll. The totals update automatically once you save.
           </p>
         </div>
 
-        <div style={rollInputsRowStyles}>
-          <label style={labelStyles}>
-            Roll 1
-            <input
-              type="number"
-              min={0}
-              max={10}
-              step={1}
-              style={{ ...numberInputStyles, marginTop: '6px' }}
-              value={roll1}
-              onChange={(event) => setRoll1(Number(event.target.value))}
-            />
-          </label>
-          <label style={labelStyles}>
-            Roll 2
-            <input
-              type="number"
-              min={0}
-              max={10}
-              step={1}
-              style={{ ...numberInputStyles, marginTop: '6px' }}
-              value={roll2}
-              onChange={(event) => setRoll2(Number(event.target.value))}
-            />
-          </label>
-          {isTenthFrame && (
-            <label style={labelStyles}>
-              Roll 3
-              <input
-                type="number"
-                min={0}
-                max={10}
-                step={1}
-                style={{ ...numberInputStyles, marginTop: '6px' }}
-                value={roll3}
-                onChange={(event) => setRoll3(Number(event.target.value))}
-              />
-            </label>
-          )}
-          <p style={{ ...helperStyles, marginTop: '4px' }}>
-            Frame totals are derived from these rolls; no manual running total needed.
+        <div>
+          <div style={quickActionsRowStyles}>
+            <button type="button" style={quickActionButtonStyles} onClick={applyStrike}>
+              Mark strike
+            </button>
+            <button
+              type="button"
+              style={{
+                ...quickActionButtonStyles,
+                ...(roll1 >= 10 ? rollButtonDisabledStyles : {})
+              }}
+              disabled={roll1 >= 10}
+              onClick={applySpare}
+            >
+              Fill spare
+            </button>
+          </div>
+          <p style={{ ...helperStyles, marginTop: '6px' }}>
+            Need to override the auto-read? Quickly mark a strike or spare, or tap specific pin counts
+            below.
           </p>
+        </div>
+
+        <div style={rollSectionStyles}>
+          <RollSelector label="Roll 1" value={roll1} onSelect={setRoll1} helper="First roll pins knocked down." />
+          <RollSelector
+            label="Roll 2"
+            value={roll2}
+            onSelect={setRoll2}
+            maxPins={secondRollMax}
+            disabled={isSecondRollDisabled}
+            helper={
+              isSecondRollDisabled
+                ? 'Strike recorded — no second roll needed for this frame.'
+                : `Pick up to ${secondRollMax} pins for the second roll.`
+            }
+          />
+          {isTenthFrame && (
+            <RollSelector
+              label="Roll 3"
+              value={roll3}
+              onSelect={setRoll3}
+              disabled={!canEditRoll3}
+              helper={
+                canEditRoll3
+                  ? 'Bonus roll unlocked from a strike or spare in frame 10.'
+                  : 'Earn a strike or spare to unlock the final roll.'
+              }
+            />
+          )}
         </div>
 
         <div style={actionsRowStyles}>
