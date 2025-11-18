@@ -5,6 +5,11 @@ services:
     build:
       context: ./bowling-scorecard
     command: npm run dev -- --hostname 0.0.0.0 --port 3000
+    depends_on:
+      app-migrate:
+        condition: service_completed_successfully
+      db:
+        condition: service_healthy
     ports:
       - '3000:3000'
     environment:
@@ -13,3 +18,45 @@ services:
       - ./bowling-scorecard:/app
     env_file:
       - ./bowling-scorecard/.env
+  app-migrate:
+    build:
+      context: ./bowling-scorecard
+    command: npx prisma migrate deploy
+    depends_on:
+      db:
+        condition: service_healthy
+    volumes:
+      - ./bowling-scorecard:/app
+    env_file:
+      - ./bowling-scorecard/.env
+    restart: 'no'
+  db:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: bowling_scorecard
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+    ports:
+      - '5432:5432'
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -d $${POSTGRES_DB} -U $${POSTGRES_USER}']
+      interval: 5s
+      timeout: 5s
+      retries: 5
+  pgadmin:
+    image: dpage/pgadmin4:8
+    restart: unless-stopped
+    environment:
+      PGADMIN_DEFAULT_EMAIL: admin@example.com
+      PGADMIN_DEFAULT_PASSWORD: admin
+    ports:
+      - '5050:80'
+    depends_on:
+      db:
+        condition: service_healthy
+
+volumes:
+  postgres-data:

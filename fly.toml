@@ -7,6 +7,9 @@ primary_region = "iad"
 [env]
   NODE_ENV = "production"
 
+[deploy]
+  release_command = "npx prisma migrate deploy"
+
 [[services]]
   internal_port = 8080
   processes = ["app"]

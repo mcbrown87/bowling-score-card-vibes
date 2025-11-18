@@ -2,6 +2,27 @@
 
 This project was bootstrapped with [Create React App](https://github.com/facebook/create-react-app).
 
+## Database & Prisma
+
+The app now persists users in Postgres via Prisma. To work locally:
+
+1. Copy `.env.example` to `.env` (or `.env.local`) and set `DATABASE_URL` if you are not using Docker.
+2. Start the database with `docker compose up db` from the repo root (or `docker compose up` to run the full stack).
+3. Apply migrations with `npx prisma migrate dev` inside `bowling-scorecard/`. Use `npx prisma migrate deploy` in CI/prod. When running `docker compose up` the `app-migrate` helper service automatically runs `prisma migrate deploy` before the Next.js dev server starts; re-run it manually with `docker compose run app-migrate` after schema changes.
+4. Generate the Prisma client after schema changes via `npx prisma generate`.
+
+Migrations live in `prisma/migrations/` and the primary schema is `prisma/schema.prisma`.
+
+## Authentication
+
+We use NextAuth with the Prisma adapter to support credential-based signup and login.
+
+- Set `NEXTAUTH_SECRET` (e.g., `openssl rand -base64 32`), `NEXTAUTH_URL`, and `AUTH_TRUST_HOST=true` in `.env`.
+- Visit `/signup` to create an account; the form calls `POST /api/auth/signup` which hashes the password with bcrypt and stores it in Postgres.
+- Use `/login` to sign in. Credentials are verified through NextAuth’s Credentials provider, and sessions are stored in the `sessions` table.
+- Protected routes call `auth()` on the server; the homepage redirects anonymous visitors to the auth screens.
+- Google sign-in is available; set `GOOGLE_CLIENT_ID` and `GOOGLE_CLIENT_SECRET` in `.env`. If you already have a credentials-based account with the same email, Google will now link to it automatically.
+
 ## Available Scripts
 
 In the project directory, you can run:
