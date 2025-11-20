@@ -31,6 +31,14 @@ export interface NormalizedImagePayload {
   converted: boolean;
 }
 
+export const dataUrlToBuffer = (dataUrl: string) => {
+  const parsed = parseAnyDataUrl(dataUrl);
+  return {
+    buffer: Buffer.from(parsed.base64Data, 'base64'),
+    mediaType: parsed.mediaType
+  };
+};
+
 export const normalizeImageDataUrl = async (dataUrl: string): Promise<NormalizedImagePayload> => {
   const parsed = parseAnyDataUrl(dataUrl);
 

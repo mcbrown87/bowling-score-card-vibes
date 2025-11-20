@@ -8,6 +8,11 @@ export interface ExtractionResult {
   error?: string;
   rawText?: string;
   normalizedImageDataUrl?: string;
+  storedImage?: {
+    id: string;
+    bucket: string;
+    objectKey: string;
+  };
   endpoint?: string;
   status?: number;
 }
@@ -15,10 +20,12 @@ export interface ExtractionResult {
 export const extractScoresFromImage = async (imageFile: string | File): Promise<ExtractionResult> => {
   // Convert File to base64 data URL if needed
   let imageDataUrl: string;
+  let fileName: string | undefined;
   
   if (typeof imageFile === 'string') {
     imageDataUrl = imageFile;
   } else {
+    fileName = imageFile.name;
     // Convert File to base64
     imageDataUrl = await new Promise((resolve, reject) => {
       const reader = new FileReader();
@@ -44,7 +51,8 @@ export const extractScoresFromImage = async (imageFile: string | File): Promise<
         'Content-Type': 'application/json'
       },
       body: JSON.stringify({
-        imageDataUrl
+        imageDataUrl,
+        fileName
       })
     });
 
@@ -69,6 +77,14 @@ export const extractScoresFromImage = async (imageFile: string | File): Promise<
       rawText: data.rawResponse,
       normalizedImageDataUrl:
         typeof data.normalizedImageDataUrl === 'string' ? data.normalizedImageDataUrl : undefined,
+      storedImage:
+        data.storedImage && typeof data.storedImage === 'object'
+          ? {
+              id: data.storedImage.id,
+              bucket: data.storedImage.bucket,
+              objectKey: data.storedImage.objectKey
+            }
+          : undefined,
       endpoint,
       status: response.status
     };

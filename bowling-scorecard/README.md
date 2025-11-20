@@ -13,6 +13,14 @@ The app now persists users in Postgres via Prisma. To work locally:
 
 Migrations live in `prisma/migrations/` and the primary schema is `prisma/schema.prisma`.
 
+## Object Storage (MinIO)
+
+Uploaded scorecard photos now persist to an S3-compatible bucket and are linked to the user in the new `StoredImage` table (run `npx prisma migrate dev` after pulling these changes).
+
+- `docker compose up minio minio-setup` starts a local MinIO server (9000) and seeds the default bucket; `docker compose up` also brings it online automatically.
+- Configure credentials and endpoints in `.env` (`MINIO_ROOT_USER`, `MINIO_ROOT_PASSWORD`, `MINIO_BUCKET`, `STORAGE_ENDPOINT`, `STORAGE_BUCKET`, `STORAGE_ACCESS_KEY`, `STORAGE_SECRET_KEY`, `STORAGE_REGION`, `STORAGE_USE_SSL`).
+- The admin console is available at http://localhost:9001 when running locally.
+
 ## Authentication
 
 We use NextAuth with the Prisma adapter to support credential-based signup and login.
