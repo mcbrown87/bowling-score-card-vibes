@@ -30,6 +30,8 @@ export type FrameDisplay = {
 };
 
 export interface ExtractionPayload {
+  success?: boolean;
+  failureReason?: string | null;
   players?: Array<{
     playerName?: string;
     frames?: unknown[];
