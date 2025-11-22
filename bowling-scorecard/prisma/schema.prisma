@@ -77,8 +77,74 @@ model StoredImage {
   updatedAt        DateTime @updatedAt
 
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  scores BowlingScore[]
+  llmRequests LLMRequest[]
 
   @@unique([bucket, objectKey])
   @@index([userId])
   @@map("stored_images")
+}
+
+model BowlingScore {
+  id            String   @id @default(cuid())
+  storedImageId String
+  llmRequestId  String?
+  gameIndex     Int
+  playerName    String?
+  totalScore    Int?
+  frames        Json
+  tenthFrame    Json?
+  issues        Json?
+  confidence    Float?
+  provider      String?
+  isEstimate    Boolean  @default(true)
+  rawText       String?
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  storedImage StoredImage @relation(fields: [storedImageId], references: [id], onDelete: Cascade)
+  llmRequest LLMRequest? @relation(fields: [llmRequestId], references: [id], onDelete: SetNull)
+
+  @@index([storedImageId])
+  @@index([llmRequestId])
+  @@map("bowling_scores")
+}
+
+model LLMRequest {
+  id             String   @id @default(cuid())
+  storedImageId  String
+  promptId       String
+  provider       String
+  model          String?
+  promptText     String?
+  startedAt      DateTime @default(now())
+  completedAt    DateTime?
+  durationMs     Int?
+  status         String
+  errorMessage   String?
+  rawRequest     Json?
+  rawResponse    Json?
+  rawText        String?
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  storedImage StoredImage @relation(fields: [storedImageId], references: [id], onDelete: Cascade)
+  prompt    Prompt     @relation(fields: [promptId], references: [id], onDelete: Restrict)
+  scores      BowlingScore[]
+
+  @@index([storedImageId])
+  @@index([promptId])
+  @@map("llm_requests")
+}
+
+model Prompt {
+  id        String   @id @default(cuid())
+  version   String   @unique
+  content   String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  llmRequests LLMRequest[]
+
+  @@map("prompts")
 }

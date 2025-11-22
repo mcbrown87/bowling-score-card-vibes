@@ -8,6 +8,7 @@ export interface ProviderRequest {
 export interface ProviderResult {
   rawText: string;
   games: Game[];
+  model?: string;
 }
 
 export type ProviderName = 'anthropic' | 'openai';

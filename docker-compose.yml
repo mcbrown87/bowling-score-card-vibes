@@ -23,7 +23,9 @@ services:
   app-migrate:
     build:
       context: ./bowling-scorecard
-    command: npx prisma migrate deploy
+    command: >
+      sh -c "npx prisma migrate deploy &&
+             npx prisma generate"
     depends_on:
       db:
         condition: service_healthy

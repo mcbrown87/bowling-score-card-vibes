@@ -1,5 +1,6 @@
 import { randomUUID } from 'node:crypto';
 import { NextResponse } from 'next/server';
+import type { Prisma } from '@prisma/client';
 import { z } from 'zod';
 import { BOWLING_EXTRACTION_PROMPT } from '@/server/prompts/bowling';
 import { auth } from '@/server/auth';
@@ -12,6 +13,11 @@ import { dataUrlToBuffer, normalizeImageDataUrl } from '@/server/utils/image';
 
 const DEFAULT_PROVIDER: ProviderName = (process.env.DEFAULT_PROVIDER as ProviderName) ?? 'openai';
 const INCLUDE_LLM_RAW = process.env.INCLUDE_LLM_RAW === 'true';
+const PROVIDER_MODELS: Record<ProviderName, string> = {
+  anthropic: process.env.ANTHROPIC_MODEL ?? 'claude-3-7-sonnet-latest',
+  openai: process.env.OPENAI_MODEL ?? 'gpt-4o'
+};
+const PROMPT_VERSION = process.env.BOWLING_PROMPT_VERSION ?? 'bowling-v1';
 
 const requestSchema = z.object({
   imageDataUrl: z
@@ -26,6 +32,8 @@ export const dynamic = 'force-dynamic';
 
 export async function POST(request: Request) {
   const requestId = randomUUID();
+  let llmRequestId: string | null = null;
+  let requestStartedAt: Date | null = null;
 
   try {
     const session = await auth();
@@ -99,9 +107,42 @@ export async function POST(request: Request) {
       }
     });
 
+    requestStartedAt = new Date();
+    const providerModel = PROVIDER_MODELS[provider];
+    const requestPrompt = parsed.prompt ?? BOWLING_EXTRACTION_PROMPT;
+
+    const rawRequestData: Prisma.JsonObject = {
+      prompt: requestPrompt,
+      providerModel,
+      imageMetadata,
+      convertedImage: normalizedImage.converted
+    };
+
+    const [promptRecord] = await prisma.$transaction([
+      prisma.prompt.upsert({
+        where: { version: PROMPT_VERSION },
+        update: { content: requestPrompt },
+        create: { version: PROMPT_VERSION, content: requestPrompt }
+      })
+    ]);
+
+    const llmRequest = await prisma.lLMRequest.create({
+      data: {
+        storedImageId: storedImage.id,
+        provider,
+        model: providerModel,
+        promptId: promptRecord.id,
+        promptText: requestPrompt,
+        status: 'pending',
+        startedAt: requestStartedAt,
+        rawRequest: rawRequestData
+      }
+    });
+    llmRequestId = llmRequest.id;
+
     const result = await runProvider(provider, {
       imageDataUrl: normalizedImage.dataUrl,
-      prompt: parsed.prompt ?? BOWLING_EXTRACTION_PROMPT
+      prompt: requestPrompt
     });
 
     logger.info('Extracted bowling scores successfully', {
@@ -110,6 +151,44 @@ export async function POST(request: Request) {
       gameCount: result.games.length,
       convertedImage: normalizedImage.converted
     });
+
+    const completedAt = new Date();
+    const durationMs =
+      requestStartedAt !== null ? completedAt.getTime() - requestStartedAt.getTime() : null;
+    const rawTextForStorage = INCLUDE_LLM_RAW ? result.rawText : null;
+
+    if (llmRequestId) {
+      await prisma.lLMRequest.update({
+        where: { id: llmRequestId },
+        data: {
+          completedAt,
+          durationMs: durationMs ?? undefined,
+          status: 'succeeded',
+          model: result.model ?? providerModel,
+          rawResponse: result.games as unknown as Prisma.JsonValue,
+          rawText: rawTextForStorage
+        }
+      });
+    }
+
+    if (result.games.length > 0) {
+      await prisma.bowlingScore.createMany({
+        data: result.games.map((game, index) => ({
+          storedImageId: storedImage.id,
+          llmRequestId: llmRequestId ?? undefined,
+          gameIndex: index,
+          playerName: game.playerName,
+          totalScore: game.totalScore,
+          frames: game.frames as unknown as Prisma.JsonValue,
+          tenthFrame: game.tenthFrame as unknown as Prisma.JsonValue,
+          issues: (game.issues ?? null) as unknown as Prisma.JsonValue,
+          confidence: game.confidence ?? null,
+          provider,
+          isEstimate: true,
+          rawText: rawTextForStorage
+        }))
+      });
+    }
 
     return NextResponse.json({
       success: true,
@@ -122,6 +201,21 @@ export async function POST(request: Request) {
   } catch (error) {
     const message = error instanceof Error ? error.message : 'Unknown error';
     const statusCode = message.includes('Missing') ? 500 : 400;
+
+    if (llmRequestId) {
+      const completedAt = new Date();
+      const durationMs =
+        requestStartedAt !== null ? completedAt.getTime() - requestStartedAt.getTime() : null;
+      await prisma.lLMRequest.update({
+        where: { id: llmRequestId },
+        data: {
+          completedAt,
+          durationMs: durationMs ?? undefined,
+          status: 'failed',
+          errorMessage: message
+        }
+      });
+    }
 
     logger.error('Failed to extract bowling scores', error, {
       statusCode,

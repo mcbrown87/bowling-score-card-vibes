@@ -17,9 +17,10 @@ const getClient = () => {
 export const anthropicProvider = async ({ imageDataUrl, prompt }: ProviderRequest): Promise<ProviderResult> => {
   const client = getClient();
   const { mediaType, base64Data } = parseDataUrl(imageDataUrl);
+  const configuredModel = process.env.ANTHROPIC_MODEL ?? 'claude-3-7-sonnet-latest';
 
   const response = await client.messages.create({
-    model: process.env.ANTHROPIC_MODEL ?? 'claude-3-7-sonnet-latest',
+    model: configuredModel,
     max_tokens: 4000,
     messages: [
       {
@@ -57,7 +58,8 @@ export const anthropicProvider = async ({ imageDataUrl, prompt }: ProviderReques
 
     return {
       rawText: textPart.text,
-      games
+      games,
+      model: response.model ?? configuredModel
     };
   } catch (error) {
     const message = error instanceof Error ? error.message : 'Unknown error';

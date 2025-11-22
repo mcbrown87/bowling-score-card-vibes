@@ -16,6 +16,7 @@ const getClient = () => {
 
 export const openaiProvider = async ({ imageDataUrl, prompt }: ProviderRequest): Promise<ProviderResult> => {
   const client = getClient();
+  const configuredModel = process.env.OPENAI_MODEL ?? 'gpt-4o';
 
   const baseMessage: ChatCompletionMessageParam = {
     role: 'user',
@@ -41,7 +42,7 @@ export const openaiProvider = async ({ imageDataUrl, prompt }: ProviderRequest):
 
   for (let attempt = 0; attempt < 5; attempt += 1) {
     const response = await client.chat.completions.create({
-      model: process.env.OPENAI_MODEL ?? 'gpt-4o',
+      model: configuredModel,
       max_tokens: 4000,
       temperature: 0.1,
       messages
@@ -69,7 +70,8 @@ export const openaiProvider = async ({ imageDataUrl, prompt }: ProviderRequest):
 
       const currentResult: ProviderResult = {
         rawText: content,
-        games
+        games,
+        model: response.model ?? configuredModel
       };
 
       if (!hasIssues) {
