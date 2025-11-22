@@ -165,7 +165,10 @@ export async function POST(request: Request) {
           durationMs: durationMs ?? undefined,
           status: 'succeeded',
           model: result.model ?? providerModel,
-          rawResponse: result.games as unknown as Prisma.JsonValue,
+          rawResponse:
+            result.games.length > 0
+              ? (result.games as unknown as Prisma.JsonValue)
+              : undefined,
           rawText: rawTextForStorage
         }
       });
