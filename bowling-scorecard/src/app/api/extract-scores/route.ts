@@ -167,7 +167,7 @@ export async function POST(request: Request) {
           model: result.model ?? providerModel,
           rawResponse:
             result.games.length > 0
-              ? (result.games as unknown as Prisma.JsonValue)
+              ? (result.games as unknown as Prisma.InputJsonValue)
               : undefined,
           rawText: rawTextForStorage
         }
@@ -182,9 +182,9 @@ export async function POST(request: Request) {
           gameIndex: index,
           playerName: game.playerName,
           totalScore: game.totalScore,
-          frames: game.frames as unknown as Prisma.JsonValue,
-          tenthFrame: game.tenthFrame as unknown as Prisma.JsonValue,
-          issues: (game.issues ?? null) as unknown as Prisma.JsonValue,
+          frames: game.frames as unknown as Prisma.InputJsonValue,
+          tenthFrame: game.tenthFrame as unknown as Prisma.InputJsonValue,
+          issues: (game.issues ?? null) as unknown as Prisma.InputJsonValue,
           confidence: game.confidence ?? null,
           provider,
           isEstimate: true,
