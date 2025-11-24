@@ -116,7 +116,6 @@ model LLMRequest {
   promptId       String
   provider       String
   model          String?
-  promptText     String?
   startedAt      DateTime @default(now())
   completedAt    DateTime?
   durationMs     Int?

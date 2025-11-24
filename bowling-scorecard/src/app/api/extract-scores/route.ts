@@ -132,7 +132,6 @@ export async function POST(request: Request) {
         provider,
         model: providerModel,
         promptId: promptRecord.id,
-        promptText: requestPrompt,
         status: 'pending',
         startedAt: requestStartedAt,
         rawRequest: rawRequestData

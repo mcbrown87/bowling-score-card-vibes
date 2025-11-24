@@ -12,6 +12,10 @@ export interface ExtractionResult {
     id: string;
     bucket: string;
     objectKey: string;
+    originalFileName?: string | null;
+    contentType?: string | null;
+    sizeBytes?: number | null;
+    createdAt?: string;
   };
   endpoint?: string;
   status?: number;
@@ -82,7 +86,23 @@ export const extractScoresFromImage = async (imageFile: string | File): Promise<
           ? {
               id: data.storedImage.id,
               bucket: data.storedImage.bucket,
-              objectKey: data.storedImage.objectKey
+              objectKey: data.storedImage.objectKey,
+              originalFileName:
+                typeof data.storedImage.originalFileName === 'string'
+                  ? data.storedImage.originalFileName
+                  : null,
+              contentType:
+                typeof data.storedImage.contentType === 'string'
+                  ? data.storedImage.contentType
+                  : null,
+              sizeBytes:
+                typeof data.storedImage.sizeBytes === 'number'
+                  ? data.storedImage.sizeBytes
+                  : null,
+              createdAt:
+                typeof data.storedImage.createdAt === 'string'
+                  ? data.storedImage.createdAt
+                  : undefined
             }
           : undefined,
       endpoint,

@@ -1,4 +1,12 @@
-import { S3Client, PutObjectCommand, type PutObjectCommandInput } from '@aws-sdk/client-s3';
+import {
+  S3Client,
+  PutObjectCommand,
+  GetObjectCommand,
+  DeleteObjectCommand,
+  type GetObjectCommandInput,
+  type PutObjectCommandInput,
+  type DeleteObjectCommandInput
+} from '@aws-sdk/client-s3';
 
 const endpoint = process.env.STORAGE_ENDPOINT;
 const bucket = process.env.STORAGE_BUCKET;
@@ -46,4 +54,24 @@ export const uploadObject = async (
     bucket: bucket as string,
     key: input.Key as string
   };
+};
+
+export const getObject = async (input: Pick<GetObjectCommandInput, 'Key'>) => {
+  assertStorageConfig();
+  const command = new GetObjectCommand({
+    Bucket: bucket,
+    Key: input.Key
+  });
+
+  return s3Client.send(command);
+};
+
+export const deleteObject = async (input: Pick<DeleteObjectCommandInput, 'Key'>) => {
+  assertStorageConfig();
+  const command = new DeleteObjectCommand({
+    Bucket: bucket,
+    Key: input.Key
+  });
+
+  return s3Client.send(command);
 };

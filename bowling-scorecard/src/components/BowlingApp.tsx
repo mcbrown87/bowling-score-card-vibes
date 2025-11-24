@@ -1,14 +1,17 @@
 'use client';
 /* eslint-disable @next/next/no-img-element */
 
+import Link from 'next/link';
 import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import type { CSSProperties } from 'react';
 import { Scorecard } from './Scorecard';
 import { FrameCorrectionModal } from './FrameCorrectionModal';
 import { PlayerNameModal } from './PlayerNameModal';
 import { Game } from '../types/bowling';
+import type { StoredImageSummary, StoredImagePayload } from '@/types/stored-image';
 import { extractScoresFromImage } from '../utils/scoreExtractor';
 import { initClientDiagnostics, logClientEvent } from '../utils/clientDiagnostics';
+import { loadStoredImages, normalizeStoredImage } from '../utils/storedImages';
 
 type ErrorDiagnostics = {
   endpoint?: string;
@@ -31,6 +34,48 @@ const appContainerStyles: CSSProperties = {
   minHeight: '100vh',
   paddingTop: '32px',
   paddingBottom: '32px'
+};
+
+const heroStyles: CSSProperties = {
+  display: 'grid',
+  gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))',
+  gap: '18px',
+  alignItems: 'center',
+  padding: '0 16px',
+  marginBottom: '16px'
+};
+
+const heroHeadingStyles: CSSProperties = {
+  fontSize: '28px',
+  fontWeight: 800,
+  color: '#0f172a',
+  margin: 0
+};
+
+const heroSubtextStyles: CSSProperties = {
+  margin: '8px 0 0',
+  color: '#475569',
+  lineHeight: 1.5,
+  fontSize: '15px'
+};
+
+const heroActionsStyles: CSSProperties = {
+  display: 'flex',
+  gap: '12px',
+  flexWrap: 'wrap'
+};
+
+const secondaryButtonStyles: CSSProperties = {
+  backgroundColor: '#0f172a',
+  color: 'white',
+  fontWeight: 'bold',
+  padding: '12px 24px',
+  borderRadius: '8px',
+  border: 'none',
+  boxShadow: '0 4px 6px rgba(0, 0, 0, 0.1)',
+  cursor: 'pointer',
+  fontSize: '16px',
+  transition: 'background-color 0.2s'
 };
 
 const buttonContainerStyles: CSSProperties = {
@@ -165,6 +210,76 @@ const previewPlaceholderStyles: CSSProperties = {
   borderRadius: '12px'
 };
 
+const recentSectionStyles: CSSProperties = {
+  marginTop: '36px',
+  padding: '20px',
+  borderRadius: '16px',
+  border: '1px solid #e2e8f0',
+  backgroundColor: '#f8fafc'
+};
+
+const recentHeaderStyles: CSSProperties = {
+  display: 'flex',
+  justifyContent: 'space-between',
+  alignItems: 'baseline',
+  gap: '12px',
+  flexWrap: 'wrap'
+};
+
+const recentTitleStyles: CSSProperties = {
+  margin: 0,
+  fontSize: '18px',
+  fontWeight: 700,
+  color: '#0f172a'
+};
+
+const recentLinkStyles: CSSProperties = {
+  fontWeight: 600,
+  color: '#2563eb',
+  textDecoration: 'none'
+};
+
+const recentGridStyles: CSSProperties = {
+  display: 'grid',
+  gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))',
+  gap: '12px',
+  marginTop: '16px'
+};
+
+const recentCardStyles: CSSProperties = {
+  border: '1px solid #e2e8f0',
+  borderRadius: '10px',
+  padding: '12px',
+  backgroundColor: '#ffffff',
+  display: 'flex',
+  flexDirection: 'column',
+  gap: '8px'
+};
+
+const recentThumbStyles: CSSProperties = {
+  width: '100%',
+  paddingTop: '56%',
+  position: 'relative',
+  borderRadius: '8px',
+  overflow: 'hidden',
+  backgroundColor: '#e2e8f0'
+};
+
+const recentThumbImgStyles: CSSProperties = {
+  position: 'absolute' as const,
+  top: 0,
+  left: 0,
+  width: '100%',
+  height: '100%',
+  objectFit: 'cover' as const
+};
+
+const recentMetaStyles: CSSProperties = {
+  fontSize: '13px',
+  color: '#475569',
+  lineHeight: 1.4
+};
+
 function BowlingApp() {
   const [games, setGames] = useState<Game[]>([]);
   const [currentGameIndex, setCurrentGameIndex] = useState(0);
@@ -183,6 +298,9 @@ function BowlingApp() {
   const [previewPlaceholder, setPreviewPlaceholder] = useState<string | null>(null);
   const [errorDiagnostics, setErrorDiagnostics] = useState<ErrorDiagnostics | null>(null);
   const cameraInputRef = useRef<HTMLInputElement | null>(null);
+  const [storedImages, setStoredImages] = useState<StoredImageSummary[]>([]);
+  const [storedImagesLoading, setStoredImagesLoading] = useState(false);
+  const [storedImagesError, setStoredImagesError] = useState<string | null>(null);
 
   const reportExtractionFailure = useCallback(
     (
@@ -214,6 +332,42 @@ function BowlingApp() {
     []
   );
 
+  const rememberStoredImage = useCallback(
+    (image: StoredImagePayload | null | undefined) => {
+      const normalized = normalizeStoredImage(image);
+      if (!normalized) {
+        return;
+      }
+
+      setStoredImages((prev) => {
+        const existingIndex = prev.findIndex((entry) => entry.id === normalized.id);
+        if (existingIndex === -1) {
+          return [normalized, ...prev];
+        }
+        const clone = [...prev];
+        clone[existingIndex] = normalized;
+        return clone;
+      });
+    },
+    []
+  );
+
+  const fetchStoredImages = useCallback(async () => {
+    setStoredImagesLoading(true);
+    setStoredImagesError(null);
+    try {
+      const parsed = await loadStoredImages();
+      setStoredImages(parsed ?? []);
+    } catch (error) {
+      setStoredImagesError(
+        error instanceof Error ? error.message : 'Failed to load your uploaded images'
+      );
+    } finally {
+      setStoredImagesLoading(false);
+    }
+  }, []);
+
+
   const isHeicFile = (file: File) => {
     const mime = file.type?.toLowerCase() ?? '';
     const name = file.name?.toLowerCase() ?? '';
@@ -231,6 +385,32 @@ function BowlingApp() {
   const isHeicDataUrl = (dataUrl: string) => {
     const lowercase = dataUrl.slice(0, 40).toLowerCase();
     return lowercase.startsWith('data:image/heic') || lowercase.startsWith('data:image/heif');
+  };
+
+  const formatFileSize = (size: number | null) => {
+    if (!size || size <= 0) {
+      return null;
+    }
+    if (size < 1024) {
+      return `${size} B`;
+    }
+    if (size < 1024 * 1024) {
+      return `${(size / 1024).toFixed(1)} KB`;
+    }
+    return `${(size / (1024 * 1024)).toFixed(1)} MB`;
+  };
+
+  const formatDate = (isoDate: string) => {
+    try {
+      return new Date(isoDate).toLocaleString(undefined, {
+        month: 'short',
+        day: 'numeric',
+        hour: '2-digit',
+        minute: '2-digit'
+      });
+    } catch (error) {
+      return isoDate;
+    }
   };
 
   useEffect(() => {
@@ -252,6 +432,10 @@ function BowlingApp() {
       teardown?.();
     };
   }, []);
+
+  useEffect(() => {
+    void fetchStoredImages();
+  }, [fetchStoredImages]);
 
   const handleImageUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
     const inputEl = event.target;
@@ -280,6 +464,14 @@ function BowlingApp() {
             setGames(result.games);
             setCurrentGameIndex(0);
             setErrorDiagnostics(null);
+            rememberStoredImage(
+              result.storedImage
+                ? {
+                    ...result.storedImage,
+                    games: result.games
+                  }
+                : null
+            );
             if (result.normalizedImageDataUrl) {
               setUploadedImage(result.normalizedImageDataUrl);
               setPreviewPlaceholder(null);
@@ -334,6 +526,14 @@ function BowlingApp() {
           if (result.success && result.games && result.games.length > 0) {
             setGames(result.games);
             setCurrentGameIndex(0);
+            rememberStoredImage(
+              result.storedImage
+                ? {
+                    ...result.storedImage,
+                    games: result.games
+                  }
+                : null
+            );
             if (result.normalizedImageDataUrl) {
               setUploadedImage(result.normalizedImageDataUrl);
               setPreviewPlaceholder(null);
@@ -368,7 +568,7 @@ function BowlingApp() {
       });
       setIsProcessing(false);
     }
-  }, [reportExtractionFailure]);
+  }, [rememberStoredImage, reportExtractionFailure]);
 
   const shouldAutoLoadTestImage = process.env.NEXT_PUBLIC_ENABLE_AUTO_TEST_IMAGE === 'true';
 
@@ -420,6 +620,9 @@ function BowlingApp() {
       ),
     [games]
   );
+
+  const recentImages = useMemo(() => storedImages.slice(0, 3), [storedImages]);
+  const hasRecentImages = recentImages.length > 0;
 
   const responsiveButtonContainerStyles = useMemo<CSSProperties>(
     () => ({
@@ -625,7 +828,34 @@ function BowlingApp() {
 
   return (
     <div style={appContainerStyles}>
-      <div style={responsiveButtonContainerStyles}>
+      <div style={heroStyles}>
+        <div>
+          <h1 style={heroHeadingStyles}>Upload and review your bowling scorecards</h1>
+          <p style={heroSubtextStyles}>
+            Send in a photo or screenshot, get frame-by-frame extraction, and keep the image side-by-side
+            while you edit player scores.
+          </p>
+          <div style={heroActionsStyles}>
+            <Link
+              href="/library"
+              style={{
+                ...secondaryButtonStyles,
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: '6px',
+                textDecoration: 'none'
+              }}
+            >
+              View library
+            </Link>
+            <span style={{ color: '#475569', fontSize: '14px' }}>
+              Recent uploads are pinned below for quick access.
+            </span>
+          </div>
+        </div>
+      </div>
+
+      <div id="upload" style={responsiveButtonContainerStyles}>
         <input
           type="file"
           accept="image/*"
@@ -797,6 +1027,72 @@ function BowlingApp() {
             </div>
           )}
         </div>
+      )}
+
+      {(storedImagesLoading || storedImagesError || hasRecentImages) && (
+        <section style={recentSectionStyles} aria-live="polite">
+          <div style={recentHeaderStyles}>
+            <h3 style={recentTitleStyles}>Recent uploads</h3>
+            <Link href="/library" style={recentLinkStyles}>
+              View library
+            </Link>
+          </div>
+
+          {storedImagesError && (
+            <div style={warningBoxStyles}>
+              <span>{storedImagesError}</span>
+              <button
+                type="button"
+                style={{ ...buttonStyles, padding: '8px 12px' }}
+                onClick={() => {
+                  void fetchStoredImages();
+                }}
+              >
+                Try again
+              </button>
+            </div>
+          )}
+
+          {storedImagesLoading && !hasRecentImages && (
+            <p style={{ marginTop: '12px', color: '#2563eb' }}>Loading your uploads…</p>
+          )}
+
+          {hasRecentImages ? (
+            <div style={recentGridStyles}>
+              {recentImages.map((image) => {
+                const fileSizeLabel = formatFileSize(image.sizeBytes);
+                return (
+                  <div key={image.id} style={recentCardStyles}>
+                    <div style={recentThumbStyles}>
+                      <img
+                        src={image.previewUrl}
+                        alt={
+                          image.originalFileName
+                            ? `Uploaded scorecard ${image.originalFileName}`
+                            : 'Uploaded scorecard preview'
+                        }
+                        style={recentThumbImgStyles}
+                        loading="lazy"
+                      />
+                    </div>
+                    <div style={recentMetaStyles}>
+                      <div>{image.originalFileName ?? 'Untitled image'}</div>
+                      <div>{formatDate(image.createdAt)}</div>
+                      {fileSizeLabel && <div>{fileSizeLabel}</div>}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          ) : (
+            !storedImagesLoading &&
+            !storedImagesError && (
+              <p style={{ ...recentMetaStyles, margin: '8px 0 0' }}>
+                Your last few uploads will show here after you process a scorecard.
+              </p>
+            )
+          )}
+        </section>
       )}
     </div>
   );

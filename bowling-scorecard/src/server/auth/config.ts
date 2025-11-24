@@ -77,6 +77,22 @@ export const authConfig: NextAuthOptions = {
         }
       }
       return true;
+    },
+    async jwt({ token, user }) {
+      if (user) {
+        token.id = user.id;
+        token.email = user.email;
+        token.name = user.name ?? user.email ?? null;
+      }
+      return token;
+    },
+    async session({ session, token }) {
+      if (session.user) {
+        session.user.id = (token.id as string) ?? token.sub ?? '';
+        if (token.email) session.user.email = token.email as string;
+        if (token.name) session.user.name = token.name as string;
+      }
+      return session;
     }
   },
   secret: process.env.NEXTAUTH_SECRET,
