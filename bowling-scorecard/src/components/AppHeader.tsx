@@ -2,13 +2,14 @@
 
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
+import type { CSSProperties } from 'react';
 import { SignOutButton } from './auth/SignOutButton';
 
 type AppHeaderProps = {
   userLabel: string;
 };
 
-const navStyles = {
+const navStyles: CSSProperties = {
   display: 'flex',
   alignItems: 'center',
   justifyContent: 'space-between',
@@ -20,11 +21,11 @@ const navStyles = {
   zIndex: 10
 };
 
-const navGroupStyles = {
+const navGroupStyles: CSSProperties = {
   display: 'flex',
   alignItems: 'center',
   gap: '16px',
-  flexWrap: 'wrap'
+  flexWrap: 'wrap' as CSSProperties['flexWrap']
 };
 
 const linkStyles = {
