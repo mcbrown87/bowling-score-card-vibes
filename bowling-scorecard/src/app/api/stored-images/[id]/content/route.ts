@@ -69,7 +69,7 @@ export async function GET(_request: Request, context: RouteContext) {
       throw new Error('Unsupported storage body type');
     }
 
-    return new NextResponse(bodyBuffer, {
+    return new NextResponse(bodyBuffer as unknown as BodyInit, {
       status: 200,
       headers: {
         'Content-Type': storedImage.contentType ?? 'application/octet-stream',
