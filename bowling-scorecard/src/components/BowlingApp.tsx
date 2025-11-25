@@ -8,10 +8,10 @@ import { Scorecard } from './Scorecard';
 import { FrameCorrectionModal } from './FrameCorrectionModal';
 import { PlayerNameModal } from './PlayerNameModal';
 import { Game } from '../types/bowling';
-import type { StoredImageSummary, StoredImagePayload } from '@/types/stored-image';
+import type { StoredImageSummary, StoredImagePayload, StoredGameSummary } from '@/types/stored-image';
 import { extractScoresFromImage } from '../utils/scoreExtractor';
 import { initClientDiagnostics, logClientEvent } from '../utils/clientDiagnostics';
-import { loadStoredImages, normalizeStoredImage } from '../utils/storedImages';
+import { loadStoredImages, normalizeStoredImage, saveStoredGameCorrection } from '../utils/storedImages';
 
 type ErrorDiagnostics = {
   endpoint?: string;
@@ -301,6 +301,7 @@ function BowlingApp() {
   const [storedImages, setStoredImages] = useState<StoredImageSummary[]>([]);
   const [storedImagesLoading, setStoredImagesLoading] = useState(false);
   const [storedImagesError, setStoredImagesError] = useState<string | null>(null);
+  const [activeStoredImageId, setActiveStoredImageId] = useState<string | null>(null);
 
   const reportExtractionFailure = useCallback(
     (
@@ -332,25 +333,38 @@ function BowlingApp() {
     []
   );
 
-  const rememberStoredImage = useCallback(
-    (image: StoredImagePayload | null | undefined) => {
-      const normalized = normalizeStoredImage(image);
-      if (!normalized) {
-        return;
-      }
-
-      setStoredImages((prev) => {
-        const existingIndex = prev.findIndex((entry) => entry.id === normalized.id);
-        if (existingIndex === -1) {
-          return [normalized, ...prev];
+  const applyStoredImageGameUpdate = useCallback((imageId: string, updatedGame: StoredGameSummary) => {
+    setStoredImages((prev) =>
+      prev.map((image) => {
+        if (image.id !== imageId) {
+          return image;
         }
-        const clone = [...prev];
-        clone[existingIndex] = normalized;
-        return clone;
-      });
-    },
-    []
-  );
+        const nextGames = image.games.some((game) => game.gameIndex === updatedGame.gameIndex)
+          ? image.games.map((game) =>
+              game.gameIndex === updatedGame.gameIndex ? updatedGame : game
+            )
+          : [...image.games, updatedGame];
+        return { ...image, games: nextGames };
+      })
+    );
+  }, []);
+
+  const rememberStoredImage = useCallback((image: StoredImagePayload | null | undefined) => {
+    const normalized = normalizeStoredImage(image);
+    if (!normalized) {
+      return;
+    }
+
+    setStoredImages((prev) => {
+      const existingIndex = prev.findIndex((entry) => entry.id === normalized.id);
+      if (existingIndex === -1) {
+        return [normalized, ...prev];
+      }
+      const clone = [...prev];
+      clone[existingIndex] = normalized;
+      return clone;
+    });
+  }, []);
 
   const fetchStoredImages = useCallback(async () => {
     setStoredImagesLoading(true);
@@ -366,6 +380,18 @@ function BowlingApp() {
       setStoredImagesLoading(false);
     }
   }, []);
+
+  const persistStoredImageCorrection = useCallback(
+    async (imageId: string, gameIndex: number, updatedGame: Game) => {
+      try {
+        const normalized = await saveStoredGameCorrection(imageId, gameIndex, updatedGame);
+        applyStoredImageGameUpdate(imageId, normalized);
+      } catch (error) {
+        console.error('Failed to save correction', error);
+      }
+    },
+    [applyStoredImageGameUpdate]
+  );
 
 
   const isHeicFile = (file: File) => {
@@ -464,14 +490,19 @@ function BowlingApp() {
             setGames(result.games);
             setCurrentGameIndex(0);
             setErrorDiagnostics(null);
-            rememberStoredImage(
-              result.storedImage
+            const storedImagePayload =
+              result.storedImage && result.games
                 ? {
                     ...result.storedImage,
-                    games: result.games
+                    games: result.games.map((game, index) => ({
+                      ...game,
+                      gameIndex: index,
+                      isEstimate: true
+                    }))
                   }
-                : null
-            );
+                : result.storedImage;
+            rememberStoredImage(storedImagePayload);
+            setActiveStoredImageId(result.storedImage?.id ?? null);
             if (result.normalizedImageDataUrl) {
               setUploadedImage(result.normalizedImageDataUrl);
               setPreviewPlaceholder(null);
@@ -526,14 +557,19 @@ function BowlingApp() {
           if (result.success && result.games && result.games.length > 0) {
             setGames(result.games);
             setCurrentGameIndex(0);
-            rememberStoredImage(
-              result.storedImage
+            const storedImagePayload =
+              result.storedImage && result.games
                 ? {
                     ...result.storedImage,
-                    games: result.games
+                    games: result.games.map((game, index) => ({
+                      ...game,
+                      gameIndex: index,
+                      isEstimate: true
+                    }))
                   }
-                : null
-            );
+                : result.storedImage;
+            rememberStoredImage(storedImagePayload);
+            setActiveStoredImageId(result.storedImage?.id ?? null);
             if (result.normalizedImageDataUrl) {
               setUploadedImage(result.normalizedImageDataUrl);
               setPreviewPlaceholder(null);
@@ -700,12 +736,18 @@ function BowlingApp() {
     setEditingFrameIndex(null);
   };
 
-  const handleApplyFrameCorrection = (updatedGame: Game) => {
-    setGames((prev) =>
-      prev.map((g, idx) => (idx === currentGameIndex ? updatedGame : g))
-    );
-    setEditingFrameIndex(null);
-  };
+  const handleApplyFrameCorrection = useCallback(
+    (updatedGame: Game) => {
+      setGames((prev) =>
+        prev.map((g, idx) => (idx === currentGameIndex ? updatedGame : g))
+      );
+      setEditingFrameIndex(null);
+      if (activeStoredImageId) {
+        void persistStoredImageCorrection(activeStoredImageId, currentGameIndex, updatedGame);
+      }
+    },
+    [activeStoredImageId, currentGameIndex, persistStoredImageCorrection]
+  );
 
   const handlePlayerNameClick = () => {
     if (!activeGame || isProcessing || editingFrameIndex !== null) {

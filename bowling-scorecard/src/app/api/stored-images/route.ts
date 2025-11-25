@@ -26,15 +26,23 @@ export async function GET() {
       take: Number.isNaN(STORED_IMAGE_LIMIT) ? 50 : STORED_IMAGE_LIMIT,
       include: {
         scores: {
-          orderBy: { gameIndex: 'asc' },
+          orderBy: [
+            { gameIndex: 'asc' },
+            { isEstimate: 'asc' },
+            { updatedAt: 'desc' }
+          ],
           select: {
             id: true,
+            gameIndex: true,
+            isEstimate: true,
             playerName: true,
             totalScore: true,
             frames: true,
             tenthFrame: true,
             issues: true,
-            confidence: true
+            confidence: true,
+            createdAt: true,
+            updatedAt: true
           }
         }
       }
@@ -51,15 +59,27 @@ export async function GET() {
         sizeBytes: image.sizeBytes,
         createdAt: image.createdAt.toISOString(),
         previewUrl: `/api/stored-images/${image.id}/content`,
-        games: image.scores.map((score) => ({
-          id: score.id,
-          playerName: score.playerName,
-          totalScore: score.totalScore,
-          frames: score.frames,
-          tenthFrame: score.tenthFrame,
-          issues: score.issues,
-          confidence: score.confidence
-        }))
+        games: Object.values(
+          image.scores.reduce<Record<number, (typeof image.scores)[number]>>((acc, score) => {
+            const existing = acc[score.gameIndex];
+            if (!existing || (existing.isEstimate && !score.isEstimate)) {
+              acc[score.gameIndex] = score;
+            }
+            return acc;
+          }, {})
+        )
+          .sort((a, b) => a.gameIndex - b.gameIndex)
+          .map((score) => ({
+            id: score.id,
+            gameIndex: score.gameIndex,
+            isEstimate: score.isEstimate,
+            playerName: score.playerName,
+            totalScore: score.totalScore,
+            frames: score.frames,
+            tenthFrame: score.tenthFrame,
+            issues: score.issues,
+            confidence: score.confidence
+          }))
       }))
     });
   } catch (error) {

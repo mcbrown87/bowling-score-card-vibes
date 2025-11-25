@@ -165,7 +165,9 @@ export async function POST(_request: Request, context: RouteContext) {
       }
     });
 
-    await prisma.bowlingScore.deleteMany({ where: { storedImageId: storedImage.id } });
+    await prisma.bowlingScore.deleteMany({
+      where: { storedImageId: storedImage.id, isEstimate: true }
+    });
 
     if (result.games.length > 0) {
       await prisma.bowlingScore.createMany({

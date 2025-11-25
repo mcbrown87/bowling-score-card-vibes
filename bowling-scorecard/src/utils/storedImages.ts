@@ -1,7 +1,8 @@
 import type {
   StoredGamePayload,
   StoredImagePayload,
-  StoredImageSummary
+  StoredImageSummary,
+  StoredGameSummary
 } from '@/types/stored-image';
 import type { Game } from '@/types/bowling';
 
@@ -22,7 +23,10 @@ const normalizeIssues = (issues: unknown): string[] | undefined => {
   return normalized.length > 0 ? normalized : undefined;
 };
 
-const normalizeStoredGame = (game: StoredGamePayload | Game | undefined): Game | null => {
+const normalizeStoredGame = (
+  game: StoredGamePayload | Game | undefined,
+  fallbackIndex = 0
+): StoredGameSummary | null => {
   if (!game) {
     return null;
   }
@@ -42,6 +46,12 @@ const normalizeStoredGame = (game: StoredGamePayload | Game | undefined): Game |
       : 'Unnamed player';
 
   return {
+    id: (game as StoredGamePayload)?.id,
+    gameIndex:
+      typeof (game as StoredGamePayload)?.gameIndex === 'number'
+        ? (game as StoredGamePayload).gameIndex ?? fallbackIndex
+        : fallbackIndex,
+    isEstimate: Boolean((game as StoredGamePayload)?.isEstimate ?? true),
     frames,
     tenthFrame,
     totalScore: typeof game.totalScore === 'number' ? game.totalScore : 0,
@@ -67,8 +77,10 @@ export const normalizeStoredImage = (
 
   const normalizedGames = Array.isArray(image.games)
     ? image.games
-        .map((game) => normalizeStoredGame(game as StoredGamePayload | Game | undefined))
-        .filter((game): game is Game => Boolean(game))
+        .map((game, index) =>
+          normalizeStoredGame(game as StoredGamePayload | Game | undefined, index)
+        )
+        .filter((game): game is StoredGameSummary => Boolean(game))
     : [];
 
   return {
@@ -100,4 +112,41 @@ export async function loadStoredImages(): Promise<StoredImageSummary[]> {
     : [];
 
   return parsed;
+}
+
+export async function saveStoredGameCorrection(
+  storedImageId: string,
+  gameIndex: number,
+  game: Game
+): Promise<StoredGameSummary> {
+  const response = await fetch(`/api/stored-images/${storedImageId}/scores/${gameIndex}`, {
+    method: 'PUT',
+    headers: {
+      'Content-Type': 'application/json'
+    },
+    body: JSON.stringify({
+      game
+    })
+  });
+
+  const data = await response.json();
+
+  if (!response.ok || !data?.success) {
+    throw new Error(typeof data?.error === 'string' ? data.error : 'Failed to save correction');
+  }
+
+  const normalized = normalizeStoredGame(
+    {
+      ...(data.game ?? {}),
+      gameIndex,
+      isEstimate: false
+    } as StoredGamePayload,
+    gameIndex
+  );
+
+  if (!normalized) {
+    throw new Error('Received invalid correction data from server');
+  }
+
+  return normalized;
 }

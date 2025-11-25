@@ -7,6 +7,7 @@ interface FrameCorrectionModalProps {
   frameIndex: number; // 0-8 regular frames, 9 = tenth frame
   onApply: (updatedGame: Game) => void;
   onClose: () => void;
+  isSaving?: boolean;
 }
 
 const overlayStyles: React.CSSProperties = {
@@ -229,7 +230,8 @@ export const FrameCorrectionModal: React.FC<FrameCorrectionModalProps> = ({
   game,
   frameIndex,
   onApply,
-  onClose
+  onClose,
+  isSaving = false
 }) => {
   const isTenthFrame = frameIndex === 9;
   const baseFrame = isTenthFrame ? game.tenthFrame : game.frames[frameIndex];
@@ -303,6 +305,9 @@ export const FrameCorrectionModal: React.FC<FrameCorrectionModalProps> = ({
   };
 
   const handleApply = () => {
+    if (isSaving) {
+      return;
+    }
     const nextGame: Game = JSON.parse(JSON.stringify(game));
 
     if (isTenthFrame) {
@@ -388,11 +393,16 @@ export const FrameCorrectionModal: React.FC<FrameCorrectionModalProps> = ({
         </div>
 
         <div style={actionsRowStyles}>
-          <button type="button" style={secondaryButtonStyles} onClick={onClose}>
+          <button type="button" style={secondaryButtonStyles} onClick={onClose} disabled={isSaving}>
             Cancel
           </button>
-          <button type="button" style={primaryButtonStyles} onClick={handleApply}>
-            Save
+          <button
+            type="button"
+            style={primaryButtonStyles}
+            onClick={handleApply}
+            disabled={isSaving}
+          >
+            {isSaving ? 'Saving…' : 'Save'}
           </button>
         </div>
       </div>

@@ -1,8 +1,10 @@
 /* eslint-disable @next/next/no-img-element */
-import { useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import type { CSSProperties } from 'react';
 import type { StoredImageSummary } from '@/types/stored-image';
+import type { Game } from '@/types/bowling';
 import { Scorecard } from './Scorecard';
+import { FrameCorrectionModal } from './FrameCorrectionModal';
 
 interface StoredImagesPanelProps {
   images: StoredImageSummary[];
@@ -15,6 +17,7 @@ interface StoredImagesPanelProps {
   generatingImageId?: string | null;
   clearingImageId?: string | null;
   deletingImageId?: string | null;
+  onUpdateGame?: (imageId: string, gameIndex: number, updatedGame: Game) => Promise<void> | void;
 }
 
 const sectionStyles: CSSProperties = {
@@ -166,7 +169,19 @@ const scorecardSectionStyles: CSSProperties = {
   borderRadius: '12px',
   border: '1px solid #e2e8f0',
   backgroundColor: '#f8fafc',
-  padding: '16px'
+  padding: '16px',
+  overflowX: 'hidden'
+};
+
+const scorecardWrapperStyles: CSSProperties = {
+  width: '100%',
+  overflowX: 'auto',
+  padding: '0 4px'
+};
+
+const scorecardInnerStyles: CSSProperties = {
+  maxWidth: '960px',
+  margin: '0 auto'
 };
 
 const noScoresStyles: CSSProperties = {
@@ -224,10 +239,14 @@ export function StoredImagesPanel({
   onDeleteImage,
   generatingImageId,
   clearingImageId,
-  deletingImageId
+  deletingImageId,
+  onUpdateGame
 }: StoredImagesPanelProps) {
   const [activeIndex, setActiveIndex] = useState(0);
   const [activeGameIndex, setActiveGameIndex] = useState(0);
+  const [editingFrameIndex, setEditingFrameIndex] = useState<number | null>(null);
+  const [isSavingCorrection, setIsSavingCorrection] = useState(false);
+  const [correctionError, setCorrectionError] = useState<string | null>(null);
   const hasImages = images.length > 0;
 
   const boundedImageIndex = useMemo(
@@ -252,6 +271,11 @@ export function StoredImagesPanel({
     setActiveGameIndex(0);
   }, [activeImage?.id]);
 
+  useEffect(() => {
+    setEditingFrameIndex(null);
+    setCorrectionError(null);
+  }, [activeImage?.id, boundedGameIndex]);
+
   const isGeneratingActiveImage =
     typeof generatingImageId === 'string' && activeImage?.id === generatingImageId;
   const isClearingActiveImage =
@@ -263,6 +287,52 @@ export function StoredImagesPanel({
   const canGoNext = boundedImageIndex < images.length - 1;
   const canGoPrevGame = boundedGameIndex > 0;
   const canGoNextGame = hasScoreEstimates && boundedGameIndex < gamesForImage.length - 1;
+  const canEditScores =
+    Boolean(onUpdateGame) &&
+    hasScoreEstimates &&
+    !isGeneratingActiveImage &&
+    !isClearingActiveImage &&
+    !isDeletingActiveImage &&
+    !isSavingCorrection;
+
+  const handleFrameSelect = useCallback(
+    (frameIndex: number) => {
+      if (!canEditScores) {
+        return;
+      }
+      setEditingFrameIndex(frameIndex);
+    },
+    [canEditScores]
+  );
+
+  const handleCloseFrameModal = useCallback(() => {
+    if (isSavingCorrection) {
+      return;
+    }
+    setEditingFrameIndex(null);
+    setCorrectionError(null);
+  }, [isSavingCorrection]);
+
+  const handleApplyFrameCorrection = useCallback(
+    async (updatedGame: Game) => {
+      if (!onUpdateGame || !activeImage || !activeGame) {
+        return;
+      }
+      setCorrectionError(null);
+      try {
+        setIsSavingCorrection(true);
+        await onUpdateGame(activeImage.id, activeGame.gameIndex, updatedGame);
+        setEditingFrameIndex(null);
+      } catch (error) {
+        setCorrectionError(
+          error instanceof Error ? error.message : 'Failed to save your correction'
+        );
+      } finally {
+        setIsSavingCorrection(false);
+      }
+    },
+    [activeGame, activeImage, onUpdateGame]
+  );
 
   return (
     <section style={sectionStyles} aria-live="polite">
@@ -319,11 +389,13 @@ export function StoredImagesPanel({
                 <button
                   type="button"
                   style={
-                    isDeletingActiveImage ? primaryActionButtonDisabledStyles : primaryActionButtonStyles
+                    isDeletingActiveImage || isSavingCorrection
+                      ? primaryActionButtonDisabledStyles
+                      : primaryActionButtonStyles
                   }
-                  disabled={isDeletingActiveImage}
+                  disabled={isDeletingActiveImage || isSavingCorrection}
                   onClick={() => {
-                    if (!isDeletingActiveImage) {
+                    if (!isDeletingActiveImage && !isSavingCorrection) {
                       onDeleteImage(activeImage.id);
                     }
                   }}
@@ -357,12 +429,20 @@ export function StoredImagesPanel({
             )}
             {hasScoreEstimates && activeGame ? (
               <div style={scorecardSectionStyles}>
-                <Scorecard
-                  key={`${activeImage.id}-${boundedGameIndex}`}
-                  game={activeGame}
-                  disableEditing
-                  compact
-                />
+                <div style={scorecardWrapperStyles}>
+                  <div style={scorecardInnerStyles}>
+                    <Scorecard
+                      key={`${activeImage.id}-${boundedGameIndex}`}
+                      game={activeGame}
+                      onFrameSelect={handleFrameSelect}
+                      disableEditing={!canEditScores || editingFrameIndex !== null}
+                      compact
+                    />
+                  </div>
+                </div>
+                <div style={{ ...metaStyles, marginTop: '8px', textAlign: 'center' as const }}>
+                  {activeGame.isEstimate ? 'Showing AI estimate' : 'Showing your corrections'}
+                </div>
                 {gamesForImage.length > 1 && (
                   <div style={gameControlsStyles}>
                     <button
@@ -397,14 +477,26 @@ export function StoredImagesPanel({
                           ? primaryActionButtonDisabledStyles
                           : primaryActionButtonStyles
                       }
-                      disabled={isClearingActiveImage}
+                      disabled={isClearingActiveImage || isSavingCorrection}
                       onClick={() => {
-                        if (!isClearingActiveImage) {
+                        if (!isClearingActiveImage && !isSavingCorrection) {
                           onClearScores(activeImage.id);
                         }
                       }}
                     >
                       {isClearingActiveImage ? 'Clearing…' : 'Remove score estimate'}
+                    </button>
+                  </div>
+                )}
+                {correctionError && (
+                  <div style={{ ...errorBoxStyles, marginTop: '12px' }}>
+                    <span>{correctionError}</span>
+                    <button
+                      type="button"
+                      style={{ ...buttonStyles, padding: '6px 10px' }}
+                      onClick={() => setCorrectionError(null)}
+                    >
+                      Dismiss
                     </button>
                   </div>
                 )}
@@ -422,9 +514,9 @@ export function StoredImagesPanel({
                         ? primaryActionButtonDisabledStyles
                         : primaryActionButtonStyles
                     }
-                    disabled={isGeneratingActiveImage}
+                    disabled={isGeneratingActiveImage || isSavingCorrection}
                     onClick={() => {
-                      if (!isGeneratingActiveImage) {
+                      if (!isGeneratingActiveImage && !isSavingCorrection) {
                         onGenerateScores(activeImage.id);
                       }
                     }}
@@ -437,6 +529,16 @@ export function StoredImagesPanel({
           </>
         )}
       </div>
+
+      {editingFrameIndex !== null && activeGame && canEditScores && (
+        <FrameCorrectionModal
+          game={activeGame}
+          frameIndex={editingFrameIndex}
+          onApply={handleApplyFrameCorrection}
+          onClose={handleCloseFrameModal}
+          isSaving={isSavingCorrection}
+        />
+      )}
     </section>
   );
 }

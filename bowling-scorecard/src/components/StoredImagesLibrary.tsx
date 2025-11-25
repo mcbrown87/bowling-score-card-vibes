@@ -3,7 +3,12 @@
 import { useCallback, useEffect, useState } from 'react';
 import { StoredImagesPanel } from './StoredImagesPanel';
 import type { StoredImagePayload, StoredImageSummary } from '@/types/stored-image';
-import { loadStoredImages, normalizeStoredImage } from '@/utils/storedImages';
+import type { Game } from '@/types/bowling';
+import {
+  loadStoredImages,
+  normalizeStoredImage,
+  saveStoredGameCorrection
+} from '@/utils/storedImages';
 
 export function StoredImagesLibrary() {
   const [images, setImages] = useState<StoredImageSummary[]>([]);
@@ -107,6 +112,33 @@ export function StoredImagesLibrary() {
     }
   }, []);
 
+  const handleUpdateGame = useCallback(
+    async (imageId: string, gameIndex: number, updatedGame: Game) => {
+      try {
+        const normalized = await saveStoredGameCorrection(imageId, gameIndex, updatedGame);
+        setImages((prev) =>
+          prev.map((image) => {
+            if (image.id !== imageId) {
+              return image;
+            }
+            const nextGames = image.games.some((game) => game.gameIndex === normalized.gameIndex)
+              ? image.games.map((game) =>
+                  game.gameIndex === normalized.gameIndex ? normalized : game
+                )
+              : [...image.games, normalized];
+            return { ...image, games: nextGames };
+          })
+        );
+        setError(null);
+      } catch (err) {
+        const message = err instanceof Error ? err.message : 'Failed to save correction';
+        setError(message);
+        throw err;
+      }
+    },
+    []
+  );
+
   return (
     <StoredImagesPanel
       images={images}
@@ -121,6 +153,7 @@ export function StoredImagesLibrary() {
       generatingImageId={generatingImageId}
       clearingImageId={clearingImageId}
       deletingImageId={deletingImageId}
+      onUpdateGame={handleUpdateGame}
     />
   );
 }

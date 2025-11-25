@@ -107,6 +107,7 @@ model BowlingScore {
 
   @@index([storedImageId])
   @@index([llmRequestId])
+  @@unique([storedImageId, gameIndex, isEstimate])
   @@map("bowling_scores")
 }
 

@@ -2,12 +2,20 @@ import type { Game } from './bowling';
 
 export type StoredGamePayload = {
   id?: string;
+  gameIndex?: number;
+  isEstimate?: boolean;
   playerName?: string | null;
   totalScore?: number | null;
   frames?: unknown;
   tenthFrame?: unknown;
   issues?: unknown;
   confidence?: number | null;
+};
+
+export type StoredGameSummary = Game & {
+  id?: string;
+  gameIndex: number;
+  isEstimate: boolean;
 };
 
 export type StoredImagePayload = {
@@ -29,5 +37,5 @@ export type StoredImageSummary = {
   contentType: string | null;
   sizeBytes: number | null;
   createdAt: string;
-  games: Game[];
+  games: StoredGameSummary[];
 };
