@@ -1,0 +1,46 @@
+# VCS
+.git
+.gitignore
+
+# Logs and temp files
+*.log
+*.local
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+.pnpm-debug.log*
+.DS_Store
+.tmp
+.tmp-sb
+
+# Node modules / build output
+node_modules
+**/node_modules
+bowling-scorecard/.next
+bowling-scorecard/.turbo
+bowling-scorecard/dist
+bowling-scorecard/out
+bowling-scorecard/.eslintcache
+bowling-scorecard/.tsbuildinfo
+
+# Backend not part of frontend deploy
+backend
+
+# Tests / docs / misc
+TestImages
+TestImages/**
+docs
+docs/**
+
+# Local env files
+.env
+.env.*
+
+# Docker & fly files (except Dockerfile.fly which is copied explicitly)
+Dockerfile
+Dockerfile.*
+docker-compose.yml
+fly.dev.env
+
+# Prisma generated client cache
+bowling-scorecard/node_modules/.prisma
