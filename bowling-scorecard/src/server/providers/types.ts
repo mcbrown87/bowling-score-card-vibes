@@ -11,4 +11,4 @@ export interface ProviderResult {
   model?: string;
 }
 
-export type ProviderName = 'anthropic' | 'openai';
+export type ProviderName = 'anthropic' | 'openai' | 'stub';

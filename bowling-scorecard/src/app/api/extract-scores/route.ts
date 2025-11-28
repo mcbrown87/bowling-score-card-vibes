@@ -15,7 +15,8 @@ const DEFAULT_PROVIDER: ProviderName = (process.env.DEFAULT_PROVIDER as Provider
 const INCLUDE_LLM_RAW = process.env.INCLUDE_LLM_RAW === 'true';
 const PROVIDER_MODELS: Record<ProviderName, string> = {
   anthropic: process.env.ANTHROPIC_MODEL ?? 'claude-3-7-sonnet-latest',
-  openai: process.env.OPENAI_MODEL ?? 'gpt-4o'
+  openai: process.env.OPENAI_MODEL ?? 'gpt-4o',
+  stub: 'dev-stub'
 };
 const PROMPT_VERSION = process.env.BOWLING_PROMPT_VERSION ?? 'bowling-v1';
 
@@ -23,7 +24,6 @@ const requestSchema = z.object({
   imageDataUrl: z
     .string()
     .regex(/^data:.*;base64,/u, 'imageDataUrl must be a base64 data URL'),
-  provider: z.enum(['anthropic', 'openai']).optional(),
   prompt: z.string().optional(),
   fileName: z.string().optional()
 });
@@ -63,8 +63,7 @@ export async function POST(request: Request) {
 
     const json = await request.json();
     const parsed = requestSchema.parse(json);
-    const provider = parsed.provider ?? DEFAULT_PROVIDER;
-
+    const provider: ProviderName = DEFAULT_PROVIDER;
     const [prefix, base64Payload] = parsed.imageDataUrl.split(',', 2);
     const imageMetadata = prefix?.split(';')[0]?.replace('data:', '') ?? 'unknown';
     const base64Length = base64Payload?.length ?? 0;
@@ -81,6 +80,7 @@ export async function POST(request: Request) {
 
     const normalizedImage = await normalizeImageDataUrl(parsed.imageDataUrl);
     const { buffer: imageBuffer, mediaType } = dataUrlToBuffer(normalizedImage.dataUrl);
+
     const fileExtension = (() => {
       const lowered = mediaType.toLowerCase();
       if (lowered.includes('png')) return 'png';
