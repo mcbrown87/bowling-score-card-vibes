@@ -15,7 +15,8 @@ const DEFAULT_PROVIDER: ProviderName = (process.env.DEFAULT_PROVIDER as Provider
 const INCLUDE_LLM_RAW = process.env.INCLUDE_LLM_RAW === 'true';
 const PROVIDER_MODELS: Record<ProviderName, string> = {
   anthropic: process.env.ANTHROPIC_MODEL ?? 'claude-3-7-sonnet-latest',
-  openai: process.env.OPENAI_MODEL ?? 'gpt-4o'
+  openai: process.env.OPENAI_MODEL ?? 'gpt-4o',
+  stub: 'dev-stub'
 };
 const PROMPT_VERSION = process.env.BOWLING_PROMPT_VERSION ?? 'bowling-v1';
 
