@@ -2,6 +2,7 @@
 
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
+import { useEffect, useState } from 'react';
 import type { CSSProperties } from 'react';
 import { SignOutButton } from './auth/SignOutButton';
 
@@ -9,11 +10,11 @@ type AppHeaderProps = {
   userLabel: string;
 };
 
-const navStyles: CSSProperties = {
+const headerStyles: CSSProperties = {
   display: 'flex',
-  alignItems: 'center',
-  justifyContent: 'space-between',
-  padding: '16px 24px',
+  flexDirection: 'column',
+  gap: '6px',
+  padding: '8px 16px',
   borderBottom: '1px solid #e2e8f0',
   backgroundColor: '#ffffff',
   position: 'sticky' as const,
@@ -21,10 +22,17 @@ const navStyles: CSSProperties = {
   zIndex: 10
 };
 
+const topRowStyles: CSSProperties = {
+  display: 'flex',
+  alignItems: 'center',
+  justifyContent: 'space-between',
+  gap: '8px'
+};
+
 const navGroupStyles: CSSProperties = {
   display: 'flex',
   alignItems: 'center',
-  gap: '16px',
+  gap: '12px',
   flexWrap: 'wrap' as CSSProperties['flexWrap']
 };
 
@@ -43,24 +51,68 @@ const activeLinkStyles = {
 
 export function AppHeader({ userLabel }: AppHeaderProps) {
   const pathname = usePathname();
+  const [isMobile, setIsMobile] = useState(false);
+  const [menuOpen, setMenuOpen] = useState(false);
+
+  useEffect(() => {
+    const update = () => {
+      setIsMobile(window.innerWidth <= 480);
+    };
+    update();
+    window.addEventListener('resize', update);
+    return () => window.removeEventListener('resize', update);
+  }, []);
 
   const isHome = pathname === '/';
   const isLibrary = pathname?.startsWith('/library');
 
   return (
-    <header style={navStyles}>
-      <div style={navGroupStyles}>
-        <Link href="/" style={isHome ? activeLinkStyles : linkStyles}>
-          Upload
-        </Link>
-        <Link href="/library" style={isLibrary ? activeLinkStyles : linkStyles}>
-          Library
-        </Link>
+    <header style={headerStyles}>
+      <div style={topRowStyles}>
+        <span style={{ fontWeight: 700, fontSize: '16px', color: '#0f172a' }}>
+          Bowling Scorecard
+        </span>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+          {!isMobile && <span style={{ color: '#475569', fontSize: '13px' }}>{userLabel}</span>}
+          <SignOutButton />
+          {isMobile && (
+            <button
+              type="button"
+              onClick={() => setMenuOpen((prev) => !prev)}
+              style={{
+                border: '1px solid #cbd5f5',
+                backgroundColor: '#f1f5f9',
+                borderRadius: '6px',
+                padding: '4px 10px',
+                fontWeight: 600,
+                cursor: 'pointer'
+              }}
+              aria-label="Toggle navigation menu"
+            >
+              Menu
+            </button>
+          )}
+        </div>
       </div>
-      <div style={navGroupStyles}>
-        <span style={{ color: '#475569', fontSize: '14px' }}>{userLabel}</span>
-        <SignOutButton />
-      </div>
+      {(!isMobile || menuOpen) && (
+        <div
+          style={{
+            ...navGroupStyles,
+            flexDirection: isMobile ? 'column' : 'row',
+            alignItems: isMobile ? 'flex-start' : 'center'
+          }}
+        >
+          {isMobile && (
+            <span style={{ color: '#475569', fontSize: '13px' }}>{userLabel}</span>
+          )}
+          <Link href="/" style={isHome ? activeLinkStyles : linkStyles}>
+            Upload
+          </Link>
+          <Link href="/library" style={isLibrary ? activeLinkStyles : linkStyles}>
+            Library
+          </Link>
+        </div>
+      )}
     </header>
   );
 }

@@ -24,11 +24,7 @@ export default async function LibraryPage() {
   return (
     <main>
       <AppHeader userLabel={`Signed in as ${session.user.name ?? session.user.email}`} />
-      <div style={{ padding: '24px', maxWidth: '1200px', margin: '0 auto' }}>
-        <h1 style={{ marginBottom: '8px' }}>Your Library</h1>
-        <p style={{ marginTop: 0, color: '#475569' }}>
-          Browse every scorecard you have processed. Open one to revisit the extracted scores and image.
-        </p>
+      <div style={{ padding: '16px', maxWidth: '1200px', margin: '0 auto' }}>
         <StoredImagesLibrary />
       </div>
     </main>

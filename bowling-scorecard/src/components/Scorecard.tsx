@@ -61,8 +61,8 @@ const baseFramesGridStyles: React.CSSProperties = {
 
 const framesScrollContainerStyles: React.CSSProperties = {
   width: '100%',
-  overflowX: 'visible',
-  paddingBottom: '0',
+  overflowX: 'hidden',
+  padding: '0',
   WebkitOverflowScrolling: 'touch'
 };
 
@@ -272,7 +272,8 @@ export const Scorecard: React.FC<ScorecardProps> = ({
   const containerStyle = useMemo<React.CSSProperties>(
     () => ({
       ...containerStyles,
-      padding: compact ? '8px' : containerStyles.padding
+      padding: compact ? '0' : containerStyles.padding,
+      maxWidth: compact ? '100%' : containerStyles.maxWidth
     }),
     [compact]
   );
@@ -280,8 +281,60 @@ export const Scorecard: React.FC<ScorecardProps> = ({
   const cardStyle = useMemo<React.CSSProperties>(
     () => ({
       ...cardStyles,
-      padding: compact ? '16px' : cardStyles.padding,
-      borderRadius: compact ? '12px' : cardStyles.borderRadius
+      padding: compact ? '12px' : cardStyles.padding,
+      borderRadius: compact ? '12px' : cardStyles.borderRadius,
+      boxShadow: compact ? '0 6px 16px rgba(15, 23, 42, 0.05)' : cardStyles.boxShadow
+    }),
+    [compact]
+  );
+
+  const titleStyle = useMemo<React.CSSProperties>(
+    () => ({
+      ...titleStyles,
+      fontSize: compact ? '18px' : titleStyles.fontSize,
+      marginBottom: compact ? '4px' : titleStyles.marginBottom
+    }),
+    [compact]
+  );
+
+  const playerLabelStyle = useMemo<React.CSSProperties>(
+    () => ({
+      ...playerNameStyles,
+      fontSize: compact ? '14px' : playerNameStyles.fontSize
+    }),
+    [compact]
+  );
+
+  const playerButtonStyle = useMemo<React.CSSProperties>(
+    () => ({
+      ...playerNameButtonStyles,
+      fontSize: compact ? '14px' : playerNameButtonStyles.fontSize
+    }),
+    [compact]
+  );
+
+  const scoreValueStyle = useMemo<React.CSSProperties>(
+    () => ({
+      ...scoreTextStyles,
+      fontSize: compact ? '18px' : scoreTextStyles.fontSize
+    }),
+    [compact]
+  );
+
+  const confidenceStyle = useMemo<React.CSSProperties>(
+    () => ({
+      ...confidenceStyles,
+      fontSize: compact ? '13px' : confidenceStyles.fontSize,
+      marginTop: compact ? '4px' : confidenceStyles.marginTop
+    }),
+    [compact]
+  );
+
+  const helperStyle = useMemo<React.CSSProperties>(
+    () => ({
+      ...helperTextStyles,
+      fontSize: compact ? '11px' : helperTextStyles.fontSize,
+      marginTop: compact ? '4px' : helperTextStyles.marginTop
     }),
     [compact]
   );
@@ -289,36 +342,44 @@ export const Scorecard: React.FC<ScorecardProps> = ({
   return (
     <div style={containerStyle}>
       <div style={cardStyle}>
-        <div style={headerStyles}>
-          <h1 style={titleStyles}>Bowling Scorecard</h1>
-          {onPlayerNameClick ? (
-            <button
-              type="button"
-              style={playerNameButtonStyles}
-              onClick={onPlayerNameClick}
-              disabled={disableEditing}
-            >
-              {game.playerName}
-            </button>
-          ) : (
-            <h2 style={playerNameStyles}>{game.playerName}</h2>
-          )}
-        </div>
-        
+        {!compact && (
+          <div style={headerStyles}>
+            <h1 style={titleStyle}>Bowling Scorecard</h1>
+            {onPlayerNameClick ? (
+              <button
+                type="button"
+                style={playerButtonStyle}
+                onClick={onPlayerNameClick}
+                disabled={disableEditing}
+              >
+                {game.playerName}
+              </button>
+            ) : (
+              <h2 style={playerLabelStyle}>{game.playerName}</h2>
+            )}
+          </div>
+        )}
+
         {compact ? (
           <div style={framesScrollContainerStyles}>
-            <div style={gridStyles}>
-              {game.frames.map((frame, index) => {
-                const frameNumber = index + 1;
+            <div
+              style={{
+                display: 'grid',
+                gridTemplateColumns: 'repeat(5, minmax(0, 1fr))',
+                gap: '4px'
+              }}
+            >
+              {game.frames.slice(0, 9).map((frame, idx) => {
+                const frameNumber = idx + 1;
                 return renderFrame(
                   frameNumber,
                   <FrameBox
                     frameNumber={frameNumber}
                     frameDisplay={formatFrameDisplay(frame, frameNumber)}
-                    compact={compact}
+                    compact
                   />,
                   frameIssues.get(frameNumber),
-                  index
+                  idx
                 );
               })}
               {renderFrame(
@@ -326,8 +387,8 @@ export const Scorecard: React.FC<ScorecardProps> = ({
                 <FrameBox
                   frameNumber={10}
                   frameDisplay={formatTenthFrameDisplay(game.tenthFrame)}
-                  isTenthFrame={true}
-                  compact={compact}
+                  isTenthFrame
+                  compact
                 />,
                 frameIssues.get(10),
                 9
@@ -364,7 +425,7 @@ export const Scorecard: React.FC<ScorecardProps> = ({
         )}
 
         {onFrameSelect && (
-          <div style={helperTextStyles}>
+          <div style={helperStyle}>
             {disableEditing
               ? 'Finish processing to edit frames'
               : compact
@@ -374,16 +435,14 @@ export const Scorecard: React.FC<ScorecardProps> = ({
         )}
         
         <div style={totalScoreStyles}>
-          <div style={scoreTextStyles}>
-            Total Score: {game.totalScore}
-          </div>
+          <div style={scoreValueStyle}>Total Score: {game.totalScore}</div>
           {game.totalScore === 300 && (
-            <div style={perfectGameStyles}>
+            <div style={compact ? { ...perfectGameStyles, fontSize: '14px' } : perfectGameStyles}>
               🎳 PERFECT GAME! 🎳
             </div>
           )}
           {confidencePercent !== null && (
-            <div style={{ ...confidenceStyles, color: confidenceColor }}>
+            <div style={{ ...confidenceStyle, color: confidenceColor }}>
               Confidence: {confidencePercent}%
             </div>
           )}
