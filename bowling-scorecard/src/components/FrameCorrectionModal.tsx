@@ -18,19 +18,22 @@ const overlayStyles: React.CSSProperties = {
   alignItems: 'center',
   justifyContent: 'center',
   padding: '16px',
-  zIndex: 9999
+  zIndex: 9999,
+  overflowY: 'auto'
 };
 
 const modalStyles: React.CSSProperties = {
-  width: '100%',
-  maxWidth: '420px',
+  width: 'min(520px, calc(100vw - 24px))',
+  maxWidth: '520px',
+  maxHeight: 'min(90vh, 720px)',
   backgroundColor: '#fff',
   borderRadius: '18px',
   boxShadow: '0 24px 50px rgba(15, 23, 42, 0.25)',
-  padding: '24px 24px 20px',
+  padding: '20px',
   display: 'flex',
   flexDirection: 'column',
-  gap: '16px'
+  gap: '12px',
+  overflowY: 'auto'
 };
 
 const titleStyles: React.CSSProperties = {
@@ -46,8 +49,9 @@ const labelStyles: React.CSSProperties = {
 };
 
 const helperStyles: React.CSSProperties = {
-  fontSize: '13px',
-  color: '#64748b'
+  fontSize: '12px',
+  color: '#64748b',
+  lineHeight: 1.4
 };
 
 const actionsRowStyles: React.CSSProperties = {
@@ -79,24 +83,24 @@ const primaryButtonStyles: React.CSSProperties = {
 };
 
 const rollSectionStyles: React.CSSProperties = {
-  display: 'flex',
-  flexDirection: 'column',
-  gap: '12px'
+  display: 'grid',
+  gap: '12px',
+  gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))'
 };
 
 const pinsGridStyles: React.CSSProperties = {
   display: 'grid',
-  gridTemplateColumns: 'repeat(auto-fit, minmax(54px, 1fr))',
-  gap: '8px'
+  gridTemplateColumns: 'repeat(6, minmax(0, 1fr))',
+  gap: '6px'
 };
 
 const rollButtonBaseStyles: React.CSSProperties = {
   borderRadius: '12px',
-  padding: '10px 0',
+  padding: '8px 0',
   border: '1px solid #cbd5f5',
   backgroundColor: '#fff',
   fontWeight: 600,
-  fontSize: '16px',
+  fontSize: '15px',
   cursor: 'pointer'
 };
 
