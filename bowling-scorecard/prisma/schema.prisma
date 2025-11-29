@@ -94,8 +94,6 @@ model BowlingScore {
   totalScore    Int?
   frames        Json
   tenthFrame    Json?
-  issues        Json?
-  confidence    Float?
   provider      String?
   isEstimate    Boolean  @default(true)
   rawText       String?

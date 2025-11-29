@@ -97,16 +97,11 @@ function generateRandomGame(playerName: string): Game {
   runningTotal += tenthTotal;
   tenthFrame.score = runningTotal;
 
-  const issues = Math.random() < 0.15 ? [`Frame ${randomInt(1, 10)} flagged for review`] : undefined;
-  const confidence = 0.7 + Math.random() * 0.25;
-
   return {
     frames,
     tenthFrame,
     totalScore: runningTotal,
-    playerName,
-    issues,
-    confidence
+    playerName
   };
 }
 

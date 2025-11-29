@@ -14,9 +14,7 @@ export function generateRandomGame(playerName: string = 'Player'): Game {
     frames,
     tenthFrame,
     totalScore,
-    playerName,
-    confidence: 1,
-    issues: []
+    playerName
   };
 }
 

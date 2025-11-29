@@ -111,17 +111,6 @@ const fileInputStyles: CSSProperties = {
   marginBottom: '16px'
 };
 
-const summaryBoxStyles: CSSProperties = {
-  marginTop: '16px',
-  padding: '12px 16px',
-  borderRadius: '8px',
-  backgroundColor: '#ecfdf5',
-  border: '1px solid #6ee7b7',
-  color: '#065f46',
-  fontSize: '16px',
-  fontWeight: 500
-};
-
 const warningBoxStyles: CSSProperties = {
   marginTop: '16px',
   padding: '12px 16px',
@@ -640,23 +629,6 @@ function BowlingApp() {
 
   const hasMultipleGames = games.length > 1;
 
-  const averageConfidence = useMemo(() => {
-    if (games.length === 0) {
-      return null;
-    }
-    return (
-      games.reduce((sum, g) => sum + (g.confidence ?? 0), 0) / games.length
-    );
-  }, [games]);
-
-  const reviewGames = useMemo(
-    () =>
-      games.filter(
-        (g) => (g.issues?.length ?? 0) > 0 || (g.confidence ?? 1) < 0.8
-      ),
-    [games]
-  );
-
   const recentImages = useMemo(() => storedImages.slice(0, 3), [storedImages]);
   const hasRecentImages = recentImages.length > 0;
 
@@ -1004,27 +976,6 @@ function BowlingApp() {
             setPendingPlayerName('');
           }}
         />
-      )}
-
-      {!isProcessing && averageConfidence !== null && (
-        <div style={summaryBoxStyles}>
-          Extracted {games.length} player{games.length > 1 ? 's' : ''}.{' '}
-          Average confidence {Math.round(averageConfidence * 100)}%.
-        </div>
-      )}
-
-      {!isProcessing && reviewGames.length > 0 && (
-        <div style={warningBoxStyles}>
-          <div style={warningTitleStyles}>Please review before accepting:</div>
-          <ul style={warningListStyles}>
-            {reviewGames.map((g) => (
-              <li key={`review-${g.playerName}`}>
-                {g.playerName} — confidence {Math.round((g.confidence ?? 0) * 100)}%
-                {g.issues && g.issues.length > 0 ? ` (${g.issues[0]})` : ''}
-              </li>
-            ))}
-          </ul>
-        </div>
       )}
 
       {isProcessing && (

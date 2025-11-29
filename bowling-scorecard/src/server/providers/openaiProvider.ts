@@ -38,7 +38,6 @@ export const openaiProvider = async ({ imageDataUrl, prompt }: ProviderRequest):
   const messages: ChatCompletionMessageParam[] = [baseMessage];
   let lastError: Error | null = null;
   let bestResult: ProviderResult | null = null;
-  let bestConfidence = -1;
 
   for (let attempt = 0; attempt < 5; attempt += 1) {
     const response = await client.chat.completions.create({
@@ -63,35 +62,14 @@ export const openaiProvider = async ({ imageDataUrl, prompt }: ProviderRequest):
         break;
       }
 
-      const aggregateConfidence =
-        games.reduce((sum, game) => sum + (game.confidence ?? 0), 0) / games.length;
-      const issues = games.flatMap((game) => game.issues ?? []);
-      const hasIssues = issues.length > 0;
-
       const currentResult: ProviderResult = {
         rawText: content,
         games,
         model: response.model ?? configuredModel
       };
 
-      if (!hasIssues) {
-        return currentResult;
-      }
-
-      if (aggregateConfidence > bestConfidence) {
-        bestConfidence = aggregateConfidence;
-        bestResult = currentResult;
-      }
-
-      lastError = new Error(
-        issues.length > 0 ? issues.join('; ') : 'Response contained unresolved issues'
-      );
-
-      const issueSummary = issues.slice(0, 8).join('; ');
-      messages.push({
-        role: 'system',
-        content: `Your previous extraction failed our bowling validation (${issueSummary}). Re-examine the image carefully, correct the rolls and running totals so they satisfy official scoring, and respond with ONLY the corrected JSON.`
-      });
+      bestResult = currentResult;
+      break;
     } catch (error) {
       const message = error instanceof Error ? error.message : 'Unknown error';
       const snippet = content.slice(0, 10000);

@@ -140,18 +140,12 @@ const computeRunningTotals = (frames: Frame[], tenthFrame: TenthFrame): number[]
 };
 
 const enforceConsistency = ({
-  playerName,
   frames,
-  tenthFrame,
-  transcribedTotals,
-  transcribedTenthTotal
+  tenthFrame
 }: {
-  playerName: string;
   frames: Frame[];
   tenthFrame: TenthFrame;
-  transcribedTotals: Array<number | undefined>;
-  transcribedTenthTotal?: number;
-}): { computedTotals: number[]; issues: string[] } => {
+}): number[] => {
   for (let i = 0; i < frames.length; i += 1) {
     const frame = frames[i];
     if (!frame) {
@@ -187,40 +181,7 @@ const enforceConsistency = ({
   const finalTotal = computedTotals[computedTotals.length - 1] ?? 0;
   tenthFrame.score = finalTotal;
 
-  const mismatches: string[] = [];
-
-  transcribedTotals.forEach((value, index) => {
-    if (typeof value === 'number' && value !== computedTotals[index]) {
-      mismatches.push(
-        `frame ${index + 1}: printed total ${value} vs computed ${computedTotals[index]}`
-      );
-    }
-  });
-
-  if (
-    typeof transcribedTenthTotal === 'number' &&
-    transcribedTenthTotal !== computedTotals[computedTotals.length - 1]
-  ) {
-    mismatches.push(
-      `frame 10: printed total ${transcribedTenthTotal} vs computed ${computedTotals[computedTotals.length - 1]}`
-    );
-  }
-
-  for (let i = 1; i < computedTotals.length; i += 1) {
-    const current = computedTotals[i];
-    const previous = computedTotals[i - 1];
-    if (typeof current === 'number' && typeof previous === 'number' && current < previous) {
-      mismatches.push(
-        `running totals decrease between frames ${i} and ${i + 1} (${computedTotals[i - 1]} -> ${computedTotals[i]})`
-      );
-    }
-  }
-
-  const issues = Array.from(new Set(mismatches)).map(
-    (message) => `${playerName}: ${message}`
-  );
-
-  return { computedTotals, issues };
+  return computedTotals;
 };
 
 const convertToGame = (raw: ExtractionPayload | PlayerPayload): Game => {
@@ -291,49 +252,17 @@ const convertToGame = (raw: ExtractionPayload | PlayerPayload): Game => {
     ? tenthFrame.score
     : 0;
 
-  const transcribedTotals = firstNineFrames.map((frame) =>
-    Number.isFinite(frame?.runningTotal) ? Number(frame?.runningTotal) : undefined
-  );
-
-  const transcribedTenthTotal =
-    typeof tenthFrameSource?.runningTotal === 'number'
-      ? Number(tenthFrameSource.runningTotal)
-      : Number.isFinite(raw?.totalScore)
-      ? Number(raw?.totalScore)
-      : undefined;
-
   const playerName =
     typeof raw?.playerName === 'string' && raw.playerName.trim().length > 0
       ? raw.playerName.trim()
       : 'Unknown Player';
 
-  const { computedTotals, issues: consistencyIssues } = enforceConsistency({
-    playerName,
+  const computedTotals = enforceConsistency({
     frames,
-    tenthFrame,
-    transcribedTotals,
-    ...(transcribedTenthTotal !== undefined ? { transcribedTenthTotal } : {})
+    tenthFrame
   });
 
-  const issues = [...consistencyIssues];
-
-  const rawFrameCount = Array.isArray(raw?.frames) ? raw.frames.length : 0;
-  if (rawFrameCount < 10) {
-    issues.push(
-      `${playerName}: extractor returned ${rawFrameCount} frame rows (expected 10)`
-    );
-  }
-
   const bestTotal = computedTotals[computedTotals.length - 1] ?? totalScore;
-
-  let confidence = 1;
-  if (rawFrameCount < 10) {
-    confidence -= Math.min(0.3, (10 - rawFrameCount) * 0.05);
-  }
-  if (issues.length > 0) {
-    confidence -= Math.min(0.8, issues.length * 0.15);
-  }
-  confidence = Math.max(0, Math.min(1, Number(confidence.toFixed(2))));
 
   const game: Game = {
     frames,
@@ -341,14 +270,6 @@ const convertToGame = (raw: ExtractionPayload | PlayerPayload): Game => {
     totalScore: bestTotal,
     playerName
   };
-
-  if (issues.length > 0) {
-    game.issues = issues;
-  }
-
-  if (Number.isFinite(confidence)) {
-    game.confidence = confidence;
-  }
 
   return game;
 };

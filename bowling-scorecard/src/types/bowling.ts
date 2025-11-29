@@ -18,8 +18,6 @@ export interface Game {
   tenthFrame: TenthFrame;
   totalScore: number;
   playerName: string;
-  issues?: string[];
-  confidence?: number;
 }
 
 export type FrameDisplay = {

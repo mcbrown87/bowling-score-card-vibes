@@ -39,8 +39,6 @@ export async function GET() {
             totalScore: true,
             frames: true,
             tenthFrame: true,
-            issues: true,
-            confidence: true,
             createdAt: true,
             updatedAt: true
           }
@@ -76,9 +74,7 @@ export async function GET() {
             playerName: score.playerName,
             totalScore: score.totalScore,
             frames: score.frames,
-            tenthFrame: score.tenthFrame,
-            issues: score.issues,
-            confidence: score.confidence
+            tenthFrame: score.tenthFrame
           }))
       }))
     });

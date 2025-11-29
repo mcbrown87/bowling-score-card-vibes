@@ -180,8 +180,6 @@ export async function POST(_request: Request, context: RouteContext) {
           totalScore: game.totalScore,
           frames: game.frames as unknown as Prisma.InputJsonValue,
           tenthFrame: game.tenthFrame as unknown as Prisma.InputJsonValue,
-          issues: (game.issues ?? null) as unknown as Prisma.InputJsonValue,
-          confidence: game.confidence ?? null,
           provider,
           isEstimate: true,
           rawText: rawTextForStorage

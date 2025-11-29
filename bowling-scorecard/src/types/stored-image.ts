@@ -8,8 +8,6 @@ export type StoredGamePayload = {
   totalScore?: number | null;
   frames?: unknown;
   tenthFrame?: unknown;
-  issues?: unknown;
-  confidence?: number | null;
 };
 
 export type StoredGameSummary = Game & {

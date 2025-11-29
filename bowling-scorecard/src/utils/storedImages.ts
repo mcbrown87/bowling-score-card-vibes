@@ -15,14 +15,6 @@ const isValidFrameArray = (value: unknown): value is Game['frames'] =>
 const isValidTenthFrame = (value: unknown): value is Game['tenthFrame'] =>
   isRecord(value) && Array.isArray((value as { rolls?: unknown }).rolls);
 
-const normalizeIssues = (issues: unknown): string[] | undefined => {
-  if (!Array.isArray(issues)) {
-    return undefined;
-  }
-  const normalized = issues.filter((issue): issue is string => typeof issue === 'string');
-  return normalized.length > 0 ? normalized : undefined;
-};
-
 const normalizeStoredGame = (
   game: StoredGamePayload | Game | undefined,
   fallbackIndex = 0
@@ -55,9 +47,7 @@ const normalizeStoredGame = (
     frames,
     tenthFrame,
     totalScore: typeof game.totalScore === 'number' ? game.totalScore : 0,
-    playerName,
-    issues: normalizeIssues(game.issues),
-    confidence: typeof game.confidence === 'number' ? game.confidence : undefined
+    playerName
   };
 };
 

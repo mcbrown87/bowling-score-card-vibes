@@ -11,9 +11,7 @@ const gameSchema = z.object({
   playerName: z.string().optional(),
   totalScore: z.number().nullable().optional(),
   frames: z.any(),
-  tenthFrame: z.any(),
-  issues: z.array(z.string()).optional(),
-  confidence: z.number().nullable().optional()
+  tenthFrame: z.any()
 });
 
 type RouteContext = {
@@ -68,8 +66,6 @@ export async function PUT(request: Request, context: RouteContext) {
           totalScore: parsed.totalScore ?? null,
           frames: parsed.frames as Prisma.InputJsonValue,
           tenthFrame: parsed.tenthFrame as Prisma.InputJsonValue,
-          issues: (parsed.issues ?? null) as Prisma.InputJsonValue,
-          confidence: parsed.confidence ?? null,
           provider: 'manual-correction'
         }
       });
@@ -82,8 +78,6 @@ export async function PUT(request: Request, context: RouteContext) {
           totalScore: parsed.totalScore ?? null,
           frames: parsed.frames as Prisma.InputJsonValue,
           tenthFrame: parsed.tenthFrame as Prisma.InputJsonValue,
-          issues: (parsed.issues ?? null) as Prisma.InputJsonValue,
-          confidence: parsed.confidence ?? null,
           provider: 'manual-correction',
           isEstimate: false
         }
@@ -99,9 +93,7 @@ export async function PUT(request: Request, context: RouteContext) {
         playerName: correction.playerName,
         totalScore: correction.totalScore,
         frames: correction.frames,
-        tenthFrame: correction.tenthFrame,
-        issues: correction.issues,
-        confidence: correction.confidence
+        tenthFrame: correction.tenthFrame
       }
     });
   } catch (error) {

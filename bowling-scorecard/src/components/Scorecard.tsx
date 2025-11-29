@@ -85,65 +85,19 @@ const frameButtonDisabledStyles: React.CSSProperties = {
   cursor: 'default'
 };
 
-const issueBadgeStyles: React.CSSProperties = {
-  position: 'absolute',
-  top: '-8px',
-  right: '-8px',
-  backgroundColor: '#dc2626',
-  color: 'white',
-  borderRadius: '9999px',
-  width: '20px',
-  height: '20px',
-  display: 'flex',
-  alignItems: 'center',
-  justifyContent: 'center',
-  fontSize: '12px',
-  fontWeight: 700,
-  boxShadow: '0 1px 3px rgba(0,0,0,0.25)'
-};
-
-const lowConfidenceBadgeStyles: React.CSSProperties = {
-  ...issueBadgeStyles,
-  backgroundColor: '#f97316'
-};
-
-const totalScoreStyles: React.CSSProperties = {
-  textAlign: 'center'
-};
-
-const scoreTextStyles: React.CSSProperties = {
-  fontSize: '24px',
-  fontWeight: 'bold',
-  color: '#2563eb'
-};
-
-const perfectGameStyles: React.CSSProperties = {
-  fontSize: '18px',
-  color: '#f59e0b',
-  fontWeight: 'bold',
-  marginTop: '8px'
-};
-
-const confidenceStyles: React.CSSProperties = {
-  marginTop: '8px',
-  fontSize: '16px',
-  fontWeight: 'bold'
-};
-
-const issuesContainerStyles: React.CSSProperties = {
-  marginTop: '12px',
-  fontSize: '14px',
-  color: '#9a3412',
-  backgroundColor: '#fff7ed',
-  borderRadius: '8px',
-  padding: '8px 12px',
-  border: '1px solid #fdba74'
-};
-
 const helperTextStyles: React.CSSProperties = {
   marginTop: '8px',
   fontSize: '13px',
   color: '#64748b',
+  textAlign: 'center'
+};
+
+const playerFooterStyles: React.CSSProperties = {
+  marginTop: '12px',
+  fontSize: '12px',
+  textTransform: 'uppercase',
+  letterSpacing: '0.08em',
+  color: '#475569',
   textAlign: 'center'
 };
 
@@ -154,53 +108,6 @@ export const Scorecard: React.FC<ScorecardProps> = ({
   disableEditing,
   compact = false
 }) => {
-  const confidencePercent =
-    typeof game.confidence === 'number' ? Math.round(game.confidence * 100) : null;
-  const confidenceColor =
-    confidencePercent !== null && confidencePercent < 70 ? '#dc2626' : '#059669';
-  const lowConfidence = confidencePercent !== null && confidencePercent < 70;
-
-  const { frameIssues, generalIssues } = useMemo(() => {
-    const map = new Map<number, string[]>();
-    const general: string[] = [];
-
-    (game.issues ?? []).forEach((issue) => {
-      const framesForIssue = new Set<number>();
-
-      const directRegex = /frame\s+(\d+)/gi;
-      let match: RegExpExecArray | null;
-      while ((match = directRegex.exec(issue)) !== null) {
-        const frameNum = Number(match[1]);
-        if (Number.isFinite(frameNum) && frameNum >= 1 && frameNum <= 10) {
-          framesForIssue.add(frameNum);
-        }
-      }
-
-      const rangeRegex = /frames?\s+(\d+)\s+(?:and|-)\s+(\d+)/gi;
-      while ((match = rangeRegex.exec(issue)) !== null) {
-        const first = Number(match[1]);
-        const second = Number(match[2]);
-        if (Number.isFinite(first) && first >= 1 && first <= 10) {
-          framesForIssue.add(first);
-        }
-        if (Number.isFinite(second) && second >= 1 && second <= 10) {
-          framesForIssue.add(second);
-        }
-      }
-
-      if (framesForIssue.size === 0) {
-        general.push(issue);
-      } else {
-        framesForIssue.forEach((frameNumber) => {
-          const existing = map.get(frameNumber) ?? [];
-          map.set(frameNumber, [...existing, issue]);
-        });
-      }
-    });
-
-    return { frameIssues: map, generalIssues: general };
-  }, [game.issues]);
-
   const gridStyles = useMemo<React.CSSProperties>(
     () => ({
       ...baseFramesGridStyles,
@@ -213,33 +120,10 @@ export const Scorecard: React.FC<ScorecardProps> = ({
     [compact]
   );
 
-  const renderFrame = (
-    frameNumber: number,
-    content: React.ReactNode,
-    issuesForFrame: string[] | undefined,
-    frameIndex: number
-  ) => {
-    const hasIssues = Boolean(issuesForFrame && issuesForFrame.length > 0);
-    const outlineColor = hasIssues ? '#dc2626' : lowConfidence ? '#f97316' : 'transparent';
-    const backgroundColor = hasIssues ? '#fee2e2' : lowConfidence ? '#fff7ed' : 'transparent';
-    const tooltipMessages = hasIssues
-      ? issuesForFrame?.join('\n')
-      : lowConfidence
-      ? 'Low confidence result'
-      : undefined;
-
+  const renderFrame = (frameNumber: number, content: React.ReactNode, frameIndex: number) => {
     const wrapper = (
-      <div
-        style={{
-          ...frameWrapperBaseStyles,
-          outline: outlineColor !== 'transparent' ? `2px solid ${outlineColor}` : 'none',
-          backgroundColor
-        }}
-        title={tooltipMessages}
-      >
+      <div style={frameWrapperBaseStyles}>
         {content}
-        {hasIssues && <span style={issueBadgeStyles}>⚠︎</span>}
-        {!hasIssues && lowConfidence && <span style={lowConfidenceBadgeStyles}>?</span>}
       </div>
     );
 
@@ -313,23 +197,6 @@ export const Scorecard: React.FC<ScorecardProps> = ({
     [compact]
   );
 
-  const scoreValueStyle = useMemo<React.CSSProperties>(
-    () => ({
-      ...scoreTextStyles,
-      fontSize: compact ? '18px' : scoreTextStyles.fontSize
-    }),
-    [compact]
-  );
-
-  const confidenceStyle = useMemo<React.CSSProperties>(
-    () => ({
-      ...confidenceStyles,
-      fontSize: compact ? '13px' : confidenceStyles.fontSize,
-      marginTop: compact ? '4px' : confidenceStyles.marginTop
-    }),
-    [compact]
-  );
-
   const helperStyle = useMemo<React.CSSProperties>(
     () => ({
       ...helperTextStyles,
@@ -378,7 +245,6 @@ export const Scorecard: React.FC<ScorecardProps> = ({
                     frameDisplay={formatFrameDisplay(frame, frameNumber)}
                     compact
                   />,
-                  frameIssues.get(frameNumber),
                   idx
                 );
               })}
@@ -390,7 +256,6 @@ export const Scorecard: React.FC<ScorecardProps> = ({
                   isTenthFrame
                   compact
                 />,
-                frameIssues.get(10),
                 9
               )}
             </div>
@@ -406,7 +271,6 @@ export const Scorecard: React.FC<ScorecardProps> = ({
                   frameDisplay={formatFrameDisplay(frame, frameNumber)}
                   compact={compact}
                 />,
-                frameIssues.get(frameNumber),
                 index
               );
             })}
@@ -418,7 +282,6 @@ export const Scorecard: React.FC<ScorecardProps> = ({
                 isTenthFrame={true}
                 compact={compact}
               />,
-              frameIssues.get(10),
               9
             )}
           </div>
@@ -434,24 +297,7 @@ export const Scorecard: React.FC<ScorecardProps> = ({
           </div>
         )}
         
-        <div style={totalScoreStyles}>
-          <div style={scoreValueStyle}>Total Score: {game.totalScore}</div>
-          {game.totalScore === 300 && (
-            <div style={compact ? { ...perfectGameStyles, fontSize: '14px' } : perfectGameStyles}>
-              🎳 PERFECT GAME! 🎳
-            </div>
-          )}
-          {confidencePercent !== null && (
-            <div style={{ ...confidenceStyle, color: confidenceColor }}>
-              Confidence: {confidencePercent}%
-            </div>
-          )}
-          {generalIssues.length > 0 && (
-            <div style={issuesContainerStyles}>
-              ⚠︎ {generalIssues.join(' • ')}
-            </div>
-          )}
-        </div>
+        <div style={playerFooterStyles}>{game.playerName}</div>
       </div>
     </div>
   );
