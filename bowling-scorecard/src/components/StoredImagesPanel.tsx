@@ -89,6 +89,26 @@ const navButtonDisabledStyles: CSSProperties = {
   cursor: 'not-allowed'
 };
 
+const gameNavButtonStyles: CSSProperties = {
+  width: '44px',
+  height: '44px',
+  borderRadius: '999px',
+  border: '1px solid #cbd5f5',
+  backgroundColor: '#fff',
+  cursor: 'pointer',
+  display: 'flex',
+  alignItems: 'center',
+  justifyContent: 'center',
+  fontSize: '20px',
+  color: '#0f172a'
+};
+
+const gameNavButtonDisabledStyles: CSSProperties = {
+  ...gameNavButtonStyles,
+  opacity: 0.4,
+  cursor: 'not-allowed'
+};
+
 const indicatorStyles: CSSProperties = {
   flex: '1 1 auto',
   textAlign: 'center' as const,
@@ -181,12 +201,11 @@ const noScoresStyles: CSSProperties = {
 };
 
 const gameControlsStyles: CSSProperties = {
-  display: 'flex',
+  display: 'grid',
+  gridTemplateColumns: 'auto 1fr auto',
   alignItems: 'center',
-  justifyContent: 'center',
-  gap: '12px',
-  marginTop: '16px',
-  flexWrap: 'wrap'
+  gap: '16px',
+  marginTop: '16px'
 };
 
 const closeButtonStyles: CSSProperties = {
@@ -270,7 +289,9 @@ export function StoredImagesPanel({
   const [isSavingCorrection, setIsSavingCorrection] = useState(false);
   const [correctionError, setCorrectionError] = useState<string | null>(null);
   const [metaModalOpen, setMetaModalOpen] = useState(false);
+  const [clearConfirmOpen, setClearConfirmOpen] = useState(false);
   const pressTimerRef = useRef<NodeJS.Timeout | null>(null);
+  const scorecardPressTimerRef = useRef<NodeJS.Timeout | null>(null);
   const hasImages = images.length > 0;
 
   const boundedImageIndex = useMemo(
@@ -302,6 +323,7 @@ export function StoredImagesPanel({
 
   useEffect(() => {
     setMetaModalOpen(false);
+    setClearConfirmOpen(false);
   }, [activeImage?.id]);
 
   const isGeneratingActiveImage =
@@ -321,6 +343,12 @@ export function StoredImagesPanel({
     !isGeneratingActiveImage &&
     !isClearingActiveImage &&
     !isDeletingActiveImage &&
+    !isSavingCorrection;
+  const canLongPressClear =
+    Boolean(onClearScores) &&
+    hasScoreEstimates &&
+    !isGeneratingActiveImage &&
+    !isClearingActiveImage &&
     !isSavingCorrection;
 
   const handleFrameSelect = useCallback(
@@ -381,10 +409,48 @@ export function StoredImagesPanel({
     }
   }, []);
 
+  const handleScorecardPressStart = useCallback(() => {
+    if (!canLongPressClear || !activeImage || isClearingActiveImage || clearConfirmOpen) {
+      return;
+    }
+    if (scorecardPressTimerRef.current) {
+      clearTimeout(scorecardPressTimerRef.current);
+    }
+    scorecardPressTimerRef.current = setTimeout(() => {
+      setClearConfirmOpen(true);
+      scorecardPressTimerRef.current = null;
+    }, 800);
+  }, [activeImage, canLongPressClear, clearConfirmOpen, isClearingActiveImage]);
+
+  const handleScorecardPressEnd = useCallback(() => {
+    if (scorecardPressTimerRef.current) {
+      clearTimeout(scorecardPressTimerRef.current);
+      scorecardPressTimerRef.current = null;
+    }
+  }, []);
+
+  const handleConfirmClear = useCallback(() => {
+    if (!onClearScores || !activeImage || isClearingActiveImage) {
+      return;
+    }
+    onClearScores(activeImage.id);
+    setClearConfirmOpen(false);
+  }, [activeImage, isClearingActiveImage, onClearScores]);
+
+  const handleCancelClear = useCallback(() => {
+    if (isClearingActiveImage) {
+      return;
+    }
+    setClearConfirmOpen(false);
+  }, [isClearingActiveImage]);
+
   useEffect(() => {
     return () => {
       if (pressTimerRef.current) {
         clearTimeout(pressTimerRef.current);
+      }
+      if (scorecardPressTimerRef.current) {
+        clearTimeout(scorecardPressTimerRef.current);
       }
     };
   }, []);
@@ -435,7 +501,15 @@ export function StoredImagesPanel({
             {hasScoreEstimates && activeGame ? (
               <div style={scorecardSectionStyles}>
                 <div style={scorecardWrapperStyles}>
-                  <div style={scorecardInnerStyles}>
+                  <div
+                    style={scorecardInnerStyles}
+                    onMouseDown={handleScorecardPressStart}
+                    onMouseUp={handleScorecardPressEnd}
+                    onMouseLeave={handleScorecardPressEnd}
+                    onTouchStart={handleScorecardPressStart}
+                    onTouchEnd={handleScorecardPressEnd}
+                    onTouchCancel={handleScorecardPressEnd}
+                  >
                     <Scorecard
                       key={`${activeImage.id}-${boundedGameIndex}`}
                       game={activeGame}
@@ -452,45 +526,40 @@ export function StoredImagesPanel({
                   <div style={gameControlsStyles}>
                     <button
                       type="button"
-                      style={canGoPrevGame ? navButtonStyles : navButtonDisabledStyles}
+                      style={canGoPrevGame ? gameNavButtonStyles : gameNavButtonDisabledStyles}
                       onClick={() => setActiveGameIndex((index) => Math.max(0, index - 1))}
                       disabled={!canGoPrevGame}
+                      aria-label="Show previous game"
                     >
-                      ← Previous game
+                      ←
                     </button>
                     <div style={indicatorStyles}>
                       Game {boundedGameIndex + 1} of {gamesForImage.length}
                     </div>
                     <button
                       type="button"
-                      style={canGoNextGame ? navButtonStyles : navButtonDisabledStyles}
+                      style={canGoNextGame ? gameNavButtonStyles : gameNavButtonDisabledStyles}
                       onClick={() =>
                         setActiveGameIndex((index) => Math.min(gamesForImage.length - 1, index + 1))
                       }
                       disabled={!canGoNextGame}
+                      aria-label="Show next game"
                     >
-                      Next game →
+                      →
                     </button>
                   </div>
                 )}
-                {onClearScores && (
-                  <div style={{ marginTop: '12px', textAlign: 'right' }}>
-                    <button
-                      type="button"
-                      style={
-                        isClearingActiveImage
-                          ? primaryActionButtonDisabledStyles
-                          : primaryActionButtonStyles
-                      }
-                      disabled={isClearingActiveImage || isSavingCorrection}
-                      onClick={() => {
-                        if (!isClearingActiveImage && !isSavingCorrection) {
-                          onClearScores(activeImage.id);
-                        }
-                      }}
-                    >
-                      {isClearingActiveImage ? 'Clearing…' : 'Remove score estimate'}
-                    </button>
+                {canLongPressClear && (
+                  <div
+                    style={{
+                      ...metaHintStyles,
+                      marginTop: '12px',
+                      textAlign: 'center' as const
+                    }}
+                  >
+                    {isClearingActiveImage
+                      ? 'Removing score estimate…'
+                      : 'Long press any frame to remove this estimate (confirmation required)'}
                   </div>
                 )}
                 {correctionError && (
@@ -607,6 +676,47 @@ export function StoredImagesPanel({
             <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
               <button type="button" style={closeButtonStyles} onClick={() => setMetaModalOpen(false)}>
                 Close
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {clearConfirmOpen && activeImage && (
+        <div style={modalOverlayStyles} role="dialog" aria-modal="true">
+          <div style={modalCardStyles}>
+            <h3 style={modalTitleStyles}>Remove score estimate?</h3>
+            <p style={{ ...metaStyles, marginBottom: '16px' }}>
+              This deletes the current AI estimate for this scorecard. You can rescan the image
+              whenever you need a new estimate.
+            </p>
+            <div
+              style={{
+                display: 'flex',
+                justifyContent: 'flex-end',
+                gap: '12px',
+                flexWrap: 'wrap'
+              }}
+            >
+              <button
+                type="button"
+                style={closeButtonStyles}
+                onClick={handleCancelClear}
+                disabled={isClearingActiveImage}
+              >
+                Keep estimate
+              </button>
+              <button
+                type="button"
+                style={
+                  isClearingActiveImage
+                    ? primaryActionButtonDisabledStyles
+                    : primaryActionButtonStyles
+                }
+                onClick={handleConfirmClear}
+                disabled={isClearingActiveImage}
+              >
+                {isClearingActiveImage ? 'Removing…' : 'Remove estimate'}
               </button>
             </div>
           </div>
