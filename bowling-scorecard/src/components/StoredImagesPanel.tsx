@@ -22,7 +22,7 @@ interface StoredImagesPanelProps {
 
 const sectionStyles: CSSProperties = {
   width: '100%',
-  marginTop: '16px'
+  marginTop: '8px'
 };
 
 const cardStyles: CSSProperties = {
@@ -34,12 +34,13 @@ const cardStyles: CSSProperties = {
 
 const thumbWrapperStyles: CSSProperties = {
   width: '100%',
-  maxWidth: '100%',
+  maxWidth: '720px',
   margin: '0 auto',
   position: 'relative',
   backgroundColor: '#e2e8f0',
   borderRadius: '12px',
   overflow: 'hidden',
+  aspectRatio: '4 / 3',
   minHeight: '240px'
 };
 

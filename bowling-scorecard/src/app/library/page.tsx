@@ -24,7 +24,7 @@ export default async function LibraryPage() {
   return (
     <main>
       <AppHeader userLabel={`Signed in as ${session.user.name ?? session.user.email}`} />
-      <div style={{ padding: '16px', maxWidth: '1200px', margin: '0 auto' }}>
+      <div style={{ padding: '0 16px 16px', maxWidth: '1200px', margin: '0 auto' }}>
         <StoredImagesLibrary />
       </div>
     </main>
