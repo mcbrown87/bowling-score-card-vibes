@@ -498,6 +498,32 @@ export function StoredImagesPanel({
                 loading="lazy"
               />
             </div>
+            <div style={{ ...metaHintStyles, marginTop: '8px' }}>
+              Press and hold image for details
+            </div>
+            {images.length > 1 && (
+              <div style={carouselControlsStyles}>
+                <button
+                  type="button"
+                  style={canGoPrev ? navButtonStyles : navButtonDisabledStyles}
+                  onClick={() => setActiveIndex((index) => Math.max(0, index - 1))}
+                  disabled={!canGoPrev}
+                >
+                  ← Previous
+                </button>
+                <div style={indicatorStyles}>
+                  Image {boundedImageIndex + 1} of {images.length}
+                </div>
+                <button
+                  type="button"
+                  style={canGoNext ? navButtonStyles : navButtonDisabledStyles}
+                  onClick={() => setActiveIndex((index) => Math.min(images.length - 1, index + 1))}
+                  disabled={!canGoNext}
+                >
+                  Next →
+                </button>
+              </div>
+            )}
             {hasScoreEstimates && activeGame ? (
               <div style={scorecardSectionStyles}>
                 <div style={scorecardWrapperStyles}>
@@ -600,33 +626,6 @@ export function StoredImagesPanel({
                 )}
               </div>
             )}
-            {images.length > 1 && (
-              <div style={carouselControlsStyles}>
-                <button
-                  type="button"
-                  style={canGoPrev ? navButtonStyles : navButtonDisabledStyles}
-                  onClick={() => setActiveIndex((index) => Math.max(0, index - 1))}
-                  disabled={!canGoPrev}
-                >
-                  ← Previous
-                </button>
-                <div style={indicatorStyles}>
-                  Image {boundedImageIndex + 1} of {images.length}
-                </div>
-                <button
-                  type="button"
-                  style={canGoNext ? navButtonStyles : navButtonDisabledStyles}
-                  onClick={() => setActiveIndex((index) => Math.min(images.length - 1, index + 1))}
-                  disabled={!canGoNext}
-                >
-                  Next →
-                </button>
-              </div>
-            )}
-                <div style={{ ...metaHintStyles, marginTop: '4px' }}>
-                  Press and hold image for details
-                </div>
-            <div style={metaHintStyles}>Press and hold image for details</div>
           </>
         )}
       </div>

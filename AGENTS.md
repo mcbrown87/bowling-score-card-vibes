@@ -4,7 +4,11 @@
 BowlingScoreCardVibes pairs a React front end (`bowling-scorecard/`) with a Node/Express service (`backend/`). UI code lives under `bowling-scorecard/src` (components, utils, types), static assets in `public/`, and docs plus sample captures in `docs/` and `TestImages/`. The API lives in `backend/src`, compiled to `backend/dist`. `docker-compose.yml` coordinates both services, and `validated-score-for-mcb.json` stores regression data.
 
 ## Build, Test, and Development Commands
-Run installs separately for each package or via npm's `--prefix`. Common flows:
+Run installs separately for each package or via npm's `--prefix`. Day-to-day development typically uses Docker so that the frontend and backend run together with the same env vars as production—kick things off with:
+```bash
+docker compose up --build
+```
+Common package-level flows:
 ```bash
 npm install --prefix backend
 npm install --prefix bowling-scorecard
