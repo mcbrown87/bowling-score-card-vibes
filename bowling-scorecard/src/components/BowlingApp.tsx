@@ -498,6 +498,14 @@ function BowlingApp() {
             } else if (treatAsHeic) {
               setPreviewPlaceholder('Preview unavailable for this format, please review the extracted frames below.');
             }
+          } else if (result.success && result.queued && result.storedImage) {
+            setGames([]);
+            setCurrentGameIndex(0);
+            rememberStoredImage(result.storedImage);
+            setActiveStoredImageId(result.storedImage.id);
+            setPreviewPlaceholder('We queued this image for AI scoring. Check Stored Images for progress.');
+            setErrorDiagnostics(null);
+            setExtractionError(null);
           } else {
             const message = result.error || 'Failed to extract scores';
             reportExtractionFailure(message, {
@@ -563,6 +571,14 @@ function BowlingApp() {
               setUploadedImage(result.normalizedImageDataUrl);
               setPreviewPlaceholder(null);
             }
+          } else if (result.success && result.queued && result.storedImage) {
+            setGames([]);
+            setCurrentGameIndex(0);
+            rememberStoredImage(result.storedImage);
+            setActiveStoredImageId(result.storedImage.id);
+            setPreviewPlaceholder('We queued this image for AI scoring. Check Stored Images for progress.');
+            setExtractionError(null);
+            setErrorDiagnostics(null);
           } else {
             const message = result.error || 'Failed to extract scores from test image';
             reportExtractionFailure(message, {

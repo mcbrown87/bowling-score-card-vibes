@@ -5,20 +5,17 @@ import { z } from 'zod';
 import { BOWLING_EXTRACTION_PROMPT } from '@/server/prompts/bowling';
 import { auth } from '@/server/auth';
 import { prisma } from '@/server/db/client';
-import { runProvider } from '@/server/providers';
-import type { ProviderName } from '@/server/providers/types';
 import { uploadObject, getStorageBucket } from '@/server/storage/client';
 import { logger } from '@/server/utils/logger';
 import { dataUrlToBuffer, normalizeImageDataUrl } from '@/server/utils/image';
-
-const DEFAULT_PROVIDER: ProviderName = (process.env.DEFAULT_PROVIDER as ProviderName) ?? 'openai';
-const INCLUDE_LLM_RAW = process.env.INCLUDE_LLM_RAW === 'true';
-const PROVIDER_MODELS: Record<ProviderName, string> = {
-  anthropic: process.env.ANTHROPIC_MODEL ?? 'claude-3-7-sonnet-latest',
-  openai: process.env.OPENAI_MODEL ?? 'gpt-4o',
-  stub: 'dev-stub'
-};
-const PROMPT_VERSION = process.env.BOWLING_PROMPT_VERSION ?? 'bowling-v1';
+import { enqueueScoreEstimatorJob } from '@/server/queues/scoreEstimatorQueue';
+import { serializeStoredImage, storedImageInclude } from '@/server/serializers/storedImage';
+import {
+  DEFAULT_PROVIDER,
+  INCLUDE_LLM_RAW,
+  PROVIDER_MODELS,
+  PROMPT_VERSION
+} from '@/server/services/scoreEstimator';
 
 const requestSchema = z.object({
   imageDataUrl: z
@@ -32,8 +29,6 @@ export const dynamic = 'force-dynamic';
 
 export async function POST(request: Request) {
   const requestId = randomUUID();
-  let llmRequestId: string | null = null;
-  let requestStartedAt: Date | null = null;
 
   try {
     const session = await auth();
@@ -107,7 +102,6 @@ export async function POST(request: Request) {
       }
     });
 
-    requestStartedAt = new Date();
     const providerModel = PROVIDER_MODELS[provider];
     const requestPrompt = parsed.prompt ?? BOWLING_EXTRACTION_PROMPT;
 
@@ -132,92 +126,59 @@ export async function POST(request: Request) {
         provider,
         model: providerModel,
         promptId: promptRecord.id,
-        status: 'pending',
-        startedAt: requestStartedAt,
+        status: 'queued',
         rawRequest: rawRequestData
       }
     });
-    llmRequestId = llmRequest.id;
 
-    const result = await runProvider(provider, {
-      imageDataUrl: normalizedImage.dataUrl,
-      prompt: requestPrompt
+    try {
+      await enqueueScoreEstimatorJob({
+        storedImageId: storedImage.id,
+        llmRequestId: llmRequest.id
+      });
+    } catch (error) {
+      await prisma.lLMRequest.update({
+        where: { id: llmRequest.id },
+        data: {
+          status: 'failed',
+          errorMessage:
+            error instanceof Error ? error.message : 'Unable to enqueue score estimation request'
+        }
+      });
+      throw error;
+    }
+
+    const refreshedImage = await prisma.storedImage.findUnique({
+      where: { id: storedImage.id },
+      include: storedImageInclude
     });
 
-    logger.info('Extracted bowling scores successfully', {
+    if (!refreshedImage) {
+      throw new Error('Stored image not found after queuing extraction job');
+    }
+
+    logger.info('Queued bowling score extraction job', {
       provider,
       requestId,
-      gameCount: result.games.length,
-      convertedImage: normalizedImage.converted
+      storedImageId: storedImage.id
     });
 
-    const completedAt = new Date();
-    const durationMs =
-      requestStartedAt !== null ? completedAt.getTime() - requestStartedAt.getTime() : null;
-    const rawTextForStorage = INCLUDE_LLM_RAW ? result.rawText : null;
-
-    if (llmRequestId) {
-      await prisma.lLMRequest.update({
-        where: { id: llmRequestId },
-        data: {
-          completedAt,
-          durationMs: durationMs ?? undefined,
-          status: 'succeeded',
-          model: result.model ?? providerModel,
-          rawResponse:
-            result.games.length > 0
-              ? (result.games as unknown as Prisma.InputJsonValue)
-              : undefined,
-          rawText: rawTextForStorage
-        }
-      });
-    }
-
-    if (result.games.length > 0) {
-      await prisma.bowlingScore.createMany({
-        data: result.games.map((game, index) => ({
-          storedImageId: storedImage.id,
-          llmRequestId: llmRequestId ?? undefined,
-          gameIndex: index,
-          playerName: game.playerName,
-          totalScore: game.totalScore,
-          frames: game.frames as unknown as Prisma.InputJsonValue,
-          tenthFrame: game.tenthFrame as unknown as Prisma.InputJsonValue,
-          provider,
-          isEstimate: true,
-          rawText: rawTextForStorage
-        }))
-      });
-    }
-
-    return NextResponse.json({
-      success: true,
-      provider,
-      games: result.games,
-      normalizedImageDataUrl: normalizedImage.dataUrl,
-      storedImage,
-      rawResponse: INCLUDE_LLM_RAW ? result.rawText : undefined
-    });
+    return NextResponse.json(
+      {
+        success: true,
+        queued: true,
+        provider,
+        requestId,
+        storedImage: serializeStoredImage(refreshedImage)
+      },
+      { status: 202 }
+    );
   } catch (error) {
-    const message = error instanceof Error ? error.message : 'Unknown error';
-    const statusCode = message.includes('Missing') ? 500 : 400;
+    const statusCode = error instanceof z.ZodError ? 400 : 500;
+    const message =
+      error instanceof Error ? error.message : 'Failed to queue score extraction request';
 
-    if (llmRequestId) {
-      const completedAt = new Date();
-      const durationMs =
-        requestStartedAt !== null ? completedAt.getTime() - requestStartedAt.getTime() : null;
-      await prisma.lLMRequest.update({
-        where: { id: llmRequestId },
-        data: {
-          completedAt,
-          durationMs: durationMs ?? undefined,
-          status: 'failed',
-          errorMessage: message
-        }
-      });
-    }
-
-    logger.error('Failed to extract bowling scores', error, {
+    logger.error('Failed to queue bowling score extraction job', error, {
       statusCode,
       requestId
     });

@@ -19,6 +19,7 @@ export interface ExtractionResult {
   };
   endpoint?: string;
   status?: number;
+  queued?: boolean;
 }
 
 export const extractScoresFromImage = async (imageFile: string | File): Promise<ExtractionResult> => {
@@ -76,6 +77,7 @@ export const extractScoresFromImage = async (imageFile: string | File): Promise<
     const games: Game[] = Array.isArray(data.games) ? data.games : [];
     return {
       success: true,
+      queued: Boolean(data.queued),
       games,
       game: games[0],
       rawText: data.rawResponse,
