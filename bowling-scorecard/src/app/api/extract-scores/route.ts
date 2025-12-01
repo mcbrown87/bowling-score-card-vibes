@@ -8,6 +8,7 @@ import { prisma } from '@/server/db/client';
 import { uploadObject, getStorageBucket } from '@/server/storage/client';
 import { logger } from '@/server/utils/logger';
 import { dataUrlToBuffer, normalizeImageDataUrl } from '@/server/utils/image';
+import type { ProviderName } from '@/server/providers/types';
 import { enqueueScoreEstimatorJob } from '@/server/queues/scoreEstimatorQueue';
 import { serializeStoredImage, storedImageInclude } from '@/server/serializers/storedImage';
 import {
