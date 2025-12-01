@@ -83,7 +83,8 @@ export const normalizeStoredImage = (
         ? image.sizeBytes
         : null,
     createdAt,
-    games: normalizedGames
+    games: normalizedGames,
+    isProcessingEstimate: Boolean(image.isProcessingEstimate)
   };
 };
 

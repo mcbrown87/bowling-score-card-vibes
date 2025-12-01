@@ -12,10 +12,13 @@ services:
         condition: service_healthy
       minio-setup:
         condition: service_completed_successfully
+      redis:
+        condition: service_healthy
     ports:
       - '3000:3000'
     environment:
       CHOKIDAR_USEPOLLING: 'true'
+      REDIS_URL: redis://redis:6379
     volumes:
       - ./bowling-scorecard:/app
     env_file:
@@ -82,6 +85,18 @@ services:
         mc anonymous set download local/$${MINIO_BUCKET};
       "
     restart: 'no'
+  redis:
+    image: redis:7-alpine
+    restart: unless-stopped
+    ports:
+      - '6379:6379'
+    healthcheck:
+      test: ['CMD', 'redis-cli', 'ping']
+      interval: 5s
+      timeout: 5s
+      retries: 5
+    volumes:
+      - redis-data:/data
   pgadmin:
     image: dpage/pgadmin4:8
     restart: unless-stopped
@@ -93,7 +108,27 @@ services:
     depends_on:
       db:
         condition: service_healthy
+  queue-worker:
+    build:
+      context: ./bowling-scorecard
+    command: npm run queue:worker
+    depends_on:
+      app-migrate:
+        condition: service_completed_successfully
+      db:
+        condition: service_healthy
+      minio-setup:
+        condition: service_completed_successfully
+      redis:
+        condition: service_healthy
+    environment:
+      NODE_ENV: development
+      REDIS_URL: redis://redis:6379
+    env_file:
+      - ./bowling-scorecard/.env
+    restart: unless-stopped
 
 volumes:
   postgres-data:
   minio-data:
+  redis-data:

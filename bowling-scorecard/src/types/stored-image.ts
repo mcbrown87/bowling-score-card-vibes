@@ -26,6 +26,7 @@ export type StoredImagePayload = {
   createdAt?: string | Date;
   previewUrl?: string;
   games?: Array<StoredGamePayload | Game>;
+  isProcessingEstimate?: boolean;
 };
 
 export type StoredImageSummary = {
@@ -36,4 +37,5 @@ export type StoredImageSummary = {
   sizeBytes: number | null;
   createdAt: string;
   games: StoredGameSummary[];
+  isProcessingEstimate: boolean;
 };

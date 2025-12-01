@@ -13,37 +13,42 @@ const consoleMap: Record<InternalLevel, (message?: unknown, ...optionalParams: u
   fatal: console.error
 };
 
-const emitLog = (level: InternalLevel, message: string, attributes?: LogAttributes, error?: unknown) => {
-  const consoleLogger = consoleMap[level];
-  const consoleArgs: unknown[] = [message, { service: serviceName, environment }];
-
-  if (attributes && Object.keys(attributes).length > 0) {
-    consoleArgs.push(attributes);
+const formatAttributes = (attributes?: LogAttributes) => {
+  if (!attributes || Object.keys(attributes).length === 0) {
+    return '';
   }
+  try {
+    return ` ${JSON.stringify(attributes)}`;
+  } catch (error) {
+    return ` ${String(error)}`;
+  }
+};
+
+const emitLog = (
+  level: InternalLevel,
+  message: string,
+  attributes?: LogAttributes,
+  error?: unknown
+) => {
+  const consoleLogger = consoleMap[level] ?? console.log;
+  const prefix = `[${serviceName}] [${environment}] [${level.toUpperCase()}]`;
+  const formatted = `${prefix} ${message}${formatAttributes(attributes)}`;
 
   if (error !== undefined) {
-    consoleArgs.push(error);
+    consoleLogger(formatted, error);
+  } else {
+    consoleLogger(formatted);
   }
-
-  consoleLogger?.(...consoleArgs);
 };
 
 export const logger = {
-  debug: (message: string, attributes?: LogAttributes) => {
-    emitLog('debug', message, attributes);
-  },
-  info: (message: string, attributes?: LogAttributes) => {
-    emitLog('info', message, attributes);
-  },
-  warn: (message: string, attributes?: LogAttributes) => {
-    emitLog('warn', message, attributes);
-  },
-  error: (message: string, error?: unknown, attributes?: LogAttributes) => {
-    emitLog('error', message, attributes, error);
-  },
-  fatal: (message: string, error?: unknown, attributes?: LogAttributes) => {
-    emitLog('fatal', message, attributes, error);
-  }
+  debug: (message: string, attributes?: LogAttributes) => emitLog('debug', message, attributes),
+  info: (message: string, attributes?: LogAttributes) => emitLog('info', message, attributes),
+  warn: (message: string, attributes?: LogAttributes) => emitLog('warn', message, attributes),
+  error: (message: string, error?: unknown, attributes?: LogAttributes) =>
+    emitLog('error', message, attributes, error),
+  fatal: (message: string, error?: unknown, attributes?: LogAttributes) =>
+    emitLog('fatal', message, attributes, error)
 };
 
 export type Logger = typeof logger;

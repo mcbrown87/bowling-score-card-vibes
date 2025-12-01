@@ -201,6 +201,17 @@ const noScoresStyles: CSSProperties = {
   textAlign: 'center' as const
 };
 
+const processingBannerStyles: CSSProperties = {
+  marginTop: '16px',
+  padding: '10px 14px',
+  borderRadius: '10px',
+  backgroundColor: '#e0f2fe',
+  color: '#0f172a',
+  fontSize: '12px',
+  textAlign: 'center' as const,
+  border: '1px solid #7dd3fc'
+};
+
 const gameControlsStyles: CSSProperties = {
   display: 'grid',
   gridTemplateColumns: 'auto 1fr auto',
@@ -308,6 +319,7 @@ export function StoredImagesPanel({
     ? Math.min(activeGameIndex, gamesForImage.length - 1)
     : 0;
   const activeGame = hasScoreEstimates ? gamesForImage[boundedGameIndex] : null;
+  const isProcessingActiveImage = Boolean(activeImage?.isProcessingEstimate);
 
   useEffect(() => {
     setActiveIndex(0);
@@ -502,6 +514,12 @@ export function StoredImagesPanel({
             <div style={{ ...metaHintStyles, marginTop: '8px' }}>
               Press and hold image for details
             </div>
+            {isProcessingActiveImage && (
+              <div style={processingBannerStyles}>
+                We queued a fresh AI estimate for this scorecard. This view updates automatically
+                when the results are ready.
+              </div>
+            )}
             {images.length > 1 && (
               <div style={carouselControlsStyles}>
                 <button
@@ -605,24 +623,36 @@ export function StoredImagesPanel({
             ) : (
               <div style={noScoresStyles}>
                 <p style={{ margin: '0 0 12px' }}>
-                  No score estimate yet. Submit this image to generate scores.
+                  {isProcessingActiveImage
+                    ? 'We queued this image for an AI score estimate. Sit tight—we will refresh as soon as the job finishes.'
+                    : 'No score estimate yet. Submit this image to generate scores.'}
                 </p>
                 {onGenerateScores && (
                   <button
                     type="button"
                     style={
-                      isGeneratingActiveImage
+                      isGeneratingActiveImage || isProcessingActiveImage
                         ? primaryActionButtonDisabledStyles
                         : primaryActionButtonStyles
                     }
-                    disabled={isGeneratingActiveImage || isSavingCorrection}
+                    disabled={
+                      isGeneratingActiveImage || isProcessingActiveImage || isSavingCorrection
+                    }
                     onClick={() => {
-                      if (!isGeneratingActiveImage && !isSavingCorrection) {
+                      if (
+                        !isGeneratingActiveImage &&
+                        !isProcessingActiveImage &&
+                        !isSavingCorrection
+                      ) {
                         onGenerateScores(activeImage.id);
                       }
                     }}
                   >
-                    {isGeneratingActiveImage ? 'Submitting…' : 'Generate score estimate'}
+                    {isGeneratingActiveImage
+                      ? 'Submitting…'
+                      : isProcessingActiveImage
+                        ? 'Processing…'
+                        : 'Generate score estimate'}
                   </button>
                 )}
               </div>

@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { StoredImagesPanel } from './StoredImagesPanel';
 import type { StoredImagePayload, StoredImageSummary } from '@/types/stored-image';
 import type { Game } from '@/types/bowling';
@@ -17,6 +17,14 @@ export function StoredImagesLibrary() {
   const [generatingImageId, setGeneratingImageId] = useState<string | null>(null);
   const [clearingImageId, setClearingImageId] = useState<string | null>(null);
   const [deletingImageId, setDeletingImageId] = useState<string | null>(null);
+  const pollAbortRef = useRef(false);
+
+  useEffect(() => {
+    pollAbortRef.current = false;
+    return () => {
+      pollAbortRef.current = true;
+    };
+  }, []);
 
   const fetchImages = useCallback(async () => {
     setIsLoading(true);
@@ -34,6 +42,50 @@ export function StoredImagesLibrary() {
   useEffect(() => {
     void fetchImages();
   }, [fetchImages]);
+
+  const refreshImagesSilently = useCallback(async () => {
+    try {
+      const parsed = await loadStoredImages();
+      if (!pollAbortRef.current) {
+        setImages(parsed);
+      }
+      return parsed;
+    } catch (err) {
+      console.warn('Failed to refresh stored images', err);
+      return null;
+    }
+  }, []);
+
+  const pollEstimateCompletion = useCallback(
+    async (imageId: string) => {
+      const maxAttempts = 30;
+      const delayMs = 4000;
+      for (let attempt = 0; attempt < maxAttempts; attempt += 1) {
+        if (pollAbortRef.current) {
+          return;
+        }
+
+        await new Promise((resolve) => {
+          setTimeout(resolve, delayMs);
+        });
+
+        if (pollAbortRef.current) {
+          return;
+        }
+
+        const latest = await refreshImagesSilently();
+        if (!latest) {
+          continue;
+        }
+
+        const target = latest.find((image) => image.id === imageId);
+        if (!target?.isProcessingEstimate) {
+          return;
+        }
+      }
+    },
+    [refreshImagesSilently]
+  );
 
   const handleGenerateScores = useCallback(
     async (imageId: string) => {
@@ -60,6 +112,9 @@ export function StoredImagesLibrary() {
             return clone;
           });
         }
+        if (data?.queued) {
+          void pollEstimateCompletion(imageId);
+        }
         setError(null);
       } catch (err) {
         setError(err instanceof Error ? err.message : 'Failed to generate score estimate');
@@ -67,7 +122,7 @@ export function StoredImagesLibrary() {
         setGeneratingImageId(null);
       }
     },
-    []
+    [pollEstimateCompletion]
   );
 
   const handleClearScores = useCallback(async (imageId: string) => {
