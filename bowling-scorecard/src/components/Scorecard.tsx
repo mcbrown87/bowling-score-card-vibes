@@ -85,13 +85,6 @@ const frameButtonDisabledStyles: React.CSSProperties = {
   cursor: 'default'
 };
 
-const helperTextStyles: React.CSSProperties = {
-  marginTop: '8px',
-  fontSize: '13px',
-  color: '#64748b',
-  textAlign: 'center'
-};
-
 const playerFooterStyles: React.CSSProperties = {
   marginTop: '12px',
   fontSize: '12px',
@@ -99,6 +92,15 @@ const playerFooterStyles: React.CSSProperties = {
   letterSpacing: '0.08em',
   color: '#475569',
   textAlign: 'center'
+};
+
+const playerFooterButtonStyles: React.CSSProperties = {
+  ...playerFooterStyles,
+  background: 'none',
+  border: 'none',
+  cursor: 'pointer',
+  width: '100%',
+  padding: 0
 };
 
 export const Scorecard: React.FC<ScorecardProps> = ({
@@ -197,15 +199,6 @@ export const Scorecard: React.FC<ScorecardProps> = ({
     [compact]
   );
 
-  const helperStyle = useMemo<React.CSSProperties>(
-    () => ({
-      ...helperTextStyles,
-      fontSize: compact ? '11px' : helperTextStyles.fontSize,
-      marginTop: compact ? '4px' : helperTextStyles.marginTop
-    }),
-    [compact]
-  );
-
   return (
     <div style={containerStyle}>
       <div style={cardStyle}>
@@ -287,17 +280,27 @@ export const Scorecard: React.FC<ScorecardProps> = ({
           </div>
         )}
 
-        {onFrameSelect && (
-          <div style={helperStyle}>
-            {disableEditing
-              ? 'Finish processing to edit frames'
-              : compact
-              ? 'Tap a frame to edit'
-              : 'Tap any frame to correct rolls or totals'}
-          </div>
+        {onPlayerNameClick ? (
+          <button
+            type="button"
+            style={{
+              ...playerFooterButtonStyles,
+              opacity: disableEditing ? 0.6 : 1,
+              cursor: disableEditing ? 'not-allowed' : 'pointer'
+            }}
+            onClick={() => {
+              if (!disableEditing) {
+                onPlayerNameClick();
+              }
+            }}
+            aria-label="Edit player name"
+            disabled={disableEditing}
+          >
+            {game.playerName}
+          </button>
+        ) : (
+          <div style={playerFooterStyles}>{game.playerName}</div>
         )}
-        
-        <div style={playerFooterStyles}>{game.playerName}</div>
       </div>
     </div>
   );

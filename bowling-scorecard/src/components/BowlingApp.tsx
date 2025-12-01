@@ -292,6 +292,13 @@ function BowlingApp() {
   const [storedImagesError, setStoredImagesError] = useState<string | null>(null);
   const [activeStoredImageId, setActiveStoredImageId] = useState<string | null>(null);
 
+  const tagGamesAsEstimates = useCallback((items: Game[]) => {
+    return items.map((game) => ({
+      ...game,
+      isEstimate: game.isEstimate ?? true
+    }));
+  }, []);
+
   const reportExtractionFailure = useCallback(
     (
       message: string,
@@ -476,7 +483,7 @@ function BowlingApp() {
           const result = await extractScoresFromImage(imageData);
           
           if (result.success && result.games && result.games.length > 0) {
-            setGames(result.games);
+            setGames(tagGamesAsEstimates(result.games));
             setCurrentGameIndex(0);
             setErrorDiagnostics(null);
             const storedImagePayload =
@@ -552,7 +559,7 @@ function BowlingApp() {
           const result = await extractScoresFromImage(dataUrl);
           
           if (result.success && result.games && result.games.length > 0) {
-            setGames(result.games);
+            setGames(tagGamesAsEstimates(result.games));
             setCurrentGameIndex(0);
             const storedImagePayload =
               result.storedImage && result.games
@@ -609,7 +616,7 @@ function BowlingApp() {
       });
       setIsProcessing(false);
     }
-  }, [rememberStoredImage, reportExtractionFailure]);
+  }, [rememberStoredImage, reportExtractionFailure, tagGamesAsEstimates]);
 
   const shouldAutoLoadTestImage = process.env.NEXT_PUBLIC_ENABLE_AUTO_TEST_IMAGE === 'true';
 
@@ -726,12 +733,16 @@ function BowlingApp() {
 
   const handleApplyFrameCorrection = useCallback(
     (updatedGame: Game) => {
+      const correctedGame: Game = {
+        ...updatedGame,
+        isEstimate: false
+      };
       setGames((prev) =>
-        prev.map((g, idx) => (idx === currentGameIndex ? updatedGame : g))
+        prev.map((g, idx) => (idx === currentGameIndex ? correctedGame : g))
       );
       setEditingFrameIndex(null);
       if (activeStoredImageId) {
-        void persistStoredImageCorrection(activeStoredImageId, currentGameIndex, updatedGame);
+        void persistStoredImageCorrection(activeStoredImageId, currentGameIndex, correctedGame);
       }
     },
     [activeStoredImageId, currentGameIndex, persistStoredImageCorrection]

@@ -27,6 +27,7 @@ export type StoredImagePayload = {
   previewUrl?: string;
   games?: Array<StoredGamePayload | Game>;
   isProcessingEstimate?: boolean;
+  lastEstimateError?: string | null;
 };
 
 export type StoredImageSummary = {
@@ -38,4 +39,5 @@ export type StoredImageSummary = {
   createdAt: string;
   games: StoredGameSummary[];
   isProcessingEstimate: boolean;
+  lastEstimateError: string | null;
 };

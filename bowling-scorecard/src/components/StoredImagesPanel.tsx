@@ -5,6 +5,7 @@ import type { StoredImageSummary } from '@/types/stored-image';
 import type { Game } from '@/types/bowling';
 import { Scorecard } from './Scorecard';
 import { FrameCorrectionModal } from './FrameCorrectionModal';
+import { PlayerNameModal } from './PlayerNameModal';
 
 interface StoredImagesPanelProps {
   images: StoredImageSummary[];
@@ -172,7 +173,7 @@ const loadingTextStyles: CSSProperties = {
 };
 
 const scorecardSectionStyles: CSSProperties = {
-  marginTop: '16px',
+  marginTop: '12px',
   borderRadius: '12px',
   border: '1px solid #e2e8f0',
   backgroundColor: '#f8fafc',
@@ -189,6 +190,48 @@ const scorecardWrapperStyles: CSSProperties = {
 const scorecardInnerStyles: CSSProperties = {
   maxWidth: '960px',
   margin: '0 auto'
+};
+
+const correctionHighlightStyles: CSSProperties = {
+  border: '1px solid #bbf7d0',
+  backgroundColor: '#f8fff4',
+  boxShadow: '0 8px 24px rgba(22, 163, 74, 0.06)'
+};
+
+const statusPillRowStyles: CSSProperties = {
+  display: 'flex',
+  justifyContent: 'center',
+  marginTop: '10px'
+};
+
+const statusPillBaseStyles: CSSProperties = {
+  display: 'inline-flex',
+  alignItems: 'center',
+  gap: '8px',
+  padding: '8px 14px',
+  borderRadius: '999px',
+  fontWeight: 700,
+  fontSize: '13px',
+  border: '1px solid transparent'
+};
+
+const correctionStatusStyles: CSSProperties = {
+  backgroundColor: '#ecfdf3',
+  borderColor: '#bbf7d0',
+  color: '#065f46'
+};
+
+const estimateStatusStyles: CSSProperties = {
+  backgroundColor: '#eff6ff',
+  borderColor: '#bfdbfe',
+  color: '#1e3a8a'
+};
+
+const statusDotStyles: CSSProperties = {
+  width: '10px',
+  height: '10px',
+  borderRadius: '50%',
+  display: 'inline-block'
 };
 
 const noScoresStyles: CSSProperties = {
@@ -210,6 +253,16 @@ const processingBannerStyles: CSSProperties = {
   fontSize: '12px',
   textAlign: 'center' as const,
   border: '1px solid #7dd3fc'
+};
+
+const estimateErrorStyles: CSSProperties = {
+  marginTop: '16px',
+  padding: '12px 14px',
+  borderRadius: '10px',
+  backgroundColor: '#fef2f2',
+  color: '#991b1b',
+  fontSize: '13px',
+  border: '1px solid #fecaca'
 };
 
 const gameControlsStyles: CSSProperties = {
@@ -298,6 +351,8 @@ export function StoredImagesPanel({
   const [activeIndex, setActiveIndex] = useState(0);
   const [activeGameIndex, setActiveGameIndex] = useState(0);
   const [editingFrameIndex, setEditingFrameIndex] = useState<number | null>(null);
+  const [isRenamingPlayer, setIsRenamingPlayer] = useState(false);
+  const [pendingPlayerName, setPendingPlayerName] = useState('');
   const [isSavingCorrection, setIsSavingCorrection] = useState(false);
   const [correctionError, setCorrectionError] = useState<string | null>(null);
   const [metaModalOpen, setMetaModalOpen] = useState(false);
@@ -320,6 +375,8 @@ export function StoredImagesPanel({
     : 0;
   const activeGame = hasScoreEstimates ? gamesForImage[boundedGameIndex] : null;
   const isProcessingActiveImage = Boolean(activeImage?.isProcessingEstimate);
+  const estimateErrorMessage = activeImage?.lastEstimateError ?? null;
+  const hasCorrections = activeGame?.isEstimate === false;
 
   useEffect(() => {
     setActiveIndex(0);
@@ -331,6 +388,8 @@ export function StoredImagesPanel({
 
   useEffect(() => {
     setEditingFrameIndex(null);
+    setIsRenamingPlayer(false);
+    setPendingPlayerName('');
     setCorrectionError(null);
   }, [activeImage?.id, boundedGameIndex]);
 
@@ -363,16 +422,17 @@ export function StoredImagesPanel({
     !isGeneratingActiveImage &&
     !isClearingActiveImage &&
     !isSavingCorrection;
+  const scorecardLocked = !canEditScores || editingFrameIndex !== null || isRenamingPlayer;
 
   const handleFrameSelect = useCallback(
     (frameIndex: number) => {
-      if (!canEditScores) {
-        return;
-      }
-      setEditingFrameIndex(frameIndex);
-    },
-    [canEditScores]
-  );
+    if (!canEditScores || isRenamingPlayer) {
+      return;
+    }
+    setEditingFrameIndex(frameIndex);
+  },
+  [canEditScores, isRenamingPlayer]
+);
 
   const handleCloseFrameModal = useCallback(() => {
     if (isSavingCorrection) {
@@ -380,6 +440,45 @@ export function StoredImagesPanel({
     }
     setEditingFrameIndex(null);
     setCorrectionError(null);
+  }, [isSavingCorrection]);
+
+  const handlePlayerNameClick = useCallback(() => {
+    if (!canEditScores || !activeGame || !activeImage) {
+      return;
+    }
+    setPendingPlayerName(activeGame.playerName);
+    setIsRenamingPlayer(true);
+  }, [activeGame, activeImage, canEditScores]);
+
+  const handleApplyPlayerName = useCallback(
+    async (name: string) => {
+      if (!onUpdateGame || !activeImage || !activeGame) {
+        return;
+      }
+      setCorrectionError(null);
+      const trimmedName = name.trim() || 'Player';
+      const updatedGame: Game = { ...activeGame, playerName: trimmedName, isEstimate: false };
+      try {
+        setIsSavingCorrection(true);
+        await onUpdateGame(activeImage.id, activeGame.gameIndex, updatedGame);
+        setIsRenamingPlayer(false);
+      } catch (error) {
+        setCorrectionError(
+          error instanceof Error ? error.message : 'Failed to save your correction'
+        );
+      } finally {
+        setIsSavingCorrection(false);
+      }
+    },
+    [activeGame, activeImage, onUpdateGame]
+  );
+
+  const handleClosePlayerNameModal = useCallback(() => {
+    if (isSavingCorrection) {
+      return;
+    }
+    setIsRenamingPlayer(false);
+    setPendingPlayerName('');
   }, [isSavingCorrection]);
 
   const handleApplyFrameCorrection = useCallback(
@@ -390,7 +489,8 @@ export function StoredImagesPanel({
       setCorrectionError(null);
       try {
         setIsSavingCorrection(true);
-        await onUpdateGame(activeImage.id, activeGame.gameIndex, updatedGame);
+        const normalizedGame: Game = { ...updatedGame, isEstimate: false };
+        await onUpdateGame(activeImage.id, activeGame.gameIndex, normalizedGame);
         setEditingFrameIndex(null);
       } catch (error) {
         setCorrectionError(
@@ -511,13 +611,16 @@ export function StoredImagesPanel({
                 loading="lazy"
               />
             </div>
-            <div style={{ ...metaHintStyles, marginTop: '8px' }}>
-              Press and hold image for details
-            </div>
             {isProcessingActiveImage && (
               <div style={processingBannerStyles}>
                 We queued a fresh AI estimate for this scorecard. This view updates automatically
                 when the results are ready.
+              </div>
+            )}
+            {estimateErrorMessage && !isProcessingActiveImage && (
+              <div style={estimateErrorStyles}>
+                <strong style={{ display: 'block', marginBottom: '4px' }}>AI estimate failed.</strong>
+                <span>{estimateErrorMessage}</span>
               </div>
             )}
             {images.length > 1 && (
@@ -544,7 +647,12 @@ export function StoredImagesPanel({
               </div>
             )}
             {hasScoreEstimates && activeGame ? (
-              <div style={scorecardSectionStyles}>
+              <div
+                style={{
+                  ...scorecardSectionStyles,
+                  ...(hasCorrections ? correctionHighlightStyles : {})
+                }}
+              >
                 <div style={scorecardWrapperStyles}>
                   <div
                     style={scorecardInnerStyles}
@@ -559,13 +667,30 @@ export function StoredImagesPanel({
                       key={`${activeImage.id}-${boundedGameIndex}`}
                       game={activeGame}
                       onFrameSelect={handleFrameSelect}
-                      disableEditing={!canEditScores || editingFrameIndex !== null}
+                      onPlayerNameClick={handlePlayerNameClick}
+                      disableEditing={scorecardLocked}
                       compact
                     />
                   </div>
                 </div>
-                <div style={{ ...metaStyles, marginTop: '8px', textAlign: 'center' as const }}>
-                  {activeGame.isEstimate ? 'Showing AI estimate' : 'Showing your corrections'}
+                <div style={statusPillRowStyles}>
+                  <div
+                    style={{
+                      ...statusPillBaseStyles,
+                      ...(hasCorrections ? correctionStatusStyles : estimateStatusStyles)
+                    }}
+                  >
+                    <span
+                      aria-hidden="true"
+                      style={{
+                        ...statusDotStyles,
+                        backgroundColor: hasCorrections ? '#16a34a' : '#2563eb'
+                      }}
+                    />
+                    {hasCorrections
+                      ? 'Corrections saved for this game'
+                      : 'AI estimate — tap a frame to correct'}
+                  </div>
                 </div>
                 {gamesForImage.length > 1 && (
                   <div style={gameControlsStyles}>
@@ -625,7 +750,9 @@ export function StoredImagesPanel({
                 <p style={{ margin: '0 0 12px' }}>
                   {isProcessingActiveImage
                     ? 'We queued this image for an AI score estimate. Sit tight—we will refresh as soon as the job finishes.'
-                    : 'No score estimate yet. Submit this image to generate scores.'}
+                    : estimateErrorMessage
+                      ? 'We could not generate a score estimate for this upload. You can try again below.'
+                      : 'No score estimate yet. Submit this image to generate scores.'}
                 </p>
                 {onGenerateScores && (
                   <button
@@ -668,6 +795,14 @@ export function StoredImagesPanel({
           onApply={handleApplyFrameCorrection}
           onClose={handleCloseFrameModal}
           isSaving={isSavingCorrection}
+        />
+      )}
+
+      {isRenamingPlayer && activeGame && (
+        <PlayerNameModal
+          initialName={pendingPlayerName || activeGame.playerName}
+          onSave={handleApplyPlayerName}
+          onCancel={handleClosePlayerNameModal}
         />
       )}
 

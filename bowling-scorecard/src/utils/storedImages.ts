@@ -84,7 +84,11 @@ export const normalizeStoredImage = (
         : null,
     createdAt,
     games: normalizedGames,
-    isProcessingEstimate: Boolean(image.isProcessingEstimate)
+    isProcessingEstimate: Boolean(image.isProcessingEstimate),
+    lastEstimateError:
+      typeof image.lastEstimateError === 'string' && image.lastEstimateError.length > 0
+        ? image.lastEstimateError
+        : null
   };
 };
 

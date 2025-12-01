@@ -18,6 +18,7 @@ export interface Game {
   tenthFrame: TenthFrame;
   totalScore: number;
   playerName: string;
+  isEstimate?: boolean;
 }
 
 export type FrameDisplay = {

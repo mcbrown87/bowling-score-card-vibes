@@ -20,14 +20,14 @@ export const storedImageInclude = {
     }
   },
   llmRequests: {
-    where: {
-      status: {
-        in: ['queued', 'pending']
-      }
-    },
+    orderBy: { createdAt: 'desc' as const },
+    take: 5,
     select: {
       id: true,
-      status: true
+      status: true,
+      errorMessage: true,
+      createdAt: true,
+      updatedAt: true
     }
   }
 } satisfies Prisma.StoredImageInclude;
@@ -52,7 +52,15 @@ const selectLatestScores = (
 export const serializeStoredImage = (image: StoredImageWithRelations) => {
   const latestScores = selectLatestScores(image.scores);
   const createdAt = image.createdAt.toISOString();
-  const processing = Boolean(image.llmRequests && image.llmRequests.length > 0);
+  const latestRequest = image.llmRequests[0];
+  const activeRequest = image.llmRequests.find((req) =>
+    ['queued', 'pending'].includes(req.status)
+  );
+  const lastEstimateError =
+    latestRequest && latestRequest.status === 'failed' && latestRequest.errorMessage
+      ? latestRequest.errorMessage
+      : null;
+  const processing = Boolean(activeRequest);
 
   return {
     id: image.id,
@@ -72,6 +80,7 @@ export const serializeStoredImage = (image: StoredImageWithRelations) => {
       frames: score.frames,
       tenthFrame: score.tenthFrame
     })),
-    isProcessingEstimate: processing
+    isProcessingEstimate: processing,
+    lastEstimateError
   };
 };
