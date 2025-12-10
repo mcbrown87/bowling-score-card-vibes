@@ -19,17 +19,6 @@ type ErrorDiagnostics = {
   occurredAt: string;
 };
 
-const loadingContainerStyles: CSSProperties = {
-  minHeight: '100vh',
-  display: 'flex',
-  alignItems: 'center',
-  justifyContent: 'center'
-};
-
-const loadingTextStyles: CSSProperties = {
-  fontSize: '20px'
-};
-
 const appContainerStyles: CSSProperties = {
   minHeight: '100vh',
   paddingTop: '32px',
@@ -536,103 +525,6 @@ function BowlingApp() {
     }
   };
 
-  const loadTestImage = useCallback(async () => {
-    try {
-      setIsProcessing(true);
-      setExtractionError(null);
-       setErrorDiagnostics(null);
-      const response = await fetch('/test-scorecard.jpg');
-      const blob = await response.blob();
-      
-      // Convert to base64 data URL for OpenAI API
-      const reader = new FileReader();
-      reader.onload = async (e) => {
-        const dataUrl = e.target?.result as string;
-        
-        setUploadedImage(dataUrl);
-        setPreviewPlaceholder(null);
-        setExtractionError(null);
-        setErrorDiagnostics(null);
-        
-        try {
-          // Process the image with OpenAI
-          const result = await extractScoresFromImage(dataUrl);
-          
-          if (result.success && result.games && result.games.length > 0) {
-            setGames(tagGamesAsEstimates(result.games));
-            setCurrentGameIndex(0);
-            const storedImagePayload =
-              result.storedImage && result.games
-                ? {
-                    ...result.storedImage,
-                    games: result.games.map((game, index) => ({
-                      ...game,
-                      gameIndex: index,
-                      isEstimate: true
-                    }))
-                  }
-                : result.storedImage;
-            rememberStoredImage(storedImagePayload);
-            setActiveStoredImageId(result.storedImage?.id ?? null);
-            if (result.normalizedImageDataUrl) {
-              setUploadedImage(result.normalizedImageDataUrl);
-              setPreviewPlaceholder(null);
-            }
-          } else if (result.success && result.queued && result.storedImage) {
-            setGames([]);
-            setCurrentGameIndex(0);
-            rememberStoredImage(result.storedImage);
-            setActiveStoredImageId(result.storedImage.id);
-            setPreviewPlaceholder('We queued this image for AI scoring. Check Stored Images for progress.');
-            setExtractionError(null);
-            setErrorDiagnostics(null);
-          } else {
-            const message = result.error || 'Failed to extract scores from test image';
-            reportExtractionFailure(message, {
-              endpoint: result.endpoint,
-              status: result.status,
-              context: { source: 'loadTestImage' }
-            });
-            console.log('Raw OpenAI response:', result.rawText);
-          }
-        } catch (error) {
-          const message = `Processing failed: ${error instanceof Error ? error.message : 'Unknown error'}`;
-          reportExtractionFailure(message, {
-            context: { source: 'loadTestImage' },
-            stack: error instanceof Error ? error.stack : undefined
-          });
-        } finally {
-          setIsProcessing(false);
-        }
-      };
-      
-      reader.readAsDataURL(blob);
-      
-    } catch (error) {
-      const message = `Failed to load test image: ${error instanceof Error ? error.message : 'Unknown error'}`;
-      reportExtractionFailure(message, {
-        context: { source: 'loadTestImage.fetch' },
-        stack: error instanceof Error ? error.stack : undefined
-      });
-      setIsProcessing(false);
-    }
-  }, [rememberStoredImage, reportExtractionFailure, tagGamesAsEstimates]);
-
-  const shouldAutoLoadTestImage = process.env.NEXT_PUBLIC_ENABLE_AUTO_TEST_IMAGE === 'true';
-
-  useEffect(() => {
-    if (shouldAutoLoadTestImage) {
-      loadTestImage();
-    } else {
-      setGames([]);
-      setCurrentGameIndex(0);
-      setUploadedImage(null);
-      setExtractionError(null);
-      setErrorDiagnostics(null);
-      setIsProcessing(false);
-    }
-  }, [loadTestImage, shouldAutoLoadTestImage]);
-
   useEffect(() => {
     if (games.length === 0) {
       setCurrentGameIndex(0);
@@ -856,17 +748,6 @@ function BowlingApp() {
     </div>
   );
 
-  const showInitialLoader =
-    shouldAutoLoadTestImage && isProcessing && !uploadedImage && !extractionError;
-
-  if (showInitialLoader) {
-    return (
-      <div style={loadingContainerStyles}>
-        <div style={loadingTextStyles}>Loading test image...</div>
-      </div>
-    );
-  }
-
   return (
     <div style={appContainerStyles}>
       <div style={heroStyles}>
@@ -903,6 +784,7 @@ function BowlingApp() {
           onChange={handleImageUpload}
           style={responsiveFileInputStyles}
           disabled={controlsLocked}
+          aria-label="Upload scorecard"
         />
         <button
           type="button"
@@ -931,24 +813,6 @@ function BowlingApp() {
           style={{ display: 'none' }}
           onChange={handleImageUpload}
         />
-        <button
-          type="button"
-          style={{
-            ...buttonStyles,
-            width: isMobile ? '100%' : 'auto',
-            opacity: controlsLocked ? 0.6 : 1,
-            cursor: controlsLocked ? 'not-allowed' : 'pointer'
-          }}
-          onClick={() => {
-            if (controlsLocked) {
-              return;
-            }
-            loadTestImage();
-          }}
-          disabled={controlsLocked}
-        >
-          Use Sample Image
-        </button>
       </div>
 
       {displayedGame ? (

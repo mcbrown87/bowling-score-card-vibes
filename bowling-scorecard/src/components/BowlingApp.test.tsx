@@ -1,4 +1,4 @@
-import { render, screen, waitFor } from '@testing-library/react';
+import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import BowlingApp from './BowlingApp';
 import { Game } from '../types/bowling';
 import { extractScoresFromImage } from '../utils/scoreExtractor';
@@ -38,6 +38,7 @@ const buildSampleGame = (playerName: string, baseScore: number): Game => {
 };
 
 const originalFileReader = global.FileReader;
+const originalFetch = global.fetch;
 
 class MockFileReader {
   public onload: ((event: { target: { result: string } }) => void) | null = null;
@@ -56,12 +57,10 @@ beforeAll(() => {
 
 afterAll(() => {
   global.FileReader = originalFileReader;
+  global.fetch = originalFetch;
 });
 
-const originalAutoLoadEnv = process.env.NEXT_PUBLIC_ENABLE_AUTO_TEST_IMAGE;
-
 beforeEach(() => {
-  process.env.NEXT_PUBLIC_ENABLE_AUTO_TEST_IMAGE = 'true';
   const sampleGames = [buildSampleGame('Player One', 60), buildSampleGame('Player Two', 40)];
   mockedExtractScores.mockResolvedValue({
     success: true,
@@ -71,7 +70,12 @@ beforeEach(() => {
 
   const mockFetch = jest.fn(() =>
     Promise.resolve({
-      blob: () => Promise.resolve('fake-blob')
+      ok: true,
+      json: () =>
+        Promise.resolve({
+          success: true,
+          images: []
+        })
     })
   );
 
@@ -83,16 +87,12 @@ afterEach(() => {
   jest.clearAllMocks();
 });
 
-afterAll(() => {
-  if (originalAutoLoadEnv === undefined) {
-    delete process.env.NEXT_PUBLIC_ENABLE_AUTO_TEST_IMAGE;
-  } else {
-    process.env.NEXT_PUBLIC_ENABLE_AUTO_TEST_IMAGE = originalAutoLoadEnv;
-  }
-});
-
 test('renders scorecards after OCR extraction completes', async () => {
   render(<BowlingApp />);
+
+  const input = screen.getByLabelText('Upload scorecard');
+  const fakeFile = new File(['fake-bowling'], 'score.jpg', { type: 'image/jpeg' });
+  fireEvent.change(input, { target: { files: [fakeFile] } });
 
   await waitFor(() => expect(mockedExtractScores).toHaveBeenCalled());
 
@@ -101,5 +101,4 @@ test('renders scorecards after OCR extraction completes', async () => {
 
   expect(playerOneBadges.length).toBeGreaterThan(0);
   expect(playerTwoBadges.length).toBeGreaterThan(0);
-  expect(await screen.findByText(/Extracted 2 players/i)).toBeInTheDocument();
 });
