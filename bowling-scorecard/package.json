@@ -30,7 +30,6 @@
     "lint": "next lint",
     "test": "jest",
     "queue:worker": "tsx src/server/workers/scoreEstimator.ts",
-    "dev:full": "concurrently \"npm run dev --prefix ../backend\" \"next dev --hostname 127.0.0.1 --port 3000\"",
     "prisma:generate": "prisma generate",
     "prisma:migrate": "prisma migrate dev",
     "prisma:deploy": "prisma migrate deploy",

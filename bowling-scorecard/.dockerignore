@@ -1,4 +1,15 @@
 node_modules
 build
 coverage
+.next
+.swc
+.turbo
+out
+dist
+.eslintcache
+.tsbuildinfo
+.env.*
+Dockerfile.fly
+TestImages
+docs
 .env

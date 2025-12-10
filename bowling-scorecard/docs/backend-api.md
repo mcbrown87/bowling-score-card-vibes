@@ -1,100 +1,39 @@
-# Bowling Scorecard Backend API
+# Bowling Scorecard API
 
 ## Overview
 
-The backend service lives in the `backend/` directory. It exposes a single JSON endpoint that proxies OCR requests to supported LLM vendors (Anthropic Claude or OpenAI) and returns normalized bowling score data.
+The API now lives inside the Next.js app under `src/app/api`. It stores uploaded scorecards, queues LLM extraction jobs, and normalizes results into the shared `Game` shape used by the UI.
 
 ### Features
 
-- Accepts base64 data URLs for scorecard images (works with files captured in the browser).
-- Normalizes LLM responses into the `Game` shape used by the React front end.
-- Supports Anthropic and OpenAI; choose providers per-request or via environment variables.
-- Optional inclusion of the raw LLM text response for debugging.
+- Accepts base64 data URLs for scorecard images and persists them to S3-compatible storage.
+- Queues extraction requests through BullMQ/Redis so the web request can return quickly.
+- Supports Anthropic and OpenAI via `src/server/providers`, with a stub provider for local development.
+- Normalizes LLM output into the `Game` shape and saves estimates in Postgres via Prisma.
 
 ## Environment
 
-Copy `.env.example` to `.env` and fill in the API keys you intend to use:
+Copy `.env.example` to `.env.local` (or `.env`) and set:
 
-```bash
-cp backend/.env.example backend/.env
-```
-
-Key variables:
-
-- `ANTHROPIC_API_KEY` / `ANTHROPIC_MODEL`
+- `DATABASE_URL`
+- `REDIS_URL` and optional `SCORE_ESTIMATE_QUEUE`
+- `STORAGE_ENDPOINT`, `STORAGE_BUCKET`, `STORAGE_ACCESS_KEY`, `STORAGE_SECRET_KEY`, `STORAGE_REGION`, `STORAGE_USE_SSL`
 - `OPENAI_API_KEY` / `OPENAI_MODEL`
-- `DEFAULT_PROVIDER` (`anthropic` or `openai`)
-- `PORT` (defaults to `4000`)
+- `ANTHROPIC_API_KEY` / `ANTHROPIC_MODEL`
+- `DEFAULT_PROVIDER` (`openai`, `anthropic`, or `stub`)
+- `INCLUDE_LLM_RAW` (persist raw text responses when true)
+- `NEXTAUTH_SECRET`, `AUTH_TRUST_HOST=true`, and `NEXTAUTH_URL`
 
-## Scripts
+## Running locally
 
-```bash
-cd backend
-npm install          # already executed, but re-run after pulling new deps
-npm run dev          # start with nodemon + ts-node
-npm run build        # emit to dist/
-npm start            # run the compiled build (after npm run build)
-```
+1. Start dependencies with Docker: `docker compose up db redis minio minio-setup` (or `docker compose up` for everything).
+2. Run the Next.js app + API: `npm run dev`.
+3. Start the background worker that processes queued jobs: `npm run queue:worker` (requires Redis).
 
-## REST API
+## Key routes
 
-### `POST /api/extract-scores`
-
-Request body:
-
-```json
-{
-  "imageDataUrl": "data:image/jpeg;base64,...",
-  "provider": "anthropic",
-  "prompt": "optional override prompt"
-}
-```
-
-Response (success):
-
-```json
-{
-  "success": true,
-  "provider": "anthropic",
-  "games": [
-    {
-      "playerName": "Player 1",
-      "frames": [
-        {
-          "rolls": [{"pins":10}],
-          "isStrike": true,
-          "isSpare": false,
-          "score": 30
-        }
-      ],
-      "tenthFrame": {
-        "rolls": [{"pins":10},{"pins":10},{"pins":10}],
-        "isStrike": true,
-        "isSpare": false,
-        "score": 300
-      },
-      "totalScore": 300
-    }
-  ],
-  "rawResponse": "..." // only when INCLUDE_LLM_RAW=true
-}
-```
-
-Response (failure):
-
-```json
-{
-  "success": false,
-  "error": "Message describing the validation or provider error"
-}
-```
-
-### `GET /health`
-
-Returns service status and the currently configured default provider.
-
-## Front-End Integration
-
-1. Start the backend (`npm run dev`).
-2. Update the React app to call `POST http://localhost:4000/api/extract-scores` instead of invoking the SDKs directly (coming next).
-3. Remove `dangerouslyAllowBrowser` flags once the front end uses the new proxy.
+- `POST /api/extract-scores` — accepts `{ imageDataUrl, fileName? }`, stores the image, queues LLM extraction, and returns the stored image payload plus queue status.
+- `POST /api/stored-images/[id]/rescore` — re-enqueue extraction for an existing stored image.
+- `GET /api/stored-images` — list stored images for the signed-in user.
+- `POST /api/client-logs` — lightweight client logging for diagnostics.
+- `GET /api/health` — service status and the configured default provider.
