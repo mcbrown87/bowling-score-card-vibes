@@ -65,6 +65,7 @@ export function AppHeader({ userLabel }: AppHeaderProps) {
 
   const isHome = pathname === '/';
   const isLibrary = pathname?.startsWith('/library');
+  const isPlayers = pathname?.startsWith('/players');
 
   return (
     <header style={headerStyles}>
@@ -110,6 +111,9 @@ export function AppHeader({ userLabel }: AppHeaderProps) {
           </Link>
           <Link href="/library" style={isLibrary ? activeLinkStyles : linkStyles}>
             Library
+          </Link>
+          <Link href="/players" style={isPlayers ? activeLinkStyles : linkStyles}>
+            Players
           </Link>
         </div>
       )}
