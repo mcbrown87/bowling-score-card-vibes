@@ -19,6 +19,8 @@ interface StoredImagesPanelProps {
   clearingImageId?: string | null;
   deletingImageId?: string | null;
   onUpdateGame?: (imageId: string, gameIndex: number, updatedGame: Game) => Promise<void> | void;
+  initialImageId?: string | null;
+  initialGameIndex?: number | null;
 }
 
 const sectionStyles: CSSProperties = {
@@ -346,7 +348,9 @@ export function StoredImagesPanel({
   generatingImageId,
   clearingImageId,
   deletingImageId,
-  onUpdateGame
+  onUpdateGame,
+  initialImageId = null,
+  initialGameIndex = null
 }: StoredImagesPanelProps) {
   const [activeIndex, setActiveIndex] = useState(0);
   const [activeGameIndex, setActiveGameIndex] = useState(0);
@@ -359,7 +363,20 @@ export function StoredImagesPanel({
   const [clearConfirmOpen, setClearConfirmOpen] = useState(false);
   const pressTimerRef = useRef<NodeJS.Timeout | null>(null);
   const scorecardPressTimerRef = useRef<NodeJS.Timeout | null>(null);
+  const initialSelectionAppliedRef = useRef(false);
+  const skipNextGameResetRef = useRef(false);
   const hasImages = images.length > 0;
+  const resetInitialSelectionRef = useRef({ imageId: initialImageId, gameIndex: initialGameIndex });
+
+  useEffect(() => {
+    if (
+      resetInitialSelectionRef.current.imageId !== initialImageId ||
+      resetInitialSelectionRef.current.gameIndex !== initialGameIndex
+    ) {
+      initialSelectionAppliedRef.current = false;
+      resetInitialSelectionRef.current = { imageId: initialImageId, gameIndex: initialGameIndex };
+    }
+  }, [initialGameIndex, initialImageId]);
 
   const boundedImageIndex = useMemo(
     () => (hasImages ? Math.min(activeIndex, images.length - 1) : 0),
@@ -383,8 +400,48 @@ export function StoredImagesPanel({
   }, [images.length]);
 
   useEffect(() => {
+    if (skipNextGameResetRef.current) {
+      skipNextGameResetRef.current = false;
+      return;
+    }
     setActiveGameIndex(0);
   }, [activeImage?.id]);
+
+  useEffect(() => {
+    if (initialSelectionAppliedRef.current) {
+      return;
+    }
+    if (!initialImageId) {
+      initialSelectionAppliedRef.current = true;
+      return;
+    }
+    if (!hasImages) {
+      if (!isLoading) {
+        initialSelectionAppliedRef.current = true;
+      }
+      return;
+    }
+    const imageIndex = images.findIndex((image) => image.id === initialImageId);
+    if (imageIndex === -1) {
+      if (!isLoading) {
+        initialSelectionAppliedRef.current = true;
+      }
+      return;
+    }
+
+    skipNextGameResetRef.current = true;
+    setActiveIndex(imageIndex);
+
+    const games = images[imageIndex]?.games ?? [];
+    if (initialGameIndex !== null) {
+      const gamePosition = games.findIndex((game) => game.gameIndex === initialGameIndex);
+      if (gamePosition !== -1) {
+        setActiveGameIndex(gamePosition);
+      }
+    }
+
+    initialSelectionAppliedRef.current = true;
+  }, [hasImages, images, initialGameIndex, initialImageId, isLoading]);
 
   useEffect(() => {
     setEditingFrameIndex(null);

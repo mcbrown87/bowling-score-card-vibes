@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import type { CSSProperties } from 'react';
+import { useRouter } from 'next/navigation';
 import type { StoredGameSummary, StoredImageSummary } from '@/types/stored-image';
 import { loadStoredImages } from '@/utils/storedImages';
 import { Scorecard } from './Scorecard';
@@ -356,6 +357,7 @@ export function PlayerGamesBrowser() {
   const [selectedPlayer, setSelectedPlayer] = useState<string | null>(null);
   const [selectedGameKey, setSelectedGameKey] = useState<string | null>(null);
   const [isStackedLayout, setIsStackedLayout] = useState(false);
+  const router = useRouter();
 
   useEffect(() => {
     const updateLayout = () => {
@@ -505,9 +507,19 @@ export function PlayerGamesBrowser() {
         label:
           entry.image.originalFileName ??
           `Game ${index + 1} on ${formatShortDate(entry.image.createdAt)}`,
-        isEstimate: Boolean(entry.game.isEstimate)
-      }));
+      isEstimate: Boolean(entry.game.isEstimate)
+    }));
   }, [selectedPlayerGroup]);
+
+  const handleOpenInLibrary = useCallback(() => {
+    if (!selectedGame) {
+      return;
+    }
+    const params = new URLSearchParams();
+    params.set('imageId', selectedGame.image.id);
+    params.set('gameIndex', String(selectedGame.game.gameIndex));
+    router.push(`/library?${params.toString()}`);
+  }, [router, selectedGame]);
 
   const stackedLayout = isStackedLayout
     ? {
@@ -682,9 +694,24 @@ export function PlayerGamesBrowser() {
                         {formatDate(selectedGame.image.createdAt)}
                       </div>
                     </div>
-                    <div style={{ marginTop: '8px' }}>
+                    <div
+                      style={{ marginTop: '8px', cursor: 'pointer' }}
+                      role="button"
+                      tabIndex={0}
+                      onClick={handleOpenInLibrary}
+                      onKeyDown={(event) => {
+                        if (event.key === 'Enter' || event.key === ' ') {
+                          event.preventDefault();
+                          handleOpenInLibrary();
+                        }
+                      }}
+                      aria-label="Open this game in the library view"
+                    >
                       <Scorecard game={selectedGame.game} disableEditing compact />
                     </div>
+                    <p style={{ ...hintTextStyles, marginTop: '6px' }}>
+                      Click the scorecard to jump to the library with this game selected.
+                    </p>
                   </div>
                 ) : (
                   <p style={{ ...hintTextStyles, marginTop: '8px' }}>

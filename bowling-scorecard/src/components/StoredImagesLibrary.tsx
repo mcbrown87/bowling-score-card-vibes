@@ -10,7 +10,12 @@ import {
   saveStoredGameCorrection
 } from '@/utils/storedImages';
 
-export function StoredImagesLibrary() {
+type StoredImagesLibraryProps = {
+  initialImageId?: string | null;
+  initialGameIndex?: number | null;
+};
+
+export function StoredImagesLibrary({ initialImageId, initialGameIndex }: StoredImagesLibraryProps) {
   const [images, setImages] = useState<StoredImageSummary[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -209,6 +214,8 @@ export function StoredImagesLibrary() {
       clearingImageId={clearingImageId}
       deletingImageId={deletingImageId}
       onUpdateGame={handleUpdateGame}
+      initialImageId={initialImageId ?? null}
+      initialGameIndex={initialGameIndex ?? null}
     />
   );
 }
