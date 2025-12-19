@@ -396,8 +396,11 @@ export function StoredImagesPanel({
   const hasCorrections = activeGame?.isEstimate === false;
 
   useEffect(() => {
+    if (!initialSelectionAppliedRef.current && initialImageId) {
+      return;
+    }
     setActiveIndex(0);
-  }, [images.length]);
+  }, [images.length, initialImageId]);
 
   useEffect(() => {
     if (skipNextGameResetRef.current) {
@@ -411,21 +414,19 @@ export function StoredImagesPanel({
     if (initialSelectionAppliedRef.current) {
       return;
     }
+    if (isLoading) {
+      return;
+    }
     if (!initialImageId) {
       initialSelectionAppliedRef.current = true;
       return;
     }
     if (!hasImages) {
-      if (!isLoading) {
-        initialSelectionAppliedRef.current = true;
-      }
       return;
     }
     const imageIndex = images.findIndex((image) => image.id === initialImageId);
     if (imageIndex === -1) {
-      if (!isLoading) {
-        initialSelectionAppliedRef.current = true;
-      }
+      initialSelectionAppliedRef.current = true;
       return;
     }
 
