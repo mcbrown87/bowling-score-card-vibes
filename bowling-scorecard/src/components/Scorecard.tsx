@@ -18,10 +18,10 @@ const containerStyles: React.CSSProperties = {
 };
 
 const cardStyles: React.CSSProperties = {
-  backgroundColor: '#f8fafc',
+  background: 'linear-gradient(180deg, #0b1738 0%, #08102a 100%)',
   borderRadius: '16px',
-  border: '1px solid #e2e8f0',
-  boxShadow: '0 12px 24px rgba(15, 23, 42, 0.08)',
+  border: '1px solid #334155',
+  boxShadow: '0 16px 36px rgba(2, 6, 23, 0.4)',
   padding: '24px'
 };
 
@@ -33,19 +33,19 @@ const headerStyles: React.CSSProperties = {
 const titleStyles: React.CSSProperties = {
   fontSize: '28px',
   fontWeight: 'bold',
-  color: '#333',
+  color: '#f8fafc',
   marginBottom: '8px'
 };
 
 const playerNameStyles: React.CSSProperties = {
   fontSize: '18px',
-  color: '#666'
+  color: '#cbd5e1'
 };
 
 const playerNameButtonStyles: React.CSSProperties = {
   background: 'none',
   border: 'none',
-  color: '#2563eb',
+  color: '#7dd3fc',
   fontSize: '18px',
   fontWeight: 600,
   cursor: 'pointer',
@@ -55,7 +55,7 @@ const playerNameButtonStyles: React.CSSProperties = {
 const baseFramesGridStyles: React.CSSProperties = {
   display: 'grid',
   gridTemplateColumns: 'repeat(10, 1fr)',
-  gap: '6px',
+  gap: '8px',
   marginBottom: '16px'
 };
 
@@ -68,21 +68,26 @@ const framesScrollContainerStyles: React.CSSProperties = {
 
 const frameWrapperBaseStyles: React.CSSProperties = {
   position: 'relative',
-  borderRadius: '10px',
-  padding: '3px',
-  backgroundColor: '#fff'
+  borderRadius: '12px',
+  padding: '2px',
+  backgroundColor: 'rgba(15, 23, 42, 0.45)'
 };
 
 const frameButtonStyles: React.CSSProperties = {
   background: 'none',
-  border: 'none',
+  borderWidth: '1px',
+  borderStyle: 'solid',
+  borderColor: 'transparent',
+  borderRadius: '12px',
   padding: 0,
-  cursor: 'pointer'
+  cursor: 'pointer',
+  transition: 'transform 120ms ease, box-shadow 120ms ease, border-color 120ms ease'
 };
 
 const frameButtonDisabledStyles: React.CSSProperties = {
   ...frameButtonStyles,
-  cursor: 'default'
+  cursor: 'default',
+  opacity: 0.64
 };
 
 const playerFooterStyles: React.CSSProperties = {
@@ -90,7 +95,7 @@ const playerFooterStyles: React.CSSProperties = {
   fontSize: '12px',
   textTransform: 'uppercase',
   letterSpacing: '0.08em',
-  color: '#475569',
+  color: '#93c5fd',
   textAlign: 'center'
 };
 
@@ -113,10 +118,10 @@ export const Scorecard: React.FC<ScorecardProps> = ({
   const gridStyles = useMemo<React.CSSProperties>(
     () => ({
       ...baseFramesGridStyles,
-      gap: compact ? '8px' : baseFramesGridStyles.gap,
+      gap: compact ? '10px' : baseFramesGridStyles.gap,
       marginBottom: compact ? '12px' : baseFramesGridStyles.marginBottom,
       gridTemplateColumns: compact
-        ? 'repeat(5, minmax(60px, 1fr))'
+        ? 'repeat(5, minmax(70px, 1fr))'
         : baseFramesGridStyles.gridTemplateColumns
     }),
     [compact]
@@ -146,7 +151,9 @@ export const Scorecard: React.FC<ScorecardProps> = ({
         }}
         style={{
           ...buttonStyles,
-          opacity: disableEditing ? 0.7 : 1
+          opacity: disableEditing ? 0.7 : 1,
+          boxShadow: disableEditing ? 'none' : '0 8px 20px rgba(2, 6, 23, 0.38)',
+          borderColor: disableEditing ? 'transparent' : '#60a5fa'
         }}
         aria-label={`Edit frame ${frameNumber}`}
       >
@@ -169,7 +176,7 @@ export const Scorecard: React.FC<ScorecardProps> = ({
       ...cardStyles,
       padding: compact ? '12px' : cardStyles.padding,
       borderRadius: compact ? '12px' : cardStyles.borderRadius,
-      boxShadow: compact ? '0 6px 16px rgba(15, 23, 42, 0.05)' : cardStyles.boxShadow
+      boxShadow: compact ? '0 10px 24px rgba(2, 6, 23, 0.35)' : cardStyles.boxShadow
     }),
     [compact]
   );
@@ -226,7 +233,7 @@ export const Scorecard: React.FC<ScorecardProps> = ({
               style={{
                 display: 'grid',
                 gridTemplateColumns: 'repeat(5, minmax(0, 1fr))',
-                gap: '4px'
+                gap: '8px'
               }}
             >
               {game.frames.slice(0, 9).map((frame, idx) => {

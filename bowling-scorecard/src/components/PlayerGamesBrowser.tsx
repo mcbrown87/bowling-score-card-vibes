@@ -38,7 +38,7 @@ const titleStyles: CSSProperties = {
   margin: 0,
   fontSize: '24px',
   fontWeight: 800,
-  color: '#0f172a'
+  color: '#f8fafc'
 };
 
 const summaryPillStyles: CSSProperties = {
@@ -47,8 +47,8 @@ const summaryPillStyles: CSSProperties = {
   gap: '6px',
   padding: '8px 12px',
   borderRadius: '999px',
-  backgroundColor: '#e0f2fe',
-  color: '#075985',
+  backgroundColor: '#0f224a',
+  color: '#dbeafe',
   fontWeight: 700,
   fontSize: '13px'
 };
@@ -61,10 +61,10 @@ const layoutStyles: CSSProperties = {
 };
 
 const panelStyles: CSSProperties = {
-  backgroundColor: '#ffffff',
+  background: 'linear-gradient(180deg, #0b1738 0%, #08102a 100%)',
   borderRadius: '14px',
-  border: '1px solid #e2e8f0',
-  boxShadow: '0 12px 30px rgba(15, 23, 42, 0.08)',
+  border: '1px solid #334155',
+  boxShadow: '0 12px 30px rgba(2, 6, 23, 0.4)',
   padding: '16px'
 };
 
@@ -72,7 +72,7 @@ const sectionTitleStyles: CSSProperties = {
   margin: '0 0 12px',
   fontSize: '16px',
   fontWeight: 800,
-  color: '#0f172a'
+  color: '#f8fafc'
 };
 
 const playerListStyles: CSSProperties = {
@@ -88,16 +88,17 @@ const playerButtonStyles: CSSProperties = {
   alignItems: 'center',
   padding: '12px',
   borderRadius: '10px',
-  border: '1px solid #e2e8f0',
-  backgroundColor: '#f8fafc',
+  border: '1px solid #475569',
+  backgroundColor: '#0f172a',
+  color: '#e2e8f0',
   cursor: 'pointer'
 };
 
 const playerButtonActiveStyles: CSSProperties = {
   ...playerButtonStyles,
-  border: '2px solid #2563eb',
-  backgroundColor: '#e0f2fe',
-  boxShadow: '0 10px 18px rgba(37, 99, 235, 0.1)'
+  border: '2px solid #60a5fa',
+  backgroundColor: '#0f224a',
+  boxShadow: '0 10px 18px rgba(14, 116, 144, 0.2)'
 };
 
 const playerMetaStyles: CSSProperties = {
@@ -110,8 +111,8 @@ const playerMetaStyles: CSSProperties = {
 const badgeStyles: CSSProperties = {
   padding: '4px 8px',
   borderRadius: '999px',
-  backgroundColor: '#e5e7eb',
-  color: '#0f172a',
+  backgroundColor: '#1e293b',
+  color: '#e2e8f0',
   fontSize: '12px',
   fontWeight: 700
 };
@@ -127,7 +128,7 @@ const selectedGameMetaStyles: CSSProperties = {
 
 const hintTextStyles: CSSProperties = {
   fontSize: '12px',
-  color: '#475569'
+  color: '#93c5fd'
 };
 
 const errorBoxStyles: CSSProperties = {
@@ -146,7 +147,7 @@ const actionButtonStyles: CSSProperties = {
   padding: '8px 12px',
   borderRadius: '8px',
   border: 'none',
-  backgroundColor: '#2563eb',
+  backgroundColor: '#1d4ed8',
   color: '#ffffff',
   cursor: 'pointer',
   fontWeight: 700
@@ -155,17 +156,17 @@ const actionButtonStyles: CSSProperties = {
 const emptyStateStyles: CSSProperties = {
   padding: '24px',
   borderRadius: '12px',
-  border: '1px dashed #cbd5f5',
+  border: '1px dashed #475569',
   textAlign: 'center' as const,
-  color: '#475569'
+  color: '#93c5fd'
 };
 
 const chartCardStyles: CSSProperties = {
   borderRadius: '12px',
-  border: '1px solid #e2e8f0',
-  backgroundColor: '#f8fafc',
+  border: '1px solid #334155',
+  backgroundColor: '#0f172a',
   padding: '16px',
-  boxShadow: 'inset 0 1px 0 rgba(255, 255, 255, 0.6)'
+  boxShadow: 'inset 0 1px 0 rgba(148, 163, 184, 0.2)'
 };
 
 const chartLegendStyles: CSSProperties = {
@@ -174,7 +175,7 @@ const chartLegendStyles: CSSProperties = {
   gap: '8px',
   flexWrap: 'wrap',
   fontSize: '12px',
-  color: '#475569',
+  color: '#cbd5e1',
   marginBottom: '10px'
 };
 
@@ -186,7 +187,7 @@ const legendSwatchStyles: CSSProperties = {
 
 const chartHintStyles: CSSProperties = {
   fontSize: '12px',
-  color: '#475569',
+  color: '#93c5fd',
   marginTop: '6px'
 };
 
@@ -194,11 +195,11 @@ const dropdownStyles: CSSProperties = {
   width: '100%',
   padding: '10px 12px',
   borderRadius: '10px',
-  border: '1px solid #cbd5f5',
-  backgroundColor: '#fff',
+  border: '1px solid #475569',
+  backgroundColor: '#0f172a',
   fontSize: '14px',
   fontWeight: 600,
-  color: '#0f172a'
+  color: '#e2e8f0'
 };
 
 type ScoreTimelinePoint = {
@@ -251,7 +252,7 @@ const ScoreTimeline = ({ data, selectedKey, onSelect }: ScoreTimelineProps) => {
           <stop offset="80%" stopColor="#2563eb" stopOpacity="0" />
         </linearGradient>
       </defs>
-      <rect x={0} y={0} width={width} height={height} fill="white" rx={12} />
+      <rect x={0} y={0} width={width} height={height} fill="#08102a" rx={12} />
 
       {yTicks.map((tick) => {
         const y =
@@ -263,7 +264,7 @@ const ScoreTimeline = ({ data, selectedKey, onSelect }: ScoreTimelineProps) => {
               x2={width - padding}
               y1={y}
               y2={y}
-              stroke="#e2e8f0"
+              stroke="#334155"
               strokeDasharray="4 4"
             />
             <text
@@ -271,7 +272,7 @@ const ScoreTimeline = ({ data, selectedKey, onSelect }: ScoreTimelineProps) => {
               y={y + 4}
               textAnchor="end"
               fontSize="11"
-              fill="#475569"
+              fill="#93c5fd"
             >
               {tick}
             </text>
@@ -303,7 +304,7 @@ const ScoreTimeline = ({ data, selectedKey, onSelect }: ScoreTimelineProps) => {
 
       {points.map((pt) => {
         const isSelected = selectedKey === pt.key;
-        const color = isSelected ? '#0f172a' : pt.isEstimate ? '#fb923c' : '#2563eb';
+        const color = isSelected ? '#f8fafc' : pt.isEstimate ? '#fb923c' : '#60a5fa';
         return (
           <g
             key={pt.key}
@@ -331,7 +332,7 @@ const ScoreTimeline = ({ data, selectedKey, onSelect }: ScoreTimelineProps) => {
           x={pt.x}
           y={height - padding + 16}
           fontSize="10"
-          fill="#475569"
+          fill="#93c5fd"
           textAnchor="middle"
         >
           {pt.index + 1}
@@ -342,7 +343,7 @@ const ScoreTimeline = ({ data, selectedKey, onSelect }: ScoreTimelineProps) => {
         x={padding}
         y={height - padding + 30}
         fontSize="11"
-        fill="#475569"
+        fill="#93c5fd"
       >
         Games (oldest to newest)
       </text>
@@ -533,7 +534,7 @@ export function PlayerGamesBrowser() {
       <div style={headerStyles}>
         <div>
           <h2 style={titleStyles}>Games by player</h2>
-          <p style={{ margin: '4px 0 0', color: '#475569' }}>
+          <p style={{ margin: '4px 0 0', color: '#93c5fd' }}>
             Browse every stored game grouped by bowler. Pick a player to review their scorecards side by side.
           </p>
         </div>
@@ -570,12 +571,12 @@ export function PlayerGamesBrowser() {
       )}
 
       {isLoading && players.length === 0 && (
-        <p style={{ color: '#2563eb', margin: '4px 0 0' }}>Loading player games…</p>
+        <p style={{ color: '#7dd3fc', margin: '4px 0 0' }}>Loading player games…</p>
       )}
 
       {!isLoading && players.length === 0 && (
         <div style={emptyStateStyles}>
-          <p style={{ margin: 0, fontWeight: 700, color: '#0f172a' }}>No games saved yet</p>
+          <p style={{ margin: 0, fontWeight: 700, color: '#f8fafc' }}>No games saved yet</p>
           <p style={{ margin: '6px 0 0' }}>
             Upload a scorecard to start tracking games per player.
           </p>
@@ -603,8 +604,8 @@ export function PlayerGamesBrowser() {
                       style={isActive ? playerButtonActiveStyles : playerButtonStyles}
                     >
                       <div style={playerMetaStyles}>
-                        <span style={{ fontWeight: 800, color: '#0f172a' }}>{player.playerName}</span>
-                        <span style={{ color: '#475569', fontSize: '13px' }}>
+                        <span style={{ fontWeight: 800, color: '#f8fafc' }}>{player.playerName}</span>
+                        <span style={{ color: '#cbd5e1', fontSize: '13px' }}>
                           {player.games.length} game{player.games.length === 1 ? '' : 's'}
                         </span>
                       </div>
@@ -632,7 +633,7 @@ export function PlayerGamesBrowser() {
                 <div style={chartCardStyles}>
                   <div style={chartLegendStyles}>
                     <div style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}>
-                      <span style={{ ...legendSwatchStyles, backgroundColor: '#2563eb' }} />
+                      <span style={{ ...legendSwatchStyles, backgroundColor: '#60a5fa' }} />
                       <span>Corrected</span>
                     </div>
                     <div style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}>
@@ -640,7 +641,7 @@ export function PlayerGamesBrowser() {
                       <span>Estimate</span>
                     </div>
                     <div style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}>
-                      <span style={{ ...legendSwatchStyles, backgroundColor: '#0f172a' }} />
+                      <span style={{ ...legendSwatchStyles, backgroundColor: '#f8fafc' }} />
                       <span>Selected</span>
                     </div>
                   </div>
@@ -686,7 +687,7 @@ export function PlayerGamesBrowser() {
                 {selectedGame ? (
                   <div style={{ marginTop: '14px' }}>
                     <div style={selectedGameMetaStyles}>
-                      <div style={{ fontWeight: 700, color: '#0f172a' }}>
+                      <div style={{ fontWeight: 700, color: '#f8fafc' }}>
                         Viewing {selectedPlayerGroup.playerName} — score {selectedGame.game.totalScore}
                       </div>
                       <div style={hintTextStyles}>

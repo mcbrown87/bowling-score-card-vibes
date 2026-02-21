@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { Frame, Game, Roll } from '../types/bowling';
 import { recalculateGame } from '../utils/recalculateGame';
 
@@ -10,170 +10,227 @@ interface FrameCorrectionModalProps {
   isSaving?: boolean;
 }
 
+type ActiveRoll = 'roll1' | 'roll2' | 'roll3';
+
 const overlayStyles: React.CSSProperties = {
   position: 'fixed',
   inset: 0,
-  backgroundColor: 'rgba(15, 23, 42, 0.55)',
+  backgroundColor: 'rgba(2, 6, 23, 0.74)',
   display: 'flex',
   alignItems: 'center',
   justifyContent: 'center',
-  padding: '16px',
+  padding: '14px',
   zIndex: 9999,
   overflowY: 'auto'
 };
 
 const modalStyles: React.CSSProperties = {
-  width: 'min(520px, calc(100vw - 24px))',
-  maxWidth: '520px',
-  maxHeight: 'min(90vh, 720px)',
-  backgroundColor: '#fff',
+  width: 'min(620px, calc(100vw - 24px))',
+  maxWidth: '620px',
+  maxHeight: 'min(92vh, 760px)',
+  background: 'linear-gradient(180deg, #0b1738 0%, #08102a 100%)',
   borderRadius: '18px',
-  boxShadow: '0 24px 50px rgba(15, 23, 42, 0.25)',
-  padding: '20px',
+  border: '1px solid #334155',
+  boxShadow: '0 26px 60px rgba(2, 6, 23, 0.7)',
+  padding: '16px',
   display: 'flex',
   flexDirection: 'column',
-  gap: '12px',
+  gap: '14px',
   overflowY: 'auto'
 };
 
 const titleStyles: React.CSSProperties = {
-  fontSize: '20px',
-  fontWeight: 700,
-  color: '#0f172a'
+  margin: 0,
+  color: '#f8fafc',
+  fontSize: '21px',
+  fontWeight: 800,
+  letterSpacing: '0.02em'
 };
 
-const labelStyles: React.CSSProperties = {
-  fontSize: '14px',
-  fontWeight: 600,
-  color: '#0f172a'
+const subtitleStyles: React.CSSProperties = {
+  margin: '4px 0 0',
+  color: '#cbd5e1',
+  fontSize: '13px',
+  lineHeight: 1.45
+};
+
+const frameBoardStyles: React.CSSProperties = {
+  borderRadius: '14px',
+  border: '1px solid #60a5fa',
+  backgroundColor: '#020617',
+  padding: '12px',
+  boxShadow: 'inset 0 0 0 1px rgba(148, 163, 184, 0.2)'
+};
+
+const frameLabelStyles: React.CSSProperties = {
+  color: '#bae6fd',
+  fontSize: '11px',
+  textTransform: 'uppercase',
+  letterSpacing: '0.08em',
+  marginBottom: '8px'
+};
+
+const scorecardFrameStyles: React.CSSProperties = {
+  border: '2px solid #e2e8f0',
+  borderRadius: '10px',
+  overflow: 'hidden',
+  backgroundColor: '#0f172a'
+};
+
+const rollLaneStyles: React.CSSProperties = {
+  display: 'grid',
+  gridTemplateColumns: 'repeat(3, minmax(0, 1fr))',
+  gap: '0',
+  borderBottom: '2px solid #e2e8f0'
+};
+
+const rollCellBaseStyles: React.CSSProperties = {
+  minHeight: '66px',
+  borderRight: '2px solid #e2e8f0',
+  backgroundColor: '#0b1738',
+  color: '#e2e8f0',
+  display: 'flex',
+  flexDirection: 'column',
+  justifyContent: 'center',
+  alignItems: 'center',
+  cursor: 'pointer',
+  transition: 'all 120ms ease',
+  padding: '6px'
+};
+
+const rollCellActiveStyles: React.CSSProperties = {
+  backgroundColor: '#1d4ed8',
+  boxShadow: 'inset 0 0 0 2px rgba(255,255,255,0.75), 0 0 18px rgba(96, 165, 250, 0.6)',
+  color: '#fff'
+};
+
+const rollCellDisabledStyles: React.CSSProperties = {
+  opacity: 0.44,
+  cursor: 'not-allowed',
+  backgroundColor: '#1e293b'
+};
+
+const rollNameStyles: React.CSSProperties = {
+  fontSize: '11px',
+  letterSpacing: '0.05em',
+  textTransform: 'uppercase',
+  color: '#93c5fd',
+  fontWeight: 700
+};
+
+const rollValueStyles: React.CSSProperties = {
+  fontSize: '30px',
+  lineHeight: 1,
+  fontWeight: 800,
+  marginTop: '4px',
+  fontFamily: "'Courier New', monospace"
+};
+
+const totalBarStyles: React.CSSProperties = {
+  display: 'flex',
+  alignItems: 'center',
+  justifyContent: 'space-between',
+  padding: '8px 12px',
+  background: 'linear-gradient(180deg, #0f172a 0%, #020617 100%)'
+};
+
+const totalLabelStyles: React.CSSProperties = {
+  fontSize: '11px',
+  textTransform: 'uppercase',
+  letterSpacing: '0.1em',
+  color: '#7dd3fc',
+  fontWeight: 700
+};
+
+const totalValueStyles: React.CSSProperties = {
+  color: '#f8fafc',
+  fontSize: '22px',
+  fontWeight: 800,
+  fontFamily: "'Courier New', monospace"
+};
+
+const keypadGridStyles: React.CSSProperties = {
+  display: 'grid',
+  gridTemplateColumns: 'repeat(6, minmax(0, 1fr))',
+  gap: '8px'
+};
+
+const pinButtonBaseStyles: React.CSSProperties = {
+  borderRadius: '10px',
+  border: '1px solid #64748b',
+  minHeight: '44px',
+  backgroundColor: '#0f172a',
+  color: '#e2e8f0',
+  fontWeight: 700,
+  fontSize: '16px',
+  cursor: 'pointer',
+  fontFamily: "'Courier New', monospace"
+};
+
+const pinButtonActiveStyles: React.CSSProperties = {
+  backgroundColor: '#1d4ed8',
+  border: '1px solid #93c5fd',
+  color: '#fff',
+  boxShadow: '0 6px 16px rgba(29, 78, 216, 0.5)'
+};
+
+const pinButtonDisabledStyles: React.CSSProperties = {
+  opacity: 0.4,
+  cursor: 'not-allowed'
+};
+
+const utilityRowStyles: React.CSSProperties = {
+  display: 'grid',
+  gridTemplateColumns: 'repeat(3, minmax(0, 1fr))',
+  gap: '8px'
+};
+
+const utilityButtonStyles: React.CSSProperties = {
+  borderRadius: '10px',
+  border: '1px solid #60a5fa',
+  minHeight: '40px',
+  backgroundColor: '#082f49',
+  color: '#e0f2fe',
+  fontWeight: 700,
+  cursor: 'pointer'
 };
 
 const helperStyles: React.CSSProperties = {
+  margin: 0,
+  color: '#94a3b8',
   fontSize: '12px',
-  color: '#64748b',
-  lineHeight: 1.4
+  lineHeight: 1.45
 };
 
 const actionsRowStyles: React.CSSProperties = {
   display: 'flex',
   justifyContent: 'flex-end',
-  gap: '12px',
+  gap: '10px',
   flexWrap: 'wrap'
 };
 
 const actionButtonStyles: React.CSSProperties = {
   border: 'none',
-  borderRadius: '8px',
+  borderRadius: '10px',
   padding: '10px 18px',
-  fontSize: '16px',
-  fontWeight: 600,
+  fontSize: '15px',
+  fontWeight: 700,
   cursor: 'pointer'
 };
 
 const secondaryButtonStyles: React.CSSProperties = {
   ...actionButtonStyles,
-  backgroundColor: '#e2e8f0',
-  color: '#0f172a'
+  backgroundColor: '#334155',
+  color: '#f8fafc'
 };
 
 const primaryButtonStyles: React.CSSProperties = {
   ...actionButtonStyles,
-  backgroundColor: '#2563eb',
-  color: 'white'
-};
-
-const rollSectionStyles: React.CSSProperties = {
-  display: 'grid',
-  gap: '12px',
-  gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))'
-};
-
-const pinsGridStyles: React.CSSProperties = {
-  display: 'grid',
-  gridTemplateColumns: 'repeat(6, minmax(0, 1fr))',
-  gap: '6px'
-};
-
-const rollButtonBaseStyles: React.CSSProperties = {
-  borderRadius: '12px',
-  padding: '8px 0',
-  border: '1px solid #cbd5f5',
-  backgroundColor: '#fff',
-  fontWeight: 600,
-  fontSize: '15px',
-  cursor: 'pointer'
-};
-
-const rollButtonActiveStyles: React.CSSProperties = {
-  backgroundColor: '#2563eb',
-  borderColor: '#1d4ed8',
-  color: '#fff',
-  boxShadow: '0 6px 15px rgba(37, 99, 235, 0.35)'
-};
-
-const rollButtonDisabledStyles: React.CSSProperties = {
-  opacity: 0.45,
-  cursor: 'not-allowed'
-};
-
-const quickActionsRowStyles: React.CSSProperties = {
-  display: 'flex',
-  flexWrap: 'wrap',
-  gap: '8px'
-};
-
-const quickActionButtonStyles: React.CSSProperties = {
-  borderRadius: '999px',
-  border: '1px solid #e2e8f0',
-  padding: '6px 14px',
-  backgroundColor: '#f1f5f9',
-  fontSize: '14px',
-  fontWeight: 600,
-  color: '#0f172a',
-  cursor: 'pointer'
+  backgroundColor: '#1d4ed8',
+  color: '#fff'
 };
 
 const pinsOptions = Array.from({ length: 11 }, (_, value) => value);
-
-interface RollSelectorProps {
-  label: string;
-  value: number;
-  onSelect: (pins: number) => void;
-  maxPins?: number;
-  disabled?: boolean;
-  helper?: string;
-}
-
-const RollSelector: React.FC<RollSelectorProps> = ({ label, value, onSelect, maxPins = 10, disabled, helper }) => {
-  return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', flex: 1 }}>
-      <div style={labelStyles}>{label}</div>
-      <div style={pinsGridStyles}>
-        {pinsOptions.map((pins) => {
-          const optionDisabled = Boolean(disabled) || pins > maxPins;
-          const baseStyle = { ...rollButtonBaseStyles, ...(pins === value ? rollButtonActiveStyles : {}) };
-          return (
-            <button
-              key={`${label}-${pins}`}
-              type="button"
-              disabled={optionDisabled}
-              aria-pressed={pins === value}
-              style={{ ...baseStyle, ...(optionDisabled ? rollButtonDisabledStyles : {}) }}
-              onClick={() => {
-                if (!optionDisabled) {
-                  onSelect(pins);
-                }
-              }}
-            >
-              {pins}
-            </button>
-          );
-        })}
-      </div>
-      {helper ? <p style={helperStyles}>{helper}</p> : null}
-    </div>
-  );
-};
 
 const clampPins = (value: unknown): number => {
   const num = Number(value);
@@ -230,6 +287,33 @@ const normalizeTenthFrame = (frame: Game['tenthFrame']): Game['tenthFrame'] => {
   };
 };
 
+const toDisplaySymbol = (
+  roll: number,
+  index: number,
+  frameValues: { roll1: number; roll2: number },
+  isTenthFrame: boolean
+): string => {
+  if (roll === 0) {
+    return '-';
+  }
+
+  if (roll === 10 && (index === 0 || isTenthFrame)) {
+    return 'X';
+  }
+
+  if (index === 1 && frameValues.roll1 < 10 && frameValues.roll1 + frameValues.roll2 === 10) {
+    return '/';
+  }
+
+  return String(roll);
+};
+
+const modalBodyStyle = {
+  display: 'flex',
+  flexDirection: 'column' as const,
+  gap: '12px'
+};
+
 export const FrameCorrectionModal: React.FC<FrameCorrectionModalProps> = ({
   game,
   frameIndex,
@@ -243,6 +327,7 @@ export const FrameCorrectionModal: React.FC<FrameCorrectionModalProps> = ({
   const [roll1, setRoll1] = useState(baseFrame?.rolls[0]?.pins ?? 0);
   const [roll2, setRoll2] = useState(baseFrame?.rolls[1]?.pins ?? 0);
   const [roll3, setRoll3] = useState(isTenthFrame ? baseFrame?.rolls[2]?.pins ?? 0 : 0);
+  const [activeRoll, setActiveRoll] = useState<ActiveRoll>('roll1');
 
   const frameLabel = useMemo(() => (isTenthFrame ? 'Frame 10' : `Frame ${frameIndex + 1}`), [
     frameIndex,
@@ -263,6 +348,28 @@ export const FrameCorrectionModal: React.FC<FrameCorrectionModalProps> = ({
 
   const isSecondRollDisabled = !isTenthFrame && roll1 === 10;
   const canEditRoll3 = isTenthFrame && (roll1 === 10 || roll1 + roll2 === 10);
+
+  const rollEnabled = useMemo(
+    () => ({
+      roll1: true,
+      roll2: !isSecondRollDisabled,
+      roll3: isTenthFrame ? canEditRoll3 : false
+    }),
+    [canEditRoll3, isSecondRollDisabled, isTenthFrame]
+  );
+
+  const moveToNextEditableRoll = useCallback(
+    (current: ActiveRoll): ActiveRoll => {
+      if (current === 'roll1' && rollEnabled.roll2) {
+        return 'roll2';
+      }
+      if ((current === 'roll1' || current === 'roll2') && rollEnabled.roll3) {
+        return 'roll3';
+      }
+      return current;
+    },
+    [rollEnabled.roll2, rollEnabled.roll3]
+  );
 
   useEffect(() => {
     if (!isTenthFrame) {
@@ -288,16 +395,34 @@ export const FrameCorrectionModal: React.FC<FrameCorrectionModalProps> = ({
   useEffect(() => {
     if (!isTenthFrame && roll3 !== 0) {
       setRoll3(0);
+      return;
     }
     if (isTenthFrame && !canEditRoll3 && roll3 !== 0) {
       setRoll3(0);
     }
   }, [canEditRoll3, isTenthFrame, roll3]);
 
+  useEffect(() => {
+    if (!rollEnabled[activeRoll]) {
+      if (rollEnabled.roll1) {
+        setActiveRoll('roll1');
+      } else if (rollEnabled.roll2) {
+        setActiveRoll('roll2');
+      } else if (rollEnabled.roll3) {
+        setActiveRoll('roll3');
+      }
+    }
+  }, [activeRoll, rollEnabled]);
+
   const applyStrike = () => {
     setRoll1(10);
     if (!isTenthFrame) {
       setRoll2(0);
+      setActiveRoll('roll1');
+      return;
+    }
+    if (!canEditRoll3) {
+      setActiveRoll('roll2');
     }
   };
 
@@ -306,6 +431,45 @@ export const FrameCorrectionModal: React.FC<FrameCorrectionModalProps> = ({
       return;
     }
     setRoll2(10 - roll1);
+    if (isTenthFrame) {
+      setActiveRoll(canEditRoll3 ? 'roll3' : 'roll2');
+    }
+  };
+
+  const setPinsForActiveRoll = (pins: number) => {
+    const clamped = clampPins(pins);
+
+    if (activeRoll === 'roll1') {
+      setRoll1(clamped);
+      if (!isTenthFrame && clamped === 10) {
+        setRoll2(0);
+      }
+      setActiveRoll(moveToNextEditableRoll('roll1'));
+      return;
+    }
+
+    if (activeRoll === 'roll2') {
+      const safeValue = Math.min(secondRollMax, clamped);
+      setRoll2(safeValue);
+      setActiveRoll(moveToNextEditableRoll('roll2'));
+      return;
+    }
+
+    if (activeRoll === 'roll3' && canEditRoll3) {
+      setRoll3(clamped);
+    }
+  };
+
+  const clearActiveRoll = () => {
+    if (activeRoll === 'roll1') {
+      setRoll1(0);
+      return;
+    }
+    if (activeRoll === 'roll2') {
+      setRoll2(0);
+      return;
+    }
+    setRoll3(0);
   };
 
   const handleApply = () => {
@@ -330,83 +494,180 @@ export const FrameCorrectionModal: React.FC<FrameCorrectionModalProps> = ({
       ]);
       nextGame.frames[frameIndex] = nextFrame;
     }
+
     const recalculated = recalculateGame(nextGame);
     onApply(recalculated);
   };
+
+  const previewFrameScore = useMemo(() => {
+    const previewGame: Game = JSON.parse(JSON.stringify(game));
+
+    if (isTenthFrame) {
+      previewGame.tenthFrame = normalizeTenthFrame({
+        ...previewGame.tenthFrame,
+        rolls: [
+          { pins: clampPins(roll1) },
+          { pins: clampPins(roll2) },
+          { pins: clampPins(canEditRoll3 ? roll3 : 0) }
+        ]
+      });
+      return recalculateGame(previewGame).tenthFrame.score ?? 0;
+    }
+
+    previewGame.frames[frameIndex] = normalizeRegularFrame(previewGame.frames[frameIndex], [
+      { pins: clampPins(roll1) },
+      { pins: clampPins(roll2) }
+    ]);
+    return recalculateGame(previewGame).frames[frameIndex]?.score ?? 0;
+  }, [canEditRoll3, frameIndex, game, isTenthFrame, roll1, roll2, roll3]);
+
+  const displayedRolls = useMemo(
+    () => [
+      {
+        key: 'roll1' as const,
+        label: 'Roll 1',
+        value: toDisplaySymbol(roll1, 0, { roll1, roll2 }, isTenthFrame),
+        disabled: !rollEnabled.roll1,
+        ariaLabel: `Select roll 1 (${roll1})`
+      },
+      {
+        key: 'roll2' as const,
+        label: 'Roll 2',
+        value: toDisplaySymbol(roll2, 1, { roll1, roll2 }, isTenthFrame),
+        disabled: !rollEnabled.roll2,
+        ariaLabel: `Select roll 2 (${roll2})`
+      },
+      {
+        key: 'roll3' as const,
+        label: 'Roll 3',
+        value: isTenthFrame ? toDisplaySymbol(roll3, 2, { roll1, roll2 }, true) : '',
+        disabled: !rollEnabled.roll3,
+        ariaLabel: isTenthFrame
+          ? `Select roll 3 (${roll3})`
+          : 'Roll 3 unavailable for frames 1 through 9'
+      }
+    ],
+    [isTenthFrame, roll1, roll2, roll3, rollEnabled.roll1, rollEnabled.roll2, rollEnabled.roll3]
+  );
 
   return (
     <div style={overlayStyles}>
       <div style={modalStyles} role="dialog" aria-modal="true" aria-label={`Correct ${frameLabel}`}>
         <div>
-          <div style={titleStyles}>{frameLabel} — Correct score</div>
-          <p style={{ fontSize: '14px', color: '#475569', marginTop: '4px' }}>
-            Tap a value for each roll. The totals update automatically once you save.
+          <h2 style={titleStyles}>{frameLabel} Score Correction</h2>
+          <p style={subtitleStyles}>
+            Tap a roll cell, then use the keypad to enter pins like a lane score monitor.
           </p>
         </div>
 
-        <div>
-          <div style={quickActionsRowStyles}>
-            <button type="button" style={quickActionButtonStyles} onClick={applyStrike}>
-              Mark strike
+        <div style={modalBodyStyle}>
+          <div style={frameBoardStyles}>
+            <div style={frameLabelStyles}>{frameLabel} Preview</div>
+            <div style={scorecardFrameStyles}>
+              <div style={rollLaneStyles}>
+                {displayedRolls.map((roll, index) => {
+                  const isActive = activeRoll === roll.key;
+                  const isLast = index === displayedRolls.length - 1;
+
+                  return (
+                    <button
+                      key={roll.key}
+                      type="button"
+                      aria-label={roll.ariaLabel}
+                      aria-pressed={isActive}
+                      disabled={roll.disabled}
+                      onClick={() => {
+                        if (!roll.disabled) {
+                          setActiveRoll(roll.key);
+                        }
+                      }}
+                      style={{
+                        ...rollCellBaseStyles,
+                        ...(isActive ? rollCellActiveStyles : {}),
+                        ...(roll.disabled ? rollCellDisabledStyles : {}),
+                        ...(isLast ? { borderRight: 'none' } : {})
+                      }}
+                    >
+                      <span style={rollNameStyles}>{roll.label}</span>
+                      <span style={rollValueStyles}>{roll.value}</span>
+                    </button>
+                  );
+                })}
+              </div>
+              <div style={totalBarStyles}>
+                <span style={totalLabelStyles}>Running Total</span>
+                <span style={totalValueStyles}>{previewFrameScore}</span>
+              </div>
+            </div>
+          </div>
+
+          <div style={keypadGridStyles}>
+            {pinsOptions.map((pins) => {
+              const optionDisabled =
+                isSaving ||
+                !rollEnabled[activeRoll] ||
+                (activeRoll === 'roll2' && pins > secondRollMax);
+
+              const isActiveValue =
+                (activeRoll === 'roll1' && roll1 === pins) ||
+                (activeRoll === 'roll2' && roll2 === pins) ||
+                (activeRoll === 'roll3' && roll3 === pins);
+
+              return (
+                <button
+                  key={`pins-${pins}`}
+                  type="button"
+                  disabled={optionDisabled}
+                  aria-pressed={isActiveValue}
+                  aria-label={`Set ${activeRoll} to ${pins} pins`}
+                  onClick={() => setPinsForActiveRoll(pins)}
+                  style={{
+                    ...pinButtonBaseStyles,
+                    ...(isActiveValue ? pinButtonActiveStyles : {}),
+                    ...(optionDisabled ? pinButtonDisabledStyles : {})
+                  }}
+                >
+                  {pins}
+                </button>
+              );
+            })}
+          </div>
+
+          <div style={utilityRowStyles}>
+            <button type="button" style={utilityButtonStyles} onClick={applyStrike} disabled={isSaving}>
+              Strike (X)
             </button>
             <button
               type="button"
-              style={{
-                ...quickActionButtonStyles,
-                ...(roll1 >= 10 ? rollButtonDisabledStyles : {})
-              }}
-              disabled={roll1 >= 10}
+              style={{ ...utilityButtonStyles, ...(roll1 >= 10 ? pinButtonDisabledStyles : {}) }}
               onClick={applySpare}
+              disabled={isSaving || roll1 >= 10}
             >
-              Fill spare
+              Spare (/)
+            </button>
+            <button
+              type="button"
+              style={utilityButtonStyles}
+              onClick={clearActiveRoll}
+              disabled={isSaving || !rollEnabled[activeRoll]}
+            >
+              Clear Active
             </button>
           </div>
-          <p style={{ ...helperStyles, marginTop: '6px' }}>
-            Need to override the auto-read? Quickly mark a strike or spare, or tap specific pin counts
-            below.
-          </p>
-        </div>
 
-        <div style={rollSectionStyles}>
-          <RollSelector label="Roll 1" value={roll1} onSelect={setRoll1} helper="First roll pins knocked down." />
-          <RollSelector
-            label="Roll 2"
-            value={roll2}
-            onSelect={setRoll2}
-            maxPins={secondRollMax}
-            disabled={isSecondRollDisabled}
-            helper={
-              isSecondRollDisabled
-                ? 'Strike recorded — no second roll needed for this frame.'
-                : `Pick up to ${secondRollMax} pins for the second roll.`
-            }
-          />
-          {isTenthFrame && (
-            <RollSelector
-              label="Roll 3"
-              value={roll3}
-              onSelect={setRoll3}
-              disabled={!canEditRoll3}
-              helper={
-                canEditRoll3
-                  ? 'Bonus roll unlocked from a strike or spare in frame 10.'
-                  : 'Earn a strike or spare to unlock the final roll.'
-              }
-            />
-          )}
+          <p style={helperStyles}>
+            Active input: {activeRoll === 'roll1' ? 'Roll 1' : activeRoll === 'roll2' ? 'Roll 2' : 'Roll 3'}.
+            {!isTenthFrame && isSecondRollDisabled ? ' Roll 2 is locked after a strike in frames 1-9.' : ''}
+            {isTenthFrame && !canEditRoll3 ? ' Roll 3 unlocks after a strike or spare in frame 10.' : ''}
+          </p>
         </div>
 
         <div style={actionsRowStyles}>
           <button type="button" style={secondaryButtonStyles} onClick={onClose} disabled={isSaving}>
             Cancel
           </button>
-          <button
-            type="button"
-            style={primaryButtonStyles}
-            onClick={handleApply}
-            disabled={isSaving}
-          >
-            {isSaving ? 'Saving…' : 'Save'}
+          <button type="button" style={primaryButtonStyles} onClick={handleApply} disabled={isSaving}>
+            {isSaving ? 'Saving...' : 'Save'}
           </button>
         </div>
       </div>

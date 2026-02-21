@@ -15,8 +15,8 @@ const headerStyles: CSSProperties = {
   flexDirection: 'column',
   gap: '6px',
   padding: '8px 16px',
-  borderBottom: '1px solid #e2e8f0',
-  backgroundColor: '#ffffff',
+  borderBottom: '1px solid #334155',
+  background: 'linear-gradient(180deg, #0b1738 0%, #08102a 100%)',
   position: 'sticky' as const,
   top: 0,
   zIndex: 10
@@ -41,12 +41,15 @@ const linkStyles = {
   padding: '8px 12px',
   borderRadius: '8px',
   fontWeight: 600,
-  color: '#0f172a'
+  color: '#cbd5e1',
+  border: '1px solid transparent'
 };
 
 const activeLinkStyles = {
   ...linkStyles,
-  backgroundColor: '#e2e8f0'
+  backgroundColor: '#0f224a',
+  border: '1px solid #60a5fa',
+  color: '#f8fafc'
 };
 
 export function AppHeader({ userLabel }: AppHeaderProps) {
@@ -70,19 +73,20 @@ export function AppHeader({ userLabel }: AppHeaderProps) {
   return (
     <header style={headerStyles}>
       <div style={topRowStyles}>
-        <span style={{ fontWeight: 700, fontSize: '16px', color: '#0f172a' }}>
+        <span style={{ fontWeight: 700, fontSize: '16px', color: '#f8fafc' }}>
           Bowling Scorecard
         </span>
         <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-          {!isMobile && <span style={{ color: '#475569', fontSize: '13px' }}>{userLabel}</span>}
+          {!isMobile && <span style={{ color: '#93c5fd', fontSize: '13px' }}>{userLabel}</span>}
           <SignOutButton />
           {isMobile && (
             <button
               type="button"
               onClick={() => setMenuOpen((prev) => !prev)}
               style={{
-                border: '1px solid #cbd5f5',
-                backgroundColor: '#f1f5f9',
+                border: '1px solid #475569',
+                backgroundColor: '#0f172a',
+                color: '#e2e8f0',
                 borderRadius: '6px',
                 padding: '4px 10px',
                 fontWeight: 600,
@@ -104,7 +108,7 @@ export function AppHeader({ userLabel }: AppHeaderProps) {
           }}
         >
           {isMobile && (
-            <span style={{ color: '#475569', fontSize: '13px' }}>{userLabel}</span>
+            <span style={{ color: '#93c5fd', fontSize: '13px' }}>{userLabel}</span>
           )}
           <Link href="/" style={isHome ? activeLinkStyles : linkStyles}>
             Upload

@@ -37,13 +37,13 @@ const heroStyles: CSSProperties = {
 const heroHeadingStyles: CSSProperties = {
   fontSize: '28px',
   fontWeight: 800,
-  color: '#0f172a',
+  color: '#f8fafc',
   margin: 0
 };
 
 const heroSubtextStyles: CSSProperties = {
   margin: '8px 0 0',
-  color: '#475569',
+  color: '#93c5fd',
   lineHeight: 1.5,
   fontSize: '15px'
 };
@@ -55,7 +55,7 @@ const heroActionsStyles: CSSProperties = {
 };
 
 const secondaryButtonStyles: CSSProperties = {
-  backgroundColor: '#0f172a',
+  backgroundColor: '#1d4ed8',
   color: 'white',
   fontWeight: 'bold',
   padding: '12px 24px',
@@ -77,7 +77,7 @@ const buttonContainerStyles: CSSProperties = {
 };
 
 const buttonStyles: CSSProperties = {
-  backgroundColor: '#2563eb',
+  backgroundColor: '#1d4ed8',
   color: 'white',
   fontWeight: 'bold',
   padding: '12px 24px',
@@ -124,7 +124,7 @@ const imageWrapperStyles: CSSProperties = {
   position: 'relative',
   display: 'inline-block',
   marginTop: '16px',
-  border: '2px solid #e5e7eb',
+  border: '2px solid #334155',
   borderRadius: '8px',
   overflow: 'hidden'
 };
@@ -158,13 +158,13 @@ const emptyStateStyles: CSSProperties = {
   alignItems: 'center',
   textAlign: 'center',
   gap: '12px',
-  color: '#475569'
+  color: '#93c5fd'
 };
 
 const emptyStateTitleStyles: CSSProperties = {
   fontSize: '24px',
   fontWeight: 700,
-  color: '#0f172a'
+  color: '#f8fafc'
 };
 
 const emptyStateTextStyles: CSSProperties = {
@@ -182,9 +182,9 @@ const previewPlaceholderStyles: CSSProperties = {
   justifyContent: 'center',
   textAlign: 'center',
   padding: '16px',
-  color: '#475569',
-  backgroundColor: '#f8fafc',
-  border: '1px dashed #cbd5f5',
+  color: '#93c5fd',
+  backgroundColor: '#0f172a',
+  border: '1px dashed #475569',
   borderRadius: '12px'
 };
 
@@ -192,8 +192,8 @@ const recentSectionStyles: CSSProperties = {
   marginTop: '36px',
   padding: '20px',
   borderRadius: '16px',
-  border: '1px solid #e2e8f0',
-  backgroundColor: '#f8fafc'
+  border: '1px solid #334155',
+  background: 'linear-gradient(180deg, #0b1738 0%, #08102a 100%)'
 };
 
 const recentHeaderStyles: CSSProperties = {
@@ -208,12 +208,12 @@ const recentTitleStyles: CSSProperties = {
   margin: 0,
   fontSize: '18px',
   fontWeight: 700,
-  color: '#0f172a'
+  color: '#f8fafc'
 };
 
 const recentLinkStyles: CSSProperties = {
   fontWeight: 600,
-  color: '#2563eb',
+  color: '#7dd3fc',
   textDecoration: 'none'
 };
 
@@ -225,10 +225,10 @@ const recentGridStyles: CSSProperties = {
 };
 
 const recentCardStyles: CSSProperties = {
-  border: '1px solid #e2e8f0',
+  border: '1px solid #334155',
   borderRadius: '10px',
   padding: '12px',
-  backgroundColor: '#ffffff',
+  backgroundColor: '#0f172a',
   display: 'flex',
   flexDirection: 'column',
   gap: '8px'
@@ -240,7 +240,7 @@ const recentThumbStyles: CSSProperties = {
   position: 'relative',
   borderRadius: '8px',
   overflow: 'hidden',
-  backgroundColor: '#e2e8f0'
+  backgroundColor: '#1e293b'
 };
 
 const recentThumbImgStyles: CSSProperties = {
@@ -254,7 +254,7 @@ const recentThumbImgStyles: CSSProperties = {
 
 const recentMetaStyles: CSSProperties = {
   fontSize: '13px',
-  color: '#475569',
+  color: '#cbd5e1',
   lineHeight: 1.4
 };
 
@@ -681,10 +681,10 @@ function BowlingApp() {
         style={{
           padding: '8px 12px',
           borderRadius: '6px',
-          border: '1px solid #d1d5db',
+          border: '1px solid #475569',
           backgroundColor:
-            currentGameIndex === 0 || controlsLocked ? '#e5e7eb' : '#2563eb',
-          color: currentGameIndex === 0 || controlsLocked ? '#6b7280' : '#ffffff',
+            currentGameIndex === 0 || controlsLocked ? '#334155' : '#1d4ed8',
+          color: currentGameIndex === 0 || controlsLocked ? '#94a3b8' : '#ffffff',
           cursor: currentGameIndex === 0 || controlsLocked ? 'not-allowed' : 'pointer',
           fontWeight: 600
         }}
@@ -708,9 +708,9 @@ function BowlingApp() {
               style={{
                 padding: '6px 10px',
                 borderRadius: '6px',
-                border: isActive ? '2px solid #2563eb' : '1px solid #d1d5db',
-                backgroundColor: isActive ? '#dbeafe' : '#ffffff',
-                color: '#1f2937',
+                border: isActive ? '2px solid #60a5fa' : '1px solid #475569',
+                backgroundColor: isActive ? '#0f224a' : '#0f172a',
+                color: '#e2e8f0',
                 fontWeight: isActive ? 700 : 500,
                 cursor: controlsLocked ? 'not-allowed' : 'pointer',
                 opacity: controlsLocked ? 0.6 : 1
@@ -733,11 +733,11 @@ function BowlingApp() {
         style={{
           padding: '8px 12px',
           borderRadius: '6px',
-          border: '1px solid #d1d5db',
+          border: '1px solid #475569',
           backgroundColor:
-            currentGameIndex >= games.length - 1 || controlsLocked ? '#e5e7eb' : '#2563eb',
+            currentGameIndex >= games.length - 1 || controlsLocked ? '#334155' : '#1d4ed8',
           color:
-            currentGameIndex >= games.length - 1 || controlsLocked ? '#6b7280' : '#ffffff',
+            currentGameIndex >= games.length - 1 || controlsLocked ? '#94a3b8' : '#ffffff',
           cursor:
             currentGameIndex >= games.length - 1 || controlsLocked ? 'not-allowed' : 'pointer',
           fontWeight: 600
@@ -770,7 +770,7 @@ function BowlingApp() {
             >
               View library
             </Link>
-            <span style={{ color: '#475569', fontSize: '14px' }}>
+            <span style={{ color: '#93c5fd', fontSize: '14px' }}>
               Recent uploads are pinned below for quick access.
             </span>
           </div>
@@ -870,7 +870,7 @@ function BowlingApp() {
       )}
 
       {isProcessing && (
-        <p style={{ marginTop: '16px', fontSize: '16px', color: '#2563eb', textAlign: 'center' }}>
+        <p style={{ marginTop: '16px', fontSize: '16px', color: '#7dd3fc', textAlign: 'center' }}>
           Processing image with OCR... This may take a moment.
         </p>
       )}
@@ -938,7 +938,7 @@ function BowlingApp() {
           )}
 
           {storedImagesLoading && !hasRecentImages && (
-            <p style={{ marginTop: '12px', color: '#2563eb' }}>Loading your uploads…</p>
+            <p style={{ marginTop: '12px', color: '#7dd3fc' }}>Loading your uploads…</p>
           )}
 
           {hasRecentImages ? (

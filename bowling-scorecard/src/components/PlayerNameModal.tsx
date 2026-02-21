@@ -20,10 +20,11 @@ const overlayStyles: React.CSSProperties = {
 const modalStyles: React.CSSProperties = {
   width: '100%',
   maxWidth: '360px',
-  backgroundColor: '#fff',
+  background: 'linear-gradient(180deg, #0b1738 0%, #08102a 100%)',
+  border: '1px solid #334155',
   borderRadius: '16px',
   padding: '24px',
-  boxShadow: '0 20px 40px rgba(15, 23, 42, 0.2)',
+  boxShadow: '0 20px 40px rgba(2, 6, 23, 0.55)',
   display: 'flex',
   flexDirection: 'column',
   gap: '16px'
@@ -32,15 +33,17 @@ const modalStyles: React.CSSProperties = {
 const titleStyles: React.CSSProperties = {
   fontSize: '20px',
   fontWeight: 700,
-  color: '#0f172a'
+  color: '#f8fafc'
 };
 
 const inputStyles: React.CSSProperties = {
   width: '100%',
   padding: '10px 12px',
   borderRadius: '8px',
-  border: '1px solid #cbd5f5',
-  fontSize: '16px'
+  border: '1px solid #475569',
+  fontSize: '16px',
+  backgroundColor: '#0f172a',
+  color: '#f8fafc'
 };
 
 const actionsRowStyles: React.CSSProperties = {
@@ -60,13 +63,13 @@ const buttonBase: React.CSSProperties = {
 
 const secondaryButtonStyles: React.CSSProperties = {
   ...buttonBase,
-  backgroundColor: '#e2e8f0',
-  color: '#0f172a'
+  backgroundColor: '#334155',
+  color: '#f8fafc'
 };
 
 const primaryButtonStyles: React.CSSProperties = {
   ...buttonBase,
-  backgroundColor: '#2563eb',
+  backgroundColor: '#1d4ed8',
   color: '#fff'
 };
 
@@ -78,7 +81,7 @@ export const PlayerNameModal: React.FC<PlayerNameModalProps> = ({ initialName, o
       <div style={modalStyles} role="dialog" aria-modal="true" aria-label="Edit player name">
         <div>
           <div style={titleStyles}>Edit player name</div>
-          <p style={{ fontSize: '14px', color: '#475569', marginTop: '4px' }}>
+          <p style={{ fontSize: '14px', color: '#93c5fd', marginTop: '4px' }}>
             This name appears above the scorecard and in review summaries.
           </p>
         </div>

@@ -31,8 +31,9 @@ const sectionStyles: CSSProperties = {
 const cardStyles: CSSProperties = {
   padding: '12px 12px 24px',
   borderRadius: '16px',
-  backgroundColor: '#ffffff',
-  boxShadow: '0 2px 12px rgba(15, 23, 42, 0.05)'
+  background: 'linear-gradient(180deg, #0b1738 0%, #08102a 100%)',
+  border: '1px solid #334155',
+  boxShadow: '0 16px 30px rgba(2, 6, 23, 0.4)'
 };
 
 const thumbWrapperStyles: CSSProperties = {
@@ -40,7 +41,7 @@ const thumbWrapperStyles: CSSProperties = {
   maxWidth: '720px',
   margin: '0 auto',
   position: 'relative',
-  backgroundColor: '#e2e8f0',
+  backgroundColor: '#1e293b',
   borderRadius: '12px',
   overflow: 'hidden',
   aspectRatio: '4 / 3',
@@ -58,14 +59,14 @@ const thumbImageStyles: CSSProperties = {
 
 const metaStyles: CSSProperties = {
   fontSize: '12px',
-  color: '#475569',
+  color: '#cbd5e1',
   lineHeight: 1.4
 };
 
 const metaHintStyles: CSSProperties = {
   marginTop: '6px',
   fontSize: '10px',
-  color: '#94a3b8',
+  color: '#93c5fd',
   textAlign: 'center' as const
 };
 
@@ -81,8 +82,9 @@ const carouselControlsStyles: CSSProperties = {
 const navButtonStyles: CSSProperties = {
   padding: '10px 16px',
   borderRadius: '999px',
-  border: '1px solid #cbd5f5',
-  backgroundColor: '#fff',
+  border: '1px solid #475569',
+  backgroundColor: '#0f172a',
+  color: '#e2e8f0',
   cursor: 'pointer',
   minWidth: '88px'
 };
@@ -97,14 +99,14 @@ const gameNavButtonStyles: CSSProperties = {
   width: '44px',
   height: '44px',
   borderRadius: '999px',
-  border: '1px solid #cbd5f5',
-  backgroundColor: '#fff',
+  border: '1px solid #475569',
+  backgroundColor: '#0f172a',
   cursor: 'pointer',
   display: 'flex',
   alignItems: 'center',
   justifyContent: 'center',
   fontSize: '20px',
-  color: '#0f172a'
+  color: '#e2e8f0'
 };
 
 const gameNavButtonDisabledStyles: CSSProperties = {
@@ -117,7 +119,7 @@ const indicatorStyles: CSSProperties = {
   flex: '1 1 auto',
   textAlign: 'center' as const,
   fontSize: '14px',
-  color: '#475569'
+  color: '#cbd5e1'
 };
 
 const errorBoxStyles: CSSProperties = {
@@ -137,7 +139,7 @@ const buttonStyles: CSSProperties = {
   padding: '6px 12px',
   borderRadius: '6px',
   border: 'none',
-  backgroundColor: '#2563eb',
+  backgroundColor: '#1d4ed8',
   color: '#fff',
   cursor: 'pointer'
 };
@@ -146,7 +148,7 @@ const primaryActionButtonStyles: CSSProperties = {
   padding: '10px 16px',
   borderRadius: '8px',
   border: 'none',
-  backgroundColor: '#2563eb',
+  backgroundColor: '#1d4ed8',
   color: '#fff',
   cursor: 'pointer',
   fontWeight: 600,
@@ -164,21 +166,21 @@ const emptyStateStyles: CSSProperties = {
   padding: '32px',
   textAlign: 'center' as const,
   borderRadius: '12px',
-  border: '1px dashed #cbd5f5',
-  color: '#475569'
+  border: '1px dashed #475569',
+  color: '#93c5fd'
 };
 
 const loadingTextStyles: CSSProperties = {
   marginTop: '24px',
   textAlign: 'center' as const,
-  color: '#2563eb'
+  color: '#7dd3fc'
 };
 
 const scorecardSectionStyles: CSSProperties = {
   marginTop: '12px',
   borderRadius: '12px',
-  border: '1px solid #e2e8f0',
-  backgroundColor: '#f8fafc',
+  border: '1px solid #334155',
+  backgroundColor: '#0f172a',
   padding: '12px',
   overflowX: 'hidden'
 };
@@ -195,9 +197,9 @@ const scorecardInnerStyles: CSSProperties = {
 };
 
 const correctionHighlightStyles: CSSProperties = {
-  border: '1px solid #bbf7d0',
-  backgroundColor: '#f8fff4',
-  boxShadow: '0 8px 24px rgba(22, 163, 74, 0.06)'
+  border: '1px solid #60a5fa',
+  backgroundColor: '#0f224a',
+  boxShadow: '0 8px 24px rgba(14, 116, 144, 0.15)'
 };
 
 const statusPillRowStyles: CSSProperties = {
@@ -218,15 +220,15 @@ const statusPillBaseStyles: CSSProperties = {
 };
 
 const correctionStatusStyles: CSSProperties = {
-  backgroundColor: '#ecfdf3',
-  borderColor: '#bbf7d0',
-  color: '#065f46'
+  backgroundColor: '#0f224a',
+  borderColor: '#60a5fa',
+  color: '#dbeafe'
 };
 
 const estimateStatusStyles: CSSProperties = {
-  backgroundColor: '#eff6ff',
-  borderColor: '#bfdbfe',
-  color: '#1e3a8a'
+  backgroundColor: '#0f172a',
+  borderColor: '#475569',
+  color: '#cbd5e1'
 };
 
 const statusDotStyles: CSSProperties = {
@@ -240,9 +242,9 @@ const noScoresStyles: CSSProperties = {
   marginTop: '24px',
   padding: '16px',
   borderRadius: '8px',
-  border: '1px dashed #fdba74',
-  backgroundColor: '#fff7ed',
-  color: '#9a3412',
+  border: '1px dashed #475569',
+  backgroundColor: '#0f172a',
+  color: '#cbd5e1',
   textAlign: 'center' as const
 };
 
@@ -250,11 +252,11 @@ const processingBannerStyles: CSSProperties = {
   marginTop: '16px',
   padding: '10px 14px',
   borderRadius: '10px',
-  backgroundColor: '#e0f2fe',
-  color: '#0f172a',
+  backgroundColor: '#0f224a',
+  color: '#e2e8f0',
   fontSize: '12px',
   textAlign: 'center' as const,
-  border: '1px solid #7dd3fc'
+  border: '1px solid #60a5fa'
 };
 
 const estimateErrorStyles: CSSProperties = {
@@ -278,9 +280,9 @@ const gameControlsStyles: CSSProperties = {
 const closeButtonStyles: CSSProperties = {
   padding: '8px 14px',
   borderRadius: '8px',
-  border: '1px solid #cbd5f5',
-  backgroundColor: '#f8fafc',
-  color: '#0f172a',
+  border: '1px solid #475569',
+  backgroundColor: '#0f172a',
+  color: '#e2e8f0',
   cursor: 'pointer'
 };
 
@@ -295,7 +297,8 @@ const modalOverlayStyles: CSSProperties = {
 };
 
 const modalCardStyles: CSSProperties = {
-  backgroundColor: '#fff',
+  background: 'linear-gradient(180deg, #0b1738 0%, #08102a 100%)',
+  border: '1px solid #334155',
   borderRadius: '16px',
   padding: '24px',
   width: '90%',
@@ -308,7 +311,7 @@ const modalTitleStyles: CSSProperties = {
   marginBottom: '12px',
   fontSize: '18px',
   fontWeight: 700,
-  color: '#0f172a'
+  color: '#f8fafc'
 };
 
 const formatFileSize = (size: number | null) => {
@@ -742,7 +745,7 @@ export function StoredImagesPanel({
                       aria-hidden="true"
                       style={{
                         ...statusDotStyles,
-                        backgroundColor: hasCorrections ? '#16a34a' : '#2563eb'
+                        backgroundColor: hasCorrections ? '#60a5fa' : '#93c5fd'
                       }}
                     />
                     {hasCorrections

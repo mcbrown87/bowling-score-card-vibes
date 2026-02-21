@@ -9,21 +9,26 @@ interface FrameBoxProps {
 }
 
 const frameBoxStyles: React.CSSProperties = {
-  border: '2px solid black',
-  backgroundColor: 'white',
+  border: '1px solid #93c5fd',
+  borderRadius: '10px',
+  backgroundColor: '#0b1738',
   display: 'flex',
   flexDirection: 'column',
   width: '100%',
-  height: '80px'
+  height: '90px',
+  overflow: 'hidden',
+  boxShadow: '0 8px 18px rgba(2, 6, 23, 0.35), inset 0 0 0 1px rgba(148, 163, 184, 0.24)'
 };
 
 const frameHeaderStyles: React.CSSProperties = {
-  backgroundColor: '#f5f5f5',
+  backgroundColor: '#0f224a',
   textAlign: 'center',
   padding: '4px',
   fontSize: '12px',
-  fontWeight: 'bold',
-  borderBottom: '1px solid black'
+  fontWeight: 700,
+  color: '#cbd5e1',
+  borderBottom: '1px solid #93c5fd',
+  letterSpacing: '0.08em'
 };
 
 const rollsContainerStyles: React.CSSProperties = {
@@ -36,39 +41,47 @@ const rollBoxStyles: React.CSSProperties = {
   display: 'flex',
   alignItems: 'center',
   justifyContent: 'center',
-  fontSize: '16px',
-  fontWeight: 'bold'
+  fontSize: '20px',
+  fontWeight: 800,
+  color: '#f8fafc',
+  fontFamily: "'Courier New', monospace"
 };
 
 const rollBox2Styles: React.CSSProperties = {
-  width: '24px',
-  borderLeft: '1px solid black',
+  width: '30px',
+  borderLeft: '1px solid #93c5fd',
   display: 'flex',
   alignItems: 'center',
   justifyContent: 'center',
-  fontSize: '16px',
-  fontWeight: 'bold'
+  fontSize: '20px',
+  fontWeight: 800,
+  color: '#f8fafc',
+  fontFamily: "'Courier New', monospace"
 };
 
 const tenthFrameRollStyles: React.CSSProperties = {
   flex: 1,
-  borderRight: '1px solid black',
+  borderRight: '1px solid #93c5fd',
   display: 'flex',
   alignItems: 'center',
   justifyContent: 'center',
-  fontSize: '16px',
-  fontWeight: 'bold'
+  fontSize: '20px',
+  fontWeight: 800,
+  color: '#f8fafc',
+  fontFamily: "'Courier New', monospace"
 };
 
 const scoreBoxStyles: React.CSSProperties = {
-  borderTop: '1px solid black',
-  height: '26px',
+  borderTop: '1px solid #93c5fd',
+  height: '30px',
   display: 'flex',
   alignItems: 'center',
   justifyContent: 'center',
-  backgroundColor: '#fffbf0',
-  fontWeight: 'bold',
-  fontSize: '14px'
+  background: 'linear-gradient(180deg, #08122f 0%, #050b1c 100%)',
+  fontWeight: 800,
+  fontSize: '16px',
+  color: '#e2e8f0',
+  fontFamily: "'Courier New', monospace"
 };
 
 export const FrameBox: React.FC<FrameBoxProps> = ({
@@ -78,27 +91,27 @@ export const FrameBox: React.FC<FrameBoxProps> = ({
   compact = false
 }) => {
   const containerStyles = compact
-    ? { ...frameBoxStyles, height: '68px', borderWidth: '1px' }
+    ? { ...frameBoxStyles, height: '78px' }
     : frameBoxStyles;
 
   const headerStyles = compact
-    ? { ...frameHeaderStyles, fontSize: '11px', padding: '3px' }
+    ? { ...frameHeaderStyles, fontSize: '10px', padding: '3px' }
     : frameHeaderStyles;
 
   const primaryRollStyles = compact
-    ? { ...rollBoxStyles, fontSize: '14px' }
+    ? { ...rollBoxStyles, fontSize: '16px' }
     : rollBoxStyles;
 
   const secondaryRollStyles = compact
-    ? { ...rollBox2Styles, fontSize: '14px' }
+    ? { ...rollBox2Styles, fontSize: '16px', width: '26px' }
     : rollBox2Styles;
 
   const tenthRollStyles = compact
-    ? { ...tenthFrameRollStyles, fontSize: '14px' }
+    ? { ...tenthFrameRollStyles, fontSize: '16px' }
     : tenthFrameRollStyles;
 
   const totalStyles = compact
-    ? { ...scoreBoxStyles, fontSize: '12px', height: '22px' }
+    ? { ...scoreBoxStyles, fontSize: '13px', height: '24px' }
     : scoreBoxStyles;
 
   return (
