@@ -1,0 +1,17 @@
+#!/bin/sh
+
+set -eu
+
+repo_root="$(git rev-parse --show-toplevel)"
+app_dir="$repo_root/bowling-scorecard"
+
+if [ ! -d "$app_dir" ]; then
+  echo "pre-commit: expected app directory at $app_dir" >&2
+  exit 1
+fi
+
+echo "pre-commit: running unit tests"
+(cd "$app_dir" && env -u NODE_OPTIONS npm test -- --runInBand)
+
+echo "pre-commit: running end-to-end tests"
+(cd "$app_dir" && env -u NODE_OPTIONS npm run test:e2e)

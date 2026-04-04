@@ -115,8 +115,8 @@ export const FrameBox: React.FC<FrameBoxProps> = ({
     : scoreBoxStyles;
 
   return (
-    <div style={containerStyles}>
-      <div style={headerStyles}>
+    <div style={containerStyles} data-testid={`frame-box-${frameNumber}`}>
+      <div style={headerStyles} data-testid={`frame-header-${frameNumber}`}>
         {frameNumber}
       </div>
 
@@ -124,22 +124,25 @@ export const FrameBox: React.FC<FrameBoxProps> = ({
         <div style={{ flex: 1, display: 'flex' }}>
           {isTenthFrame ? (
             <div style={{ display: 'flex', flex: 1 }}>
-              <div style={tenthRollStyles}>
+              <div style={tenthRollStyles} data-testid={`frame-roll-${frameNumber}-1`}>
                 {frameDisplay.roll1}
               </div>
-              <div style={tenthRollStyles}>
+              <div style={tenthRollStyles} data-testid={`frame-roll-${frameNumber}-2`}>
                 {frameDisplay.roll2}
               </div>
-              <div style={{ ...tenthRollStyles, borderRight: 'none' }}>
+              <div
+                style={{ ...tenthRollStyles, borderRight: 'none' }}
+                data-testid={`frame-roll-${frameNumber}-3`}
+              >
                 {frameDisplay.roll3}
               </div>
             </div>
           ) : (
             <>
-              <div style={primaryRollStyles}>
+              <div style={primaryRollStyles} data-testid={`frame-roll-${frameNumber}-1`}>
                 {frameDisplay.roll1}
               </div>
-              <div style={secondaryRollStyles}>
+              <div style={secondaryRollStyles} data-testid={`frame-roll-${frameNumber}-2`}>
                 {frameDisplay.roll2}
               </div>
             </>
@@ -147,7 +150,7 @@ export const FrameBox: React.FC<FrameBoxProps> = ({
         </div>
       </div>
 
-      <div style={totalStyles}>
+      <div style={totalStyles} data-testid={`frame-score-${frameNumber}`}>
         {frameDisplay.frameScore !== null ? frameDisplay.frameScore : ''}
       </div>
     </div>
