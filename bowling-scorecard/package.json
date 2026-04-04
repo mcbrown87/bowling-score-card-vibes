@@ -30,6 +30,7 @@
     "test": "jest",
     "test:e2e": "playwright test",
     "test:e2e:headed": "playwright test --headed",
+    "bootstrap:session": "cross-env NODE_OPTIONS= node scripts/bootstrap-dev-session.cjs",
     "queue:worker": "tsx src/server/workers/scoreEstimator.ts",
     "prisma:generate": "prisma generate",
     "prisma:migrate": "prisma migrate dev",

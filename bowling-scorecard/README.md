@@ -30,6 +30,7 @@ We use NextAuth with the Prisma adapter to support credential-based signup and l
 - Use `/login` to sign in. Credentials are verified through NextAuth’s Credentials provider, and sessions are stored in the `sessions` table.
 - Protected routes call `auth()` on the server; the homepage redirects anonymous visitors to the auth screens.
 - Google sign-in is available; set `GOOGLE_CLIENT_ID` and `GOOGLE_CLIENT_SECRET` in `.env`. If you already have a credentials-based account with the same email, Google will now link to it automatically.
+- For a ready-to-use local session, run `npm run bootstrap:session`. The script will start the Docker stack if needed, upsert a deterministic test user, seed a sample scorecard into storage/Postgres, and open a browser already signed in. Override the default credentials with `BOOTSTRAP_USER_EMAIL`, `BOOTSTRAP_USER_PASSWORD`, and `BOOTSTRAP_USER_NAME` if needed.
 
 ## Available Scripts
 
