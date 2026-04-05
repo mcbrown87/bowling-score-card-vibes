@@ -1,6 +1,6 @@
 /* eslint-disable @next/next/no-img-element */
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import type { CSSProperties } from 'react';
+import type { CSSProperties, ReactNode } from 'react';
 import type { StoredImageSummary } from '@/types/stored-image';
 import type { Game } from '@/types/bowling';
 import { Scorecard } from './Scorecard';
@@ -23,6 +23,7 @@ interface StoredImagesPanelProps {
   onUpdateGame?: (imageId: string, gameIndex: number, updatedGame: Game) => Promise<void> | void;
   initialImageId?: string | null;
   initialGameIndex?: number | null;
+  children?: ReactNode;
 }
 
 const sectionStyles: CSSProperties = {
@@ -355,7 +356,8 @@ export function StoredImagesPanel({
   deletingImageId,
   onUpdateGame,
   initialImageId = null,
-  initialGameIndex = null
+  initialGameIndex = null,
+  children
 }: StoredImagesPanelProps) {
   const [activeIndex, setActiveIndex] = useState(0);
   const [activeGameIndex, setActiveGameIndex] = useState(0);
@@ -882,6 +884,8 @@ export function StoredImagesPanel({
           </>
         )}
       </div>
+
+      {children}
 
       {editingFrameIndex !== null && activeGame && canEditScores && !isDesktopInlineEditing && (
         <FrameCorrectionModal

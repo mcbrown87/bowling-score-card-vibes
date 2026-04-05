@@ -41,3 +41,11 @@ export type StoredImageSummary = {
   isProcessingEstimate: boolean;
   lastEstimateError: string | null;
 };
+
+export type StoredImagesPage = {
+  images: StoredImageSummary[];
+  page: number;
+  pageSize: number;
+  totalImages: number;
+  totalPages: number;
+};

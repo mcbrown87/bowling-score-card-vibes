@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { StoredImagesPanel } from './StoredImagesPanel';
-import type { StoredImagePayload, StoredImageSummary } from '@/types/stored-image';
+import type { StoredImagePayload, StoredImageSummary, StoredImagesPage } from '@/types/stored-image';
 import type { Game } from '@/types/bowling';
 import {
   loadStoredImages,
@@ -15,6 +15,38 @@ type StoredImagesLibraryProps = {
   initialGameIndex?: number | null;
 };
 
+const LIBRARY_PAGE_SIZE = 50;
+
+const paginationShellStyles = {
+  marginTop: '16px',
+  display: 'flex',
+  justifyContent: 'space-between',
+  alignItems: 'center',
+  gap: '12px',
+  flexWrap: 'wrap' as const
+};
+
+const paginationInfoStyles = {
+  color: '#cbd5e1',
+  fontSize: '14px'
+};
+
+const paginationButtonStyles = {
+  padding: '10px 16px',
+  borderRadius: '999px',
+  border: '1px solid #475569',
+  backgroundColor: '#0f172a',
+  color: '#e2e8f0',
+  cursor: 'pointer',
+  minWidth: '96px'
+};
+
+const paginationButtonDisabledStyles = {
+  ...paginationButtonStyles,
+  opacity: 0.5,
+  cursor: 'not-allowed'
+};
+
 export function StoredImagesLibrary({ initialImageId, initialGameIndex }: StoredImagesLibraryProps) {
   const [images, setImages] = useState<StoredImageSummary[]>([]);
   const [isLoading, setIsLoading] = useState(false);
@@ -22,6 +54,9 @@ export function StoredImagesLibrary({ initialImageId, initialGameIndex }: Stored
   const [generatingImageId, setGeneratingImageId] = useState<string | null>(null);
   const [clearingImageId, setClearingImageId] = useState<string | null>(null);
   const [deletingImageId, setDeletingImageId] = useState<string | null>(null);
+  const [currentPage, setCurrentPage] = useState(1);
+  const [totalImages, setTotalImages] = useState(0);
+  const [totalPages, setTotalPages] = useState(1);
   const pollAbortRef = useRef(false);
 
   useEffect(() => {
@@ -31,35 +66,42 @@ export function StoredImagesLibrary({ initialImageId, initialGameIndex }: Stored
     };
   }, []);
 
-  const fetchImages = useCallback(async () => {
+  const applyPageData = useCallback((data: StoredImagesPage) => {
+    setImages(data.images);
+    setCurrentPage(data.page);
+    setTotalImages(data.totalImages);
+    setTotalPages(data.totalPages);
+  }, []);
+
+  const fetchImages = useCallback(async (page: number) => {
     setIsLoading(true);
     setError(null);
     try {
-      const parsed = await loadStoredImages();
-      setImages(parsed);
+      const parsed = await loadStoredImages(page, LIBRARY_PAGE_SIZE);
+      applyPageData(parsed);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to load your uploads');
     } finally {
       setIsLoading(false);
     }
-  }, []);
+  }, [applyPageData]);
 
   useEffect(() => {
-    void fetchImages();
-  }, [fetchImages]);
+    void fetchImages(currentPage);
+  }, [currentPage, fetchImages]);
 
   const refreshImagesSilently = useCallback(async () => {
     try {
-      const parsed = await loadStoredImages();
+      const parsed = await loadStoredImages(currentPage, LIBRARY_PAGE_SIZE);
       if (!pollAbortRef.current) {
-        setImages(parsed);
+        applyPageData(parsed);
       }
       return parsed;
     } catch (err) {
       console.warn('Failed to refresh stored images', err);
       return null;
     }
-  }, []);
+  }, [applyPageData, currentPage]);
 
   const pollEstimateCompletion = useCallback(
     async (imageId: string) => {
@@ -205,7 +247,7 @@ export function StoredImagesLibrary({ initialImageId, initialGameIndex }: Stored
       isLoading={isLoading}
       error={error}
       onRetry={() => {
-        void fetchImages();
+        void fetchImages(currentPage);
       }}
       onGenerateScores={handleGenerateScores}
       onClearScores={handleClearScores}
@@ -216,6 +258,38 @@ export function StoredImagesLibrary({ initialImageId, initialGameIndex }: Stored
       onUpdateGame={handleUpdateGame}
       initialImageId={initialImageId ?? null}
       initialGameIndex={initialGameIndex ?? null}
-    />
+    >
+      {totalPages > 1 && (
+        <div style={paginationShellStyles}>
+          <button
+            type="button"
+            onClick={() => {
+              if (currentPage > 1 && !isLoading) {
+                setCurrentPage((page) => Math.max(1, page - 1));
+              }
+            }}
+            disabled={currentPage <= 1 || isLoading}
+            style={currentPage <= 1 || isLoading ? paginationButtonDisabledStyles : paginationButtonStyles}
+          >
+            Previous Page
+          </button>
+          <div style={paginationInfoStyles}>
+            Page {currentPage} of {totalPages} · {totalImages} uploads
+          </div>
+          <button
+            type="button"
+            onClick={() => {
+              if (currentPage < totalPages && !isLoading) {
+                setCurrentPage((page) => Math.min(totalPages, page + 1));
+              }
+            }}
+            disabled={currentPage >= totalPages || isLoading}
+            style={currentPage >= totalPages || isLoading ? paginationButtonDisabledStyles : paginationButtonStyles}
+          >
+            Next Page
+          </button>
+        </div>
+      )}
+    </StoredImagesPanel>
   );
 }

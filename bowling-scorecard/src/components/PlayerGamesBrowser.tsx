@@ -377,7 +377,7 @@ export function PlayerGamesBrowser() {
     setError(null);
     try {
       const parsed = await loadStoredImages();
-      setImages(parsed);
+      setImages(parsed.images);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to load your uploads');
     } finally {

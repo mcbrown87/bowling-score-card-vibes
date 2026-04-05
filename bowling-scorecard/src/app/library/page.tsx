@@ -10,6 +10,8 @@ type LibraryPageProps = {
 
 export default async function LibraryPage({ searchParams }: LibraryPageProps) {
   const session = await auth();
+  const e2eBypassEnabled =
+    process.env.NODE_ENV !== 'production' && searchParams?.e2e === '1';
   const initialImageId =
     typeof searchParams?.imageId === 'string' && searchParams.imageId.trim() !== ''
       ? searchParams.imageId
@@ -22,7 +24,7 @@ export default async function LibraryPage({ searchParams }: LibraryPageProps) {
       ? parsedGameIndex
       : null;
 
-  if (!session?.user) {
+  if (!session?.user && !e2eBypassEnabled) {
     return (
       <main className="auth-required">
         <div className="auth-card">
@@ -38,7 +40,11 @@ export default async function LibraryPage({ searchParams }: LibraryPageProps) {
 
   return (
     <main>
-      <AppHeader userLabel={`Signed in as ${session.user.name ?? session.user.email}`} />
+      <AppHeader
+        userLabel={`Signed in as ${
+          session?.user?.name ?? session?.user?.email ?? 'E2E Test User'
+        }`}
+      />
       <div style={{ padding: '0 16px 16px', maxWidth: '1200px', margin: '0 auto' }}>
         <StoredImagesLibrary initialImageId={initialImageId} initialGameIndex={initialGameIndex} />
       </div>

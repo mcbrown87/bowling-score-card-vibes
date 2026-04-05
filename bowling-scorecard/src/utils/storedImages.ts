@@ -2,7 +2,8 @@ import type {
   StoredGamePayload,
   StoredImagePayload,
   StoredImageSummary,
-  StoredGameSummary
+  StoredGameSummary,
+  StoredImagesPage
 } from '@/types/stored-image';
 import type { Game } from '@/types/bowling';
 
@@ -92,8 +93,14 @@ export const normalizeStoredImage = (
   };
 };
 
-export async function loadStoredImages(): Promise<StoredImageSummary[]> {
-  const response = await fetch('/api/stored-images');
+export async function loadStoredImages(page = 1, pageSize?: number): Promise<StoredImagesPage> {
+  const params = new URLSearchParams();
+  params.set('page', String(page));
+  if (typeof pageSize === 'number' && Number.isFinite(pageSize) && pageSize > 0) {
+    params.set('pageSize', String(Math.floor(pageSize)));
+  }
+
+  const response = await fetch(`/api/stored-images?${params.toString()}`);
   const data = await response.json();
 
   if (!response.ok || !data?.success) {
@@ -106,7 +113,27 @@ export async function loadStoredImages(): Promise<StoredImageSummary[]> {
         .filter((image): image is StoredImageSummary => Boolean(image))
     : [];
 
-  return parsed;
+  const parsedPage = Number.isFinite(data?.page) ? Number(data.page) : page;
+  const parsedPageSize =
+    Number.isFinite(data?.pageSize) && Number(data.pageSize) > 0
+      ? Number(data.pageSize)
+      : parsed.length;
+  const totalImages =
+    Number.isFinite(data?.totalImages) && Number(data.totalImages) >= 0
+      ? Number(data.totalImages)
+      : parsed.length;
+  const totalPages =
+    Number.isFinite(data?.totalPages) && Number(data.totalPages) > 0
+      ? Number(data.totalPages)
+      : 1;
+
+  return {
+    images: parsed,
+    page: parsedPage,
+    pageSize: parsedPageSize,
+    totalImages,
+    totalPages
+  };
 }
 
 export async function saveStoredGameCorrection(

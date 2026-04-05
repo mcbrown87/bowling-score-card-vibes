@@ -360,7 +360,7 @@ function BowlingApp() {
     setStoredImagesError(null);
     try {
       const parsed = await loadStoredImages();
-      setStoredImages(parsed ?? []);
+      setStoredImages(parsed.images ?? []);
     } catch (error) {
       setStoredImagesError(
         error instanceof Error ? error.message : 'Failed to load your uploaded images'
