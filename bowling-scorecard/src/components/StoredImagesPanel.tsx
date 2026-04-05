@@ -6,6 +6,8 @@ import type { Game } from '@/types/bowling';
 import { Scorecard } from './Scorecard';
 import { FrameCorrectionModal } from './FrameCorrectionModal';
 import { PlayerNameModal } from './PlayerNameModal';
+import { useDesktopKeyboardMode } from '../utils/useDesktopKeyboardMode';
+import { useDesktopScoreCorrection } from '../utils/useDesktopScoreCorrection';
 
 interface StoredImagesPanelProps {
   images: StoredImageSummary[];
@@ -370,6 +372,7 @@ export function StoredImagesPanel({
   const skipNextGameResetRef = useRef(false);
   const hasImages = images.length > 0;
   const resetInitialSelectionRef = useRef({ imageId: initialImageId, gameIndex: initialGameIndex });
+  const isDesktopKeyboardMode = useDesktopKeyboardMode();
 
   useEffect(() => {
     if (
@@ -475,8 +478,7 @@ export function StoredImagesPanel({
     hasScoreEstimates &&
     !isGeneratingActiveImage &&
     !isClearingActiveImage &&
-    !isDeletingActiveImage &&
-    !isSavingCorrection;
+    !isDeletingActiveImage;
   const canLongPressClear =
     Boolean(onClearScores) &&
     hasScoreEstimates &&
@@ -484,16 +486,7 @@ export function StoredImagesPanel({
     !isClearingActiveImage &&
     !isSavingCorrection;
   const scorecardLocked = !canEditScores || editingFrameIndex !== null || isRenamingPlayer;
-
-  const handleFrameSelect = useCallback(
-    (frameIndex: number) => {
-    if (!canEditScores || isRenamingPlayer) {
-      return;
-    }
-    setEditingFrameIndex(frameIndex);
-  },
-  [canEditScores, isRenamingPlayer]
-);
+  const isDesktopInlineEditing = Boolean(activeGame) && isDesktopKeyboardMode;
 
   const handleCloseFrameModal = useCallback(() => {
     if (isSavingCorrection) {
@@ -562,6 +555,40 @@ export function StoredImagesPanel({
       }
     },
     [activeGame, activeImage, onUpdateGame]
+  );
+
+  const desktopCorrection = useDesktopScoreCorrection({
+    enabled: isDesktopInlineEditing,
+    game: activeGame,
+    gameKey: activeImage && activeGame ? `${activeImage.id}-${activeGame.gameIndex}` : null,
+    canEdit: canEditScores && !isRenamingPlayer,
+    isBlocked: editingFrameIndex !== null || metaModalOpen || clearConfirmOpen,
+    onPersist: activeImage && activeGame && onUpdateGame
+      ? async (updatedGame) => {
+          setCorrectionError(null);
+          await onUpdateGame(activeImage.id, activeGame.gameIndex, {
+            ...updatedGame,
+            isEstimate: false
+          });
+        }
+      : undefined,
+    onPersistError: (message) => {
+      setCorrectionError(message);
+    }
+  });
+
+  const handleFrameSelect = useCallback(
+    (frameIndex: number) => {
+      if (!canEditScores || isRenamingPlayer) {
+        return;
+      }
+      if (isDesktopInlineEditing) {
+        desktopCorrection.handleFrameSelect(frameIndex);
+        return;
+      }
+      setEditingFrameIndex(frameIndex);
+    },
+    [canEditScores, desktopCorrection, isDesktopInlineEditing, isRenamingPlayer]
   );
 
   const handlePressStart = useCallback(() => {
@@ -726,11 +753,18 @@ export function StoredImagesPanel({
                   >
                     <Scorecard
                       key={`${activeImage.id}-${boundedGameIndex}`}
-                      game={activeGame}
+                      game={desktopCorrection.displayGame ?? activeGame}
                       onFrameSelect={handleFrameSelect}
                       onPlayerNameClick={handlePlayerNameClick}
                       disableEditing={scorecardLocked}
                       compact
+                      selectedFrameIndex={desktopCorrection.selectedFrameIndex}
+                      activeRoll={desktopCorrection.activeRoll}
+                      keyboardMode={desktopCorrection.isDesktopInlineEditing}
+                      keyboardActive={desktopCorrection.isKeyboardActive}
+                      onKeyboardFocus={desktopCorrection.handleScorecardFocus}
+                      onKeyboardBlur={desktopCorrection.handleScorecardBlur}
+                      onKeyboardKeyDown={desktopCorrection.handleScorecardKeyDown}
                     />
                   </div>
                 </div>
@@ -849,7 +883,7 @@ export function StoredImagesPanel({
         )}
       </div>
 
-      {editingFrameIndex !== null && activeGame && canEditScores && (
+      {editingFrameIndex !== null && activeGame && canEditScores && !isDesktopInlineEditing && (
         <FrameCorrectionModal
           game={activeGame}
           frameIndex={editingFrameIndex}

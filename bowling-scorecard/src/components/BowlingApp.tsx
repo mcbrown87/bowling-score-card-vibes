@@ -12,6 +12,8 @@ import type { StoredImageSummary, StoredImagePayload, StoredGameSummary } from '
 import { extractScoresFromImage } from '../utils/scoreExtractor';
 import { initClientDiagnostics, logClientEvent } from '../utils/clientDiagnostics';
 import { loadStoredImages, normalizeStoredImage, saveStoredGameCorrection } from '../utils/storedImages';
+import { useDesktopKeyboardMode } from '../utils/useDesktopKeyboardMode';
+import { useDesktopScoreCorrection } from '../utils/useDesktopScoreCorrection';
 
 type ErrorDiagnostics = {
   endpoint?: string;
@@ -280,6 +282,8 @@ function BowlingApp() {
   const [storedImagesLoading, setStoredImagesLoading] = useState(false);
   const [storedImagesError, setStoredImagesError] = useState<string | null>(null);
   const [activeStoredImageId, setActiveStoredImageId] = useState<string | null>(null);
+  const [correctionError, setCorrectionError] = useState<string | null>(null);
+  const isDesktopKeyboardMode = useDesktopKeyboardMode();
 
   const tagGamesAsEstimates = useCallback((items: Game[]) => {
     return items.map((game) => ({
@@ -368,12 +372,8 @@ function BowlingApp() {
 
   const persistStoredImageCorrection = useCallback(
     async (imageId: string, gameIndex: number, updatedGame: Game) => {
-      try {
-        const normalized = await saveStoredGameCorrection(imageId, gameIndex, updatedGame);
-        applyStoredImageGameUpdate(imageId, normalized);
-      } catch (error) {
-        console.error('Failed to save correction', error);
-      }
+      const normalized = await saveStoredGameCorrection(imageId, gameIndex, updatedGame);
+      applyStoredImageGameUpdate(imageId, normalized);
     },
     [applyStoredImageGameUpdate]
   );
@@ -541,6 +541,7 @@ function BowlingApp() {
   }, [games, currentGameIndex]);
 
   const displayedGame = activeGame;
+  const isDesktopInlineEditing = Boolean(displayedGame) && isDesktopKeyboardMode;
 
   const hasMultipleGames = games.length > 1;
 
@@ -616,6 +617,10 @@ function BowlingApp() {
     if (!activeGame || isProcessing || isRenamingPlayer) {
       return;
     }
+    if (isDesktopInlineEditing) {
+      desktopCorrection.handleFrameSelect(frameIndex);
+      return;
+    }
     setEditingFrameIndex(frameIndex);
   };
 
@@ -625,6 +630,7 @@ function BowlingApp() {
 
   const handleApplyFrameCorrection = useCallback(
     (updatedGame: Game) => {
+      setCorrectionError(null);
       const correctedGame: Game = {
         ...updatedGame,
         isEstimate: false
@@ -634,7 +640,13 @@ function BowlingApp() {
       );
       setEditingFrameIndex(null);
       if (activeStoredImageId) {
-        void persistStoredImageCorrection(activeStoredImageId, currentGameIndex, correctedGame);
+        void persistStoredImageCorrection(activeStoredImageId, currentGameIndex, correctedGame).catch(
+          (error) => {
+            setCorrectionError(
+              error instanceof Error ? error.message : 'Failed to save your correction'
+            );
+          }
+        );
       }
     },
     [activeStoredImageId, currentGameIndex, persistStoredImageCorrection]
@@ -657,6 +669,21 @@ function BowlingApp() {
   };
 
   const controlsLocked = isProcessing || editingFrameIndex !== null || isRenamingPlayer;
+  const desktopCorrection = useDesktopScoreCorrection({
+    enabled: isDesktopInlineEditing,
+    game: displayedGame,
+    gameKey: displayedGame ? `${activeStoredImageId ?? 'local'}-${currentGameIndex}` : null,
+    canEdit: !isProcessing && !isRenamingPlayer,
+    isBlocked: editingFrameIndex !== null,
+    onOptimisticChange: (updatedGame) => {
+      setCorrectionError(null);
+      setGames((prev) => prev.map((g, idx) => (idx === currentGameIndex ? updatedGame : g)));
+    },
+    onPersist: activeStoredImageId
+      ? (updatedGame) => persistStoredImageCorrection(activeStoredImageId, currentGameIndex, updatedGame)
+      : undefined,
+    onPersistError: (message) => setCorrectionError(message)
+  });
 
   const paginationControls = (
     <div
@@ -829,11 +856,18 @@ function BowlingApp() {
             </div>
             <div style={responsiveScorecardStyles}>
               <Scorecard
-                game={displayedGame}
+                game={desktopCorrection.displayGame ?? displayedGame}
                 onFrameSelect={handleFrameSelect}
                 onPlayerNameClick={handlePlayerNameClick}
                 disableEditing={controlsLocked}
                 compact={isMobile}
+                selectedFrameIndex={desktopCorrection.selectedFrameIndex}
+                activeRoll={desktopCorrection.activeRoll}
+                keyboardMode={desktopCorrection.isDesktopInlineEditing}
+                keyboardActive={desktopCorrection.isKeyboardActive}
+                onKeyboardFocus={desktopCorrection.handleScorecardFocus}
+                onKeyboardBlur={desktopCorrection.handleScorecardBlur}
+                onKeyboardKeyDown={desktopCorrection.handleScorecardKeyDown}
               />
             </div>
           </div>
@@ -849,7 +883,7 @@ function BowlingApp() {
         </div>
       )}
 
-      {editingFrameIndex !== null && activeGame && (
+      {editingFrameIndex !== null && activeGame && !isDesktopInlineEditing && (
         <FrameCorrectionModal
           game={activeGame}
           frameIndex={editingFrameIndex}
@@ -910,6 +944,24 @@ function BowlingApp() {
               </p>
             </div>
           )}
+        </div>
+      )}
+
+      {correctionError && (
+        <div
+          style={{
+            marginTop: '16px',
+            padding: '12px',
+            backgroundColor: '#fef2f2',
+            border: '1px solid #fecaca',
+            borderRadius: '8px',
+            color: '#b91c1c',
+            maxWidth: '640px',
+            marginLeft: 'auto',
+            marginRight: 'auto'
+          }}
+        >
+          <p style={{ margin: 0, fontSize: '14px' }}>{correctionError}</p>
         </div>
       )}
 

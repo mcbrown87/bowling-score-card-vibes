@@ -2,6 +2,7 @@ import React, { useMemo } from 'react';
 import { Game } from '../types/bowling';
 import { FrameBox } from './FrameBox';
 import { formatFrameDisplay, formatTenthFrameDisplay } from '../utils/displayHelpers';
+import type { ActiveRoll } from '../utils/frameCorrection';
 
 interface ScorecardProps {
   game: Game;
@@ -9,6 +10,13 @@ interface ScorecardProps {
   onPlayerNameClick?: () => void;
   disableEditing?: boolean;
   compact?: boolean;
+  selectedFrameIndex?: number | null;
+  activeRoll?: ActiveRoll | null;
+  keyboardMode?: boolean;
+  keyboardActive?: boolean;
+  onKeyboardFocus?: () => void;
+  onKeyboardBlur?: () => void;
+  onKeyboardKeyDown?: (event: React.KeyboardEvent<HTMLDivElement>) => void;
 }
 
 const containerStyles: React.CSSProperties = {
@@ -73,6 +81,12 @@ const frameWrapperBaseStyles: React.CSSProperties = {
   backgroundColor: 'rgba(15, 23, 42, 0.45)'
 };
 
+const selectedFrameWrapperStyles: React.CSSProperties = {
+  backgroundColor: 'rgba(59, 130, 246, 0.9)',
+  backgroundImage: 'linear-gradient(180deg, rgba(125, 211, 252, 0.95) 0%, rgba(59, 130, 246, 0.9) 100%)',
+  boxShadow: '0 0 0 2px rgba(255,255,255,0.3), 0 14px 28px rgba(14, 116, 144, 0.4)'
+};
+
 const frameButtonStyles: React.CSSProperties = {
   background: 'none',
   borderWidth: '1px',
@@ -108,12 +122,32 @@ const playerFooterButtonStyles: React.CSSProperties = {
   padding: 0
 };
 
+const keyboardHintStyles: React.CSSProperties = {
+  position: 'absolute',
+  top: '8px',
+  right: '8px',
+  padding: '2px 6px',
+  borderRadius: '999px',
+  backgroundColor: 'rgba(15, 23, 42, 0.88)',
+  color: '#e0f2fe',
+  fontSize: '10px',
+  fontWeight: 800,
+  letterSpacing: '0.06em'
+};
+
 export const Scorecard: React.FC<ScorecardProps> = ({
   game,
   onFrameSelect,
   onPlayerNameClick,
   disableEditing,
-  compact = false
+  compact = false,
+  selectedFrameIndex = null,
+  activeRoll = null,
+  keyboardMode = false,
+  keyboardActive = false,
+  onKeyboardFocus,
+  onKeyboardBlur,
+  onKeyboardKeyDown
 }) => {
   const gridStyles = useMemo<React.CSSProperties>(
     () => ({
@@ -128,8 +162,21 @@ export const Scorecard: React.FC<ScorecardProps> = ({
   );
 
   const renderFrame = (frameNumber: number, content: React.ReactNode, frameIndex: number) => {
+    const isSelected = selectedFrameIndex === frameIndex;
     const wrapper = (
-      <div style={frameWrapperBaseStyles}>
+      <div
+        style={{
+          ...frameWrapperBaseStyles,
+          ...(isSelected ? selectedFrameWrapperStyles : {})
+        }}
+        data-active-roll={isSelected && activeRoll ? activeRoll : undefined}
+      >
+        {isSelected && keyboardMode && (
+          <span style={keyboardHintStyles}>
+            {keyboardActive ? 'KB' : 'Focus'}{' '}
+            {activeRoll === 'roll1' ? 'R1' : activeRoll === 'roll2' ? 'R2' : activeRoll === 'roll3' ? 'R3' : ''}
+          </span>
+        )}
         {content}
       </div>
     );
@@ -153,9 +200,10 @@ export const Scorecard: React.FC<ScorecardProps> = ({
           ...buttonStyles,
           opacity: disableEditing ? 0.7 : 1,
           boxShadow: disableEditing ? 'none' : '0 8px 20px rgba(2, 6, 23, 0.38)',
-          borderColor: disableEditing ? 'transparent' : '#60a5fa'
+          borderColor: disableEditing ? 'transparent' : isSelected ? '#e0f2fe' : '#60a5fa'
         }}
         aria-label={`Edit frame ${frameNumber}`}
+        aria-current={isSelected ? 'step' : undefined}
       >
         {wrapper}
       </button>
@@ -207,7 +255,20 @@ export const Scorecard: React.FC<ScorecardProps> = ({
   );
 
   return (
-    <div style={containerStyle}>
+    <div
+      style={containerStyle}
+      tabIndex={onKeyboardKeyDown && !disableEditing ? 0 : undefined}
+      onFocus={onKeyboardFocus}
+      onBlur={(event) => {
+        const nextTarget = event.relatedTarget as Node | null;
+        if (!nextTarget || !event.currentTarget.contains(nextTarget)) {
+          onKeyboardBlur?.();
+        }
+      }}
+      onKeyDown={onKeyboardKeyDown}
+      data-testid="scorecard-root"
+      aria-label={keyboardMode ? 'Editable scorecard' : undefined}
+    >
       <div style={cardStyle}>
         {!compact && (
           <div style={headerStyles}>

@@ -60,25 +60,31 @@ test.beforeEach(async ({ page }) => {
   });
 });
 
-test('uploading an image renders scorecards and allows frame correction', async ({ page }) => {
-  await page.goto('/dev/e2e');
+test.describe('desktop keyboard correction flow', () => {
+  test('uploading an image renders scorecards and supports keyboard correction', async ({ page }) => {
+    await page.goto('/dev/e2e');
 
-  await page.getByLabel('Upload scorecard').setInputFiles(uploadFixturePath);
+    await page.getByLabel('Upload scorecard').setInputFiles(uploadFixturePath);
 
-  await expect(page.getByRole('button', { name: 'Player Two', exact: true })).toBeVisible();
-  await expect(page.getByTestId('frame-score-1')).toHaveText('2');
-  await expect(page.getByTestId('frame-score-10')).toHaveText('20');
+    await expect(page.getByRole('button', { name: 'Player Two', exact: true })).toBeVisible();
+    await expect(page.getByTestId('frame-score-1')).toHaveText('2');
+    await expect(page.getByTestId('frame-score-10')).toHaveText('20');
 
-  await page.getByRole('button', { name: 'Edit frame 1', exact: true }).click();
-  await expect(page.getByRole('dialog', { name: 'Correct Frame 1' })).toBeVisible();
+    await page.getByRole('button', { name: 'Edit frame 1', exact: true }).click();
+    await expect(page.getByRole('dialog', { name: 'Correct Frame 1' })).toHaveCount(0);
 
-  await page.getByRole('button', { name: 'Set roll1 to 9 pins' }).click();
-  await page.getByRole('button', { name: 'Set roll2 to 0 pins' }).click();
-  await page.getByRole('button', { name: 'Save', exact: true }).click();
+    await page.getByTestId('scorecard-root').press('X');
+    await expect(page.getByTestId('frame-roll-1-2')).toHaveText('X');
+    await expect(page.getByRole('button', { name: 'Edit frame 2', exact: true })).toHaveAttribute(
+      'aria-current',
+      'step'
+    );
 
-  await expect(page.getByRole('dialog', { name: 'Correct Frame 1' })).toBeHidden();
-  await expect(page.getByTestId('frame-roll-1-1')).toHaveText('9');
-  await expect(page.getByTestId('frame-roll-1-2')).toHaveText('-');
-  await expect(page.getByTestId('frame-score-1')).toHaveText('9');
-  await expect(page.getByTestId('frame-score-10')).toHaveText('27');
+    await page.getByTestId('scorecard-root').press('ArrowRight');
+    await page.getByTestId('scorecard-root').press('9');
+    await page.getByTestId('scorecard-root').press('0');
+    await expect(page.getByTestId('frame-roll-3-1')).toHaveText('9');
+    await expect(page.getByTestId('frame-roll-3-2')).toHaveText('-');
+    await expect(page.getByTestId('frame-score-10')).toHaveText('37');
+  });
 });

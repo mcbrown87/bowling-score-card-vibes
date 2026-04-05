@@ -1,6 +1,12 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
-import { Frame, Game, Roll } from '../types/bowling';
+import { Game } from '../types/bowling';
 import { recalculateGame } from '../utils/recalculateGame';
+import {
+  type ActiveRoll,
+  clampPins,
+  normalizeRegularFrame,
+  normalizeTenthFrame
+} from '../utils/frameCorrection';
 
 interface FrameCorrectionModalProps {
   game: Game;
@@ -9,8 +15,6 @@ interface FrameCorrectionModalProps {
   onClose: () => void;
   isSaving?: boolean;
 }
-
-type ActiveRoll = 'roll1' | 'roll2' | 'roll3';
 
 const overlayStyles: React.CSSProperties = {
   position: 'fixed',
@@ -231,61 +235,6 @@ const primaryButtonStyles: React.CSSProperties = {
 };
 
 const pinsOptions = Array.from({ length: 11 }, (_, value) => value);
-
-const clampPins = (value: unknown): number => {
-  const num = Number(value);
-  if (!Number.isFinite(num)) {
-    return 0;
-  }
-  return Math.min(10, Math.max(0, Math.round(num)));
-};
-
-const normalizeRegularFrame = (frame: Frame, rolls: Roll[]): Frame => {
-  const normalizedRolls = rolls.slice(0, 2).map((roll) => ({ pins: clampPins(roll.pins) }));
-  while (normalizedRolls.length < 2) {
-    normalizedRolls.push({ pins: 0 });
-  }
-
-  const first = normalizedRolls[0]?.pins ?? 0;
-  if (first === 10) {
-    return {
-      ...frame,
-      rolls: [{ pins: 10 }],
-      isStrike: true,
-      isSpare: false
-    };
-  }
-
-  const secondRaw = normalizedRolls[1]?.pins ?? 0;
-  const second = Math.min(10 - first, clampPins(secondRaw));
-  const isSpare = first + second === 10;
-
-  return {
-    ...frame,
-    rolls: [{ pins: first }, { pins: second }],
-    isStrike: false,
-    isSpare
-  };
-};
-
-const normalizeTenthFrame = (frame: Game['tenthFrame']): Game['tenthFrame'] => {
-  const rolls = frame.rolls.slice(0, 3).map((roll) => ({ pins: clampPins(roll.pins) }));
-  while (rolls.length < 2) {
-    rolls.push({ pins: 0 });
-  }
-
-  const first = rolls[0]?.pins ?? 0;
-  const second = rolls[1]?.pins ?? 0;
-  const isStrike = first === 10;
-  const isSpare = !isStrike && first + second === 10;
-
-  return {
-    ...frame,
-    rolls,
-    isStrike,
-    isSpare
-  };
-};
 
 const toDisplaySymbol = (
   roll: number,

@@ -39,6 +39,7 @@ const buildSampleGame = (playerName: string, baseScore: number): Game => {
 
 const originalFileReader = global.FileReader;
 const originalFetch = global.fetch;
+const originalMatchMedia = window.matchMedia;
 
 class MockFileReader {
   public onload: ((event: { target: { result: string } }) => void) | null = null;
@@ -58,6 +59,7 @@ beforeAll(() => {
 afterAll(() => {
   global.FileReader = originalFileReader;
   global.fetch = originalFetch;
+  window.matchMedia = originalMatchMedia;
 });
 
 beforeEach(() => {
@@ -81,6 +83,17 @@ beforeEach(() => {
 
   // @ts-expect-error override for testing
   global.fetch = mockFetch;
+
+  window.matchMedia = jest.fn().mockImplementation((query: string) => ({
+    matches: query.includes('min-width: 768px'),
+    media: query,
+    onchange: null,
+    addEventListener: jest.fn(),
+    removeEventListener: jest.fn(),
+    addListener: jest.fn(),
+    removeListener: jest.fn(),
+    dispatchEvent: jest.fn()
+  }));
 });
 
 afterEach(() => {
@@ -101,4 +114,57 @@ test('renders scorecards after OCR extraction completes', async () => {
 
   expect(playerOneBadges.length).toBeGreaterThan(0);
   expect(playerTwoBadges.length).toBeGreaterThan(0);
+});
+
+test('keeps the modal correction flow on mobile', async () => {
+  window.matchMedia = jest.fn().mockImplementation(() => ({
+    matches: false,
+    media: '',
+    onchange: null,
+    addEventListener: jest.fn(),
+    removeEventListener: jest.fn(),
+    addListener: jest.fn(),
+    removeListener: jest.fn(),
+    dispatchEvent: jest.fn()
+  }));
+
+  render(<BowlingApp />);
+
+  const input = screen.getByLabelText('Upload scorecard');
+  const fakeFile = new File(['fake-bowling'], 'score.jpg', { type: 'image/jpeg' });
+  fireEvent.change(input, { target: { files: [fakeFile] } });
+
+  await waitFor(() => expect(mockedExtractScores).toHaveBeenCalled());
+
+  fireEvent.click(screen.getByRole('button', { name: 'Edit frame 1' }));
+
+  expect(await screen.findByRole('dialog', { name: 'Correct Frame 1' })).toBeVisible();
+});
+
+test('uses desktop keyboard entry without opening the modal', async () => {
+  render(<BowlingApp />);
+
+  const input = screen.getByLabelText('Upload scorecard');
+  const fakeFile = new File(['fake-bowling'], 'score.jpg', { type: 'image/jpeg' });
+  fireEvent.change(input, { target: { files: [fakeFile] } });
+
+  await waitFor(() => expect(mockedExtractScores).toHaveBeenCalled());
+
+  fireEvent.click(screen.getByRole('button', { name: 'Edit frame 1' }));
+  await waitFor(() =>
+    expect(screen.getByRole('button', { name: 'Edit frame 1' })).toHaveAttribute(
+      'aria-current',
+      'step'
+    )
+  );
+  fireEvent.keyDown(screen.getByTestId('scorecard-root'), { key: 'x' });
+
+  await waitFor(() => {
+    expect(screen.queryByRole('dialog', { name: 'Correct Frame 1' })).not.toBeInTheDocument();
+  });
+  expect(screen.getByTestId('frame-roll-1-2')).toHaveTextContent('X');
+  expect(screen.getByRole('button', { name: 'Edit frame 2' })).toHaveAttribute(
+    'aria-current',
+    'step'
+  );
 });

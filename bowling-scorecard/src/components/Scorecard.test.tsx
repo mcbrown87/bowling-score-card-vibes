@@ -45,4 +45,38 @@ describe('Scorecard', () => {
 
     expect(onFrameSelect).not.toHaveBeenCalled();
   });
+
+  it('marks the selected frame for desktop keyboard editing', () => {
+    render(
+      <Scorecard
+        game={buildGame()}
+        onFrameSelect={jest.fn()}
+        selectedFrameIndex={2}
+        activeRoll="roll2"
+        keyboardMode
+        keyboardActive
+      />
+    );
+
+    expect(screen.getByRole('button', { name: 'Edit frame 3' })).toHaveAttribute(
+      'aria-current',
+      'step'
+    );
+  });
+
+  it('forwards keyboard events from the scorecard root', () => {
+    const onKeyboardKeyDown = jest.fn();
+
+    render(
+      <Scorecard
+        game={buildGame()}
+        onFrameSelect={jest.fn()}
+        onKeyboardKeyDown={onKeyboardKeyDown}
+      />
+    );
+
+    fireEvent.keyDown(screen.getByTestId('scorecard-root'), { key: 'ArrowRight' });
+
+    expect(onKeyboardKeyDown).toHaveBeenCalled();
+  });
 });
