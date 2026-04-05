@@ -24,6 +24,12 @@ interface StoredImagesPanelProps {
   initialImageId?: string | null;
   initialGameIndex?: number | null;
   children?: ReactNode;
+  totalImageCount?: number;
+  imageIndexOffset?: number;
+  pageSelectionKey?: string | number;
+  initialActiveIndex?: number;
+  onRequestPreviousImagePage?: () => void;
+  onRequestNextImagePage?: () => void;
 }
 
 const sectionStyles: CSSProperties = {
@@ -357,7 +363,13 @@ export function StoredImagesPanel({
   onUpdateGame,
   initialImageId = null,
   initialGameIndex = null,
-  children
+  children,
+  totalImageCount,
+  imageIndexOffset = 0,
+  pageSelectionKey,
+  initialActiveIndex,
+  onRequestPreviousImagePage,
+  onRequestNextImagePage
 }: StoredImagesPanelProps) {
   const [activeIndex, setActiveIndex] = useState(0);
   const [activeGameIndex, setActiveGameIndex] = useState(0);
@@ -409,6 +421,14 @@ export function StoredImagesPanel({
     }
     setActiveIndex(0);
   }, [images.length, initialImageId]);
+
+  useEffect(() => {
+    if (typeof initialActiveIndex !== 'number' || !Number.isFinite(initialActiveIndex)) {
+      return;
+    }
+    const nextIndex = Math.max(0, Math.min(images.length - 1, Math.floor(initialActiveIndex)));
+    setActiveIndex(nextIndex);
+  }, [images.length, initialActiveIndex, pageSelectionKey]);
 
   useEffect(() => {
     if (skipNextGameResetRef.current) {
@@ -473,6 +493,13 @@ export function StoredImagesPanel({
 
   const canGoPrev = boundedImageIndex > 0;
   const canGoNext = boundedImageIndex < images.length - 1;
+  const canGoPrevAcrossPages = canGoPrev || Boolean(onRequestPreviousImagePage && imageIndexOffset > 0);
+  const totalImagesForDisplay = totalImageCount ?? images.length;
+  const canGoNextAcrossPages =
+    canGoNext ||
+    Boolean(
+      onRequestNextImagePage && imageIndexOffset + boundedImageIndex + 1 < totalImagesForDisplay
+    );
   const canGoPrevGame = boundedGameIndex > 0;
   const canGoNextGame = hasScoreEstimates && boundedGameIndex < gamesForImage.length - 1;
   const canEditScores =
@@ -658,6 +685,22 @@ export function StoredImagesPanel({
     };
   }, []);
 
+  const handlePreviousImage = useCallback(() => {
+    if (canGoPrev) {
+      setActiveIndex((index) => Math.max(0, index - 1));
+      return;
+    }
+    onRequestPreviousImagePage?.();
+  }, [canGoPrev, onRequestPreviousImagePage]);
+
+  const handleNextImage = useCallback(() => {
+    if (canGoNext) {
+      setActiveIndex((index) => Math.min(images.length - 1, index + 1));
+      return;
+    }
+    onRequestNextImagePage?.();
+  }, [canGoNext, images.length, onRequestNextImagePage]);
+
   return (
     <section style={sectionStyles} aria-live="polite">
       <div style={cardStyles}>
@@ -713,24 +756,24 @@ export function StoredImagesPanel({
                 <span>{estimateErrorMessage}</span>
               </div>
             )}
-            {images.length > 1 && (
+            {totalImagesForDisplay > 1 && (
               <div style={carouselControlsStyles}>
                 <button
                   type="button"
-                  style={canGoPrev ? navButtonStyles : navButtonDisabledStyles}
-                  onClick={() => setActiveIndex((index) => Math.max(0, index - 1))}
-                  disabled={!canGoPrev}
+                  style={canGoPrevAcrossPages ? navButtonStyles : navButtonDisabledStyles}
+                  onClick={handlePreviousImage}
+                  disabled={!canGoPrevAcrossPages}
                 >
                   ← Previous
                 </button>
                 <div style={indicatorStyles}>
-                  Image {boundedImageIndex + 1} of {images.length}
+                  Image {imageIndexOffset + boundedImageIndex + 1} of {totalImagesForDisplay}
                 </div>
                 <button
                   type="button"
-                  style={canGoNext ? navButtonStyles : navButtonDisabledStyles}
-                  onClick={() => setActiveIndex((index) => Math.min(images.length - 1, index + 1))}
-                  disabled={!canGoNext}
+                  style={canGoNextAcrossPages ? navButtonStyles : navButtonDisabledStyles}
+                  onClick={handleNextImage}
+                  disabled={!canGoNextAcrossPages}
                 >
                   Next →
                 </button>

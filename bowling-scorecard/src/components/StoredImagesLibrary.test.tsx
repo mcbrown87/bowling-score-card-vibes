@@ -11,40 +11,40 @@ jest.mock('@/utils/storedImages', () => ({
 const mockedLoadStoredImages = loadStoredImages as jest.MockedFunction<typeof loadStoredImages>;
 
 const originalMatchMedia = window.matchMedia;
-const buildPage = (page: number, totalPages = 2) => ({
-  images: [
+const buildImage = (page: number, index: number) => ({
+  id: `image-page-${page}-${index + 1}`,
+  previewUrl: '/test-preview.jpg',
+  originalFileName: `score-page-${page}-${index + 1}.jpg`,
+  contentType: 'image/jpeg',
+  sizeBytes: 1024,
+  createdAt: '2026-04-05T12:00:00.000Z',
+  isProcessingEstimate: false,
+  lastEstimateError: null,
+  games: [
     {
-      id: `image-${page}`,
-      previewUrl: '/test-preview.jpg',
-      originalFileName: `score-${page}.jpg`,
-      contentType: 'image/jpeg',
-      sizeBytes: 1024,
-      createdAt: '2026-04-05T12:00:00.000Z',
-      isProcessingEstimate: false,
-      lastEstimateError: null,
-      games: [
-        {
-          id: `game-${page}`,
-          gameIndex: 0,
-          isEstimate: false,
-          playerName: `Library Player ${page}`,
-          totalScore: 20,
-          frames: Array.from({ length: 9 }, () => ({
-            rolls: [{ pins: 1 }, { pins: 1 }],
-            isStrike: false,
-            isSpare: false,
-            score: 2
-          })),
-          tenthFrame: {
-            rolls: [{ pins: 1 }, { pins: 1 }, { pins: 0 }],
-            isStrike: false,
-            isSpare: false,
-            score: 20
-          }
-        }
-      ]
+      id: `game-page-${page}-${index + 1}`,
+      gameIndex: 0,
+      isEstimate: false,
+      playerName: `Library Player ${page}-${index + 1}`,
+      totalScore: 20,
+      frames: Array.from({ length: 9 }, () => ({
+        rolls: [{ pins: 1 }, { pins: 1 }],
+        isStrike: false,
+        isSpare: false,
+        score: 2
+      })),
+      tenthFrame: {
+        rolls: [{ pins: 1 }, { pins: 1 }, { pins: 0 }],
+        isStrike: false,
+        isSpare: false,
+        score: 20
+      }
     }
-  ],
+  ]
+});
+
+const buildPage = (page: number, imageCount = 50, totalPages = 2) => ({
+  images: Array.from({ length: imageCount }, (_, index) => buildImage(page, index)),
   page,
   pageSize: 50,
   totalImages: 75,
@@ -77,20 +77,33 @@ describe('StoredImagesLibrary', () => {
     await waitFor(() => expect(mockedLoadStoredImages).toHaveBeenCalled());
     expect(await screen.findByText('Corrections saved for this game')).toBeVisible();
     expect(screen.getByRole('button', { name: 'Edit frame 1' })).toBeVisible();
-    expect(screen.getByText('Page 1 of 2 · 75 uploads')).toBeVisible();
+    expect(screen.getByText('Image 1 of 75')).toBeVisible();
+    expect(screen.queryByRole('button', { name: 'Next Page' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Previous Page' })).not.toBeInTheDocument();
   });
 
-  it('loads the next page when pagination is used', async () => {
+  it('continues across page boundaries with the same previous and next image controls', async () => {
     mockedLoadStoredImages
-      .mockResolvedValueOnce(buildPage(1))
-      .mockResolvedValueOnce(buildPage(2));
+      .mockResolvedValueOnce(buildPage(1, 50))
+      .mockResolvedValueOnce(buildPage(2, 25))
+      .mockResolvedValueOnce(buildPage(1, 50));
 
     render(<StoredImagesLibrary />);
 
-    await screen.findByText('Page 1 of 2 · 75 uploads');
-    fireEvent.click(screen.getByRole('button', { name: 'Next Page' }));
+    await screen.findByText('Image 1 of 75');
+
+    for (let index = 0; index < 50; index += 1) {
+      fireEvent.click(screen.getByRole('button', { name: 'Next →' }));
+    }
 
     await waitFor(() => expect(mockedLoadStoredImages).toHaveBeenLastCalledWith(2, 50));
-    expect(await screen.findByText('Page 2 of 2 · 75 uploads')).toBeVisible();
+    expect(await screen.findByText('Image 51 of 75')).toBeVisible();
+    expect(screen.getByAltText('Uploaded scorecard score-page-2-1.jpg')).toBeVisible();
+
+    fireEvent.click(screen.getByRole('button', { name: '← Previous' }));
+
+    await waitFor(() => expect(mockedLoadStoredImages).toHaveBeenLastCalledWith(1, 50));
+    expect(await screen.findByText('Image 50 of 75')).toBeVisible();
+    expect(screen.getByAltText('Uploaded scorecard score-page-1-50.jpg')).toBeVisible();
   });
 });

@@ -3,26 +3,28 @@ import { expect, test } from '@playwright/test';
 const dataUrl =
   'data:image/gif;base64,R0lGODlhAQABAAAAACwAAAAAAQABAAA=';
 
-const buildPagePayload = (page: number) => ({
+const buildPagePayload = (page: number) => {
+  const imageCount = page === 1 ? 50 : 25;
+
+  return ({
   success: true,
   page,
   pageSize: 50,
   totalImages: 75,
   totalPages: 2,
-  images: [
-    {
-      id: `image-${page}`,
+  images: Array.from({ length: imageCount }, (_, index) => ({
+      id: `image-page-${page}-${index + 1}`,
       previewUrl: dataUrl,
-      originalFileName: `score-${page}.jpg`,
+      originalFileName: `score-page-${page}-${index + 1}.jpg`,
       contentType: 'image/jpeg',
       sizeBytes: 1024,
       createdAt: '2026-04-05T12:00:00.000Z',
       games: [
         {
-          id: `game-${page}`,
+          id: `game-page-${page}-${index + 1}`,
           gameIndex: 0,
           isEstimate: false,
-          playerName: `Library Player ${page}`,
+          playerName: `Library Player ${page}-${index + 1}`,
           totalScore: 20,
           frames: Array.from({ length: 9 }, () => ({
             rolls: [{ pins: 1 }, { pins: 1 }],
@@ -40,9 +42,9 @@ const buildPagePayload = (page: number) => ({
       ],
       isProcessingEstimate: false,
       lastEstimateError: null
-    }
-  ]
-});
+    }))
+  });
+};
 
 test.beforeEach(async ({ page }) => {
   await page.route('**/api/stored-images?*', async (route) => {
@@ -58,21 +60,25 @@ test.beforeEach(async ({ page }) => {
   });
 });
 
-test('library pagination moves between pages and updates the rendered content', async ({ page }) => {
+test('library navigation continues across paginated image batches with one previous and next control', async ({ page }) => {
   await page.goto('/library?e2e=1');
 
-  await expect(page.getByText('Page 1 of 2 · 75 uploads')).toBeVisible();
+  await expect(page.getByText('Image 1 of 75')).toBeVisible();
   await expect(page.getByText('Corrections saved for this game')).toBeVisible();
-  await expect(page.getByAltText('Uploaded scorecard score-1.jpg')).toBeVisible();
+  await expect(page.getByAltText('Uploaded scorecard score-page-1-1.jpg')).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Previous Page' })).toHaveCount(0);
+  await expect(page.getByRole('button', { name: 'Next Page' })).toHaveCount(0);
 
-  await page.getByRole('button', { name: 'Next Page' }).click();
+  for (let index = 0; index < 50; index += 1) {
+    await page.getByRole('button', { name: 'Next →' }).click();
+  }
 
-  await expect(page.getByText('Page 2 of 2 · 75 uploads')).toBeVisible();
-  await expect(page.getByAltText('Uploaded scorecard score-2.jpg')).toBeVisible();
-  await expect(page.getByRole('button', { name: 'Previous Page' })).toBeEnabled();
+  await expect(page.getByText('Image 51 of 75')).toBeVisible();
+  await expect(page.getByAltText('Uploaded scorecard score-page-2-1.jpg')).toBeVisible();
+  await expect(page.getByRole('button', { name: '← Previous' })).toBeEnabled();
 
-  await page.getByRole('button', { name: 'Previous Page' }).click();
+  await page.getByRole('button', { name: '← Previous' }).click();
 
-  await expect(page.getByText('Page 1 of 2 · 75 uploads')).toBeVisible();
-  await expect(page.getByAltText('Uploaded scorecard score-1.jpg')).toBeVisible();
+  await expect(page.getByText('Image 50 of 75')).toBeVisible();
+  await expect(page.getByAltText('Uploaded scorecard score-page-1-50.jpg')).toBeVisible();
 });

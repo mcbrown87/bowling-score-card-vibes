@@ -82,6 +82,31 @@ function hasFlag(flag) {
   return process.argv.includes(flag);
 }
 
+function getFlagValue(flag) {
+  const index = process.argv.indexOf(flag);
+  if (index === -1) {
+    return null;
+  }
+  const value = process.argv[index + 1];
+  if (!value || value.startsWith('--')) {
+    return null;
+  }
+  return value;
+}
+
+function parsePositiveInteger(value, fallback) {
+  const parsed = Number.parseInt(String(value ?? ''), 10);
+  if (!Number.isFinite(parsed) || parsed < 1) {
+    return fallback;
+  }
+  return parsed;
+}
+
+const bootstrapImageCount = parsePositiveInteger(
+  getFlagValue('--image-count') ?? process.env.BOOTSTRAP_IMAGE_COUNT ?? '1',
+  1
+);
+
 function normalizeServiceUrl(rawUrl, hostMap) {
   if (!rawUrl) {
     return rawUrl;
@@ -192,59 +217,61 @@ async function seedBootstrapData() {
   });
 
   const fixtureBuffer = await fs.readFile(fixtureImagePath);
-  const objectKey = `fixtures/bootstrap/${path.basename(fixtureImagePath)}`;
-
   const storageClient = getStorageClient();
-  await storageClient.send(
-    new PutObjectCommand({
-      Bucket: storageBucket,
-      Key: objectKey,
-      Body: fixtureBuffer,
-      ContentType: 'image/jpeg'
-    })
-  );
+  const bootstrapPrefix = 'fixtures/bootstrap/';
+  const fixtureBaseName = path.basename(fixtureImagePath);
 
-  const storedImage = await prisma.storedImage.upsert({
+  await prisma.storedImage.deleteMany({
     where: {
-      bucket_objectKey: {
-        bucket: storageBucket,
-        objectKey
+      userId: user.id,
+      objectKey: {
+        startsWith: bootstrapPrefix
       }
-    },
-    update: {
-      userId: user.id,
-      originalFileName: path.basename(fixtureImagePath),
-      contentType: 'image/jpeg',
-      sizeBytes: fixtureBuffer.byteLength
-    },
-    create: {
-      userId: user.id,
-      bucket: storageBucket,
-      objectKey,
-      originalFileName: path.basename(fixtureImagePath),
-      contentType: 'image/jpeg',
-      sizeBytes: fixtureBuffer.byteLength
     }
   });
 
-  await prisma.bowlingScore.deleteMany({
-    where: {
-      storedImageId: storedImage.id
-    }
-  });
+  for (let index = 0; index < bootstrapImageCount; index += 1) {
+    const sequence = String(index + 1).padStart(3, '0');
+    const objectKey = `${bootstrapPrefix}${sequence}-${fixtureBaseName}`;
+    const originalFileName =
+      bootstrapImageCount === 1 ? fixtureBaseName : `bootstrap-${sequence}-${fixtureBaseName}`;
 
-  await prisma.bowlingScore.createMany({
-    data: sampleGames.map((game) => ({
-      storedImageId: storedImage.id,
-      gameIndex: game.gameIndex,
-      playerName: game.playerName,
-      totalScore: game.totalScore,
-      frames: game.frames,
-      tenthFrame: game.tenthFrame,
-      isEstimate: false,
-      provider: 'bootstrap-script'
-    }))
-  });
+    await storageClient.send(
+      new PutObjectCommand({
+        Bucket: storageBucket,
+        Key: objectKey,
+        Body: fixtureBuffer,
+        ContentType: 'image/jpeg'
+      })
+    );
+
+    const storedImage = await prisma.storedImage.create({
+      data: {
+        userId: user.id,
+        bucket: storageBucket,
+        objectKey,
+        originalFileName,
+        contentType: 'image/jpeg',
+        sizeBytes: fixtureBuffer.byteLength,
+        createdAt: new Date(Date.now() - (bootstrapImageCount - index - 1) * 60_000)
+      }
+    });
+
+    await prisma.bowlingScore.createMany({
+      data: sampleGames.map((game) => ({
+        storedImageId: storedImage.id,
+        gameIndex: game.gameIndex,
+        playerName: game.playerName,
+        totalScore: game.totalScore,
+        frames: game.frames,
+        tenthFrame: game.tenthFrame,
+        isEstimate: false,
+        provider: 'bootstrap-script'
+      }))
+    });
+  }
+
+  console.log(`Seeded ${bootstrapImageCount} bootstrap image${bootstrapImageCount === 1 ? '' : 's'} for ${bootstrapUser.email}.`);
 }
 
 async function openLoggedInBrowser() {
@@ -273,7 +300,9 @@ async function openLoggedInBrowser() {
   await page.getByText(`Signed in as ${bootstrapUser.name}`).waitFor({ timeout: 10000 });
 
   console.log(`Logged in as ${bootstrapUser.email}.`);
-  console.log(`Fixture image and scores are available in the Library for user ${bootstrapUser.email}.`);
+  console.log(
+    `Fixture image and scores are available in the Library for user ${bootstrapUser.email} (${bootstrapImageCount} image${bootstrapImageCount === 1 ? '' : 's'}).`
+  );
 
   if (hasFlag('--headless') || hasFlag('--ci')) {
     await context.storageState({
