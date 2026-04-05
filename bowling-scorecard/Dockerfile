@@ -1,18 +1,36 @@
-FROM node:20-alpine
+# syntax=docker/dockerfile:1.6
 
+FROM node:20-alpine AS base
 WORKDIR /app
 
-COPY package.json package-lock.json* ./
-RUN npm install
+FROM base AS deps
+COPY bowling-scorecard/package.json bowling-scorecard/package-lock.json* ./
+RUN npm ci
 
-COPY tsconfig.json ./
-COPY public ./public
-COPY prisma ./prisma
-COPY src ./src
-
+FROM deps AS dev
+COPY bowling-scorecard/ ./
 RUN npx prisma generate
-
 ENV HOST=0.0.0.0
 ENV BROWSER=none
 
+FROM base AS builder
+COPY --from=deps /app/node_modules ./node_modules
+COPY bowling-scorecard/ ./
+RUN npx prisma generate
+RUN npm run build
+
+FROM base AS runner
+ENV NODE_ENV=production \
+  HOST=0.0.0.0 \
+  PORT=8080
+COPY --from=builder /app/package.json ./package.json
+COPY --from=builder /app/package-lock.json ./package-lock.json
+COPY --from=builder /app/next.config.mjs ./next.config.mjs
+COPY --from=builder /app/public ./public
+COPY --from=builder /app/.next ./.next
+COPY --from=builder /app/node_modules ./node_modules
+COPY --from=builder /app/prisma ./prisma
+COPY --from=builder /app/src ./src
+COPY --from=builder /app/tsconfig.json ./tsconfig.json
+EXPOSE 8080
 CMD ["npm", "start"]

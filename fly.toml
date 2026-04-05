@@ -2,7 +2,7 @@ app = "bowling-scorecard-vibes"
 primary_region = "iad"
 
 [build]
-  dockerfile = "bowling-scorecard/Dockerfile.fly"
+  dockerfile = "bowling-scorecard/Dockerfile"
 
 [env]
   NODE_ENV = "production"

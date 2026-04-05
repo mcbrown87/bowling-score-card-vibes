@@ -125,7 +125,7 @@ export function StoredImagesLibrary({ initialImageId, initialGameIndex }: Stored
           continue;
         }
 
-        const target = latest.find((image) => image.id === imageId);
+        const target = latest.images.find((image) => image.id === imageId);
         if (!target?.isProcessingEstimate) {
           return;
         }

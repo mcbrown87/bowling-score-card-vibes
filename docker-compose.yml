@@ -3,7 +3,9 @@ version: '3.9'
 services:
   app:
     build:
-      context: ./bowling-scorecard
+      context: .
+      dockerfile: bowling-scorecard/Dockerfile
+      target: dev
     command: npm run dev -- --hostname 0.0.0.0 --port 3000
     depends_on:
       app-migrate:
@@ -21,11 +23,14 @@ services:
       REDIS_URL: redis://redis:6379
     volumes:
       - ./bowling-scorecard:/app
+      - /app/node_modules
     env_file:
       - ./bowling-scorecard/.env
   app-migrate:
     build:
-      context: ./bowling-scorecard
+      context: .
+      dockerfile: bowling-scorecard/Dockerfile
+      target: dev
     command: >
       sh -c "npx prisma migrate deploy &&
              npx prisma generate"
@@ -36,6 +41,7 @@ services:
         condition: service_completed_successfully
     volumes:
       - ./bowling-scorecard:/app
+      - /app/node_modules
     env_file:
       - ./bowling-scorecard/.env
     restart: 'no'
@@ -110,7 +116,9 @@ services:
         condition: service_healthy
   queue-worker:
     build:
-      context: ./bowling-scorecard
+      context: .
+      dockerfile: bowling-scorecard/Dockerfile
+      target: dev
     command: npm run queue:worker
     depends_on:
       app-migrate:
@@ -126,6 +134,9 @@ services:
       REDIS_URL: redis://redis:6379
     env_file:
       - ./bowling-scorecard/.env
+    volumes:
+      - ./bowling-scorecard:/app
+      - /app/node_modules
     restart: unless-stopped
 
 volumes:
