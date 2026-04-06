@@ -305,6 +305,7 @@ export const Scorecard: React.FC<ScorecardProps> = ({
                     frameNumber={frameNumber}
                     frameDisplay={formatFrameDisplay(frame, frameNumber)}
                     compact
+                    activeRoll={selectedFrameIndex === idx ? activeRoll : null}
                   />,
                   idx
                 );
@@ -316,6 +317,7 @@ export const Scorecard: React.FC<ScorecardProps> = ({
                   frameDisplay={formatTenthFrameDisplay(game.tenthFrame)}
                   isTenthFrame
                   compact
+                  activeRoll={selectedFrameIndex === 9 ? activeRoll : null}
                 />,
                 9
               )}
@@ -331,6 +333,7 @@ export const Scorecard: React.FC<ScorecardProps> = ({
                   frameNumber={frameNumber}
                   frameDisplay={formatFrameDisplay(frame, frameNumber)}
                   compact={compact}
+                  activeRoll={selectedFrameIndex === index ? activeRoll : null}
                 />,
                 index
               );
@@ -342,6 +345,7 @@ export const Scorecard: React.FC<ScorecardProps> = ({
                 frameDisplay={formatTenthFrameDisplay(game.tenthFrame)}
                 isTenthFrame={true}
                 compact={compact}
+                activeRoll={selectedFrameIndex === 9 ? activeRoll : null}
               />,
               9
             )}

@@ -35,7 +35,28 @@ describe('applyDesktopScoreKey', () => {
 
     expect(first.activeRoll).toBe('roll2');
     expect(second.game.frames[0].rolls).toEqual([{ pins: 7 }, { pins: 2 }]);
+    expect(second.frameIndex).toBe(1);
     expect(second.activeRoll).toBe('roll1');
+  });
+
+  it('moves arrow navigation throw-by-throw across frames', () => {
+    const afterFirst = applyDesktopScoreKey(buildGame(), 0, 'roll1', '4');
+    const movedRight = applyDesktopScoreKey(afterFirst.game, 0, afterFirst.activeRoll, 'ArrowRight');
+    const movedLeft = applyDesktopScoreKey(afterFirst.game, 0, afterFirst.activeRoll, 'ArrowLeft');
+
+    expect(movedRight.frameIndex).toBe(1);
+    expect(movedRight.activeRoll).toBe('roll1');
+    expect(movedLeft.frameIndex).toBe(0);
+    expect(movedLeft.activeRoll).toBe('roll1');
+  });
+
+  it('skips disabled second rolls when navigating from a strike frame', () => {
+    const afterStrike = applyDesktopScoreKey(buildGame(), 0, 'roll1', 'x');
+    const movedLeft = applyDesktopScoreKey(afterStrike.game, 1, 'roll1', 'ArrowLeft');
+
+    expect(afterStrike.frameIndex).toBe(1);
+    expect(movedLeft.frameIndex).toBe(0);
+    expect(movedLeft.activeRoll).toBe('roll1');
   });
 
   it('unlocks roll 3 in the tenth frame after a spare', () => {

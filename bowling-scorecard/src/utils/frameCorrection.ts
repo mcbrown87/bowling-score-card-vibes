@@ -129,6 +129,45 @@ const normalizeActiveRoll = (game: Game, frameIndex: number, activeRoll: ActiveR
   return getFirstEditableRoll(game, frameIndex);
 };
 
+const getEditableRolls = (game: Game, frameIndex: number): ActiveRoll[] => {
+  const state = getFrameCorrectionState(game, frameIndex);
+  return (['roll1', 'roll2', 'roll3'] as ActiveRoll[]).filter((roll) => state.rollEnabled[roll]);
+};
+
+const getLastEditableRoll = (game: Game, frameIndex: number): ActiveRoll => {
+  const editableRolls = getEditableRolls(game, frameIndex);
+  return editableRolls[editableRolls.length - 1] ?? 'roll1';
+};
+
+const getAdjacentEditablePosition = (
+  game: Game,
+  frameIndex: number,
+  activeRoll: ActiveRoll,
+  direction: -1 | 1
+): { frameIndex: number; activeRoll: ActiveRoll } => {
+  const normalizedRoll = normalizeActiveRoll(game, frameIndex, activeRoll);
+  const editableRolls = getEditableRolls(game, frameIndex);
+  const rollIndex = Math.max(0, editableRolls.indexOf(normalizedRoll));
+  const nextRoll = editableRolls[rollIndex + direction];
+
+  if (nextRoll) {
+    return { frameIndex, activeRoll: nextRoll };
+  }
+
+  const nextFrameIndex = frameIndex + direction;
+  if (nextFrameIndex < 0 || nextFrameIndex > 9) {
+    return { frameIndex, activeRoll: normalizedRoll };
+  }
+
+  return {
+    frameIndex: nextFrameIndex,
+    activeRoll:
+      direction === 1
+        ? getFirstEditableRoll(game, nextFrameIndex)
+        : getLastEditableRoll(game, nextFrameIndex)
+  };
+};
+
 const updateFrame = (game: Game, frameIndex: number, updater: (next: Game) => void): Game => {
   const nextGame = cloneGame(game);
   updater(nextGame);
@@ -196,21 +235,21 @@ export const applyDesktopScoreKey = (
   let nextActiveRoll = normalizeActiveRoll(game, frameIndex, activeRoll);
 
   if (key === 'ArrowLeft') {
-    nextFrameIndex = Math.max(0, frameIndex - 1);
+    const previousPosition = getAdjacentEditablePosition(game, frameIndex, nextActiveRoll, -1);
     return {
       game,
-      frameIndex: nextFrameIndex,
-      activeRoll: getFirstEditableRoll(game, nextFrameIndex),
+      frameIndex: previousPosition.frameIndex,
+      activeRoll: previousPosition.activeRoll,
       changed: false
     };
   }
 
   if (key === 'ArrowRight') {
-    nextFrameIndex = Math.min(9, frameIndex + 1);
+    const nextPosition = getAdjacentEditablePosition(game, frameIndex, nextActiveRoll, 1);
     return {
       game,
-      frameIndex: nextFrameIndex,
-      activeRoll: getFirstEditableRoll(game, nextFrameIndex),
+      frameIndex: nextPosition.frameIndex,
+      activeRoll: nextPosition.activeRoll,
       changed: false
     };
   }
@@ -241,6 +280,7 @@ export const applyDesktopScoreKey = (
   }
 
   if (!nextState.isTenthFrame) {
+    const lastEditableRoll = getLastEditableRoll(updatedGame, frameIndex);
     if (nextActiveRoll === 'roll1' && nextState.roll1 === 10) {
       nextFrameIndex = Math.min(9, frameIndex + 1);
       return {
@@ -251,11 +291,22 @@ export const applyDesktopScoreKey = (
       };
     }
 
-    if (nextActiveRoll === 'roll1') {
-      return { game: updatedGame, frameIndex, activeRoll: 'roll2', changed: true };
+    if (nextActiveRoll !== lastEditableRoll) {
+      return {
+        game: updatedGame,
+        frameIndex,
+        activeRoll: getAdjacentEditablePosition(updatedGame, frameIndex, nextActiveRoll, 1).activeRoll,
+        changed: true
+      };
     }
 
-    return { game: updatedGame, frameIndex, activeRoll: 'roll1', changed: true };
+    nextFrameIndex = Math.min(9, frameIndex + 1);
+    return {
+      game: updatedGame,
+      frameIndex: nextFrameIndex,
+      activeRoll: getFirstEditableRoll(updatedGame, nextFrameIndex),
+      changed: true
+    };
   }
 
   if (nextActiveRoll === 'roll1') {

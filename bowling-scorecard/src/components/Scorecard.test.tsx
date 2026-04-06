@@ -62,6 +62,35 @@ describe('Scorecard', () => {
       'aria-current',
       'step'
     );
+    expect(screen.getByTestId('frame-roll-3-2')).toHaveAttribute('data-active-roll', 'true');
+  });
+
+  it('highlights the visible strike cell for the active roll', () => {
+    const strikeGame: Game = {
+      ...buildGame(),
+      frames: [
+        {
+          rolls: [{ pins: 10 }],
+          isStrike: true,
+          isSpare: false,
+          score: 10
+        },
+        ...buildGame().frames.slice(1)
+      ]
+    };
+
+    render(
+      <Scorecard
+        game={strikeGame}
+        onFrameSelect={jest.fn()}
+        selectedFrameIndex={0}
+        activeRoll="roll1"
+        keyboardMode
+        keyboardActive
+      />
+    );
+
+    expect(screen.getByTestId('frame-roll-1-2')).toHaveAttribute('data-active-roll', 'true');
   });
 
   it('forwards keyboard events from the scorecard root', () => {

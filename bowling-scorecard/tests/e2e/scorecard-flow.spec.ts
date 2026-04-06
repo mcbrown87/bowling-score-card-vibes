@@ -88,10 +88,17 @@ test.describe('desktop keyboard correction flow', () => {
     );
 
     await page.getByTestId('scorecard-root').press('ArrowRight');
+    await expect(page.getByRole('button', { name: 'Edit frame 2', exact: true })).toHaveAttribute(
+      'aria-current',
+      'step'
+    );
     await page.getByTestId('scorecard-root').press('9');
+    await expect(page.getByTestId('frame-roll-2-2')).toHaveText('/');
+    await expect(page.getByRole('button', { name: 'Edit frame 3', exact: true })).toHaveAttribute(
+      'aria-current',
+      'step'
+    );
     await page.getByTestId('scorecard-root').press('0');
-    await expect(page.getByTestId('frame-roll-3-1')).toHaveText('9');
-    await expect(page.getByTestId('frame-roll-3-2')).toHaveText('-');
-    await expect(page.getByTestId('frame-score-10')).toHaveText('37');
+    await expect(page.getByTestId('frame-roll-3-1')).toHaveText('-');
   });
 });
