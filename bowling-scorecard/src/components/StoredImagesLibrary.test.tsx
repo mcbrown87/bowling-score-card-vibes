@@ -1,6 +1,7 @@
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { StoredImagesLibrary } from './StoredImagesLibrary';
-import { loadStoredImages } from '@/utils/storedImages';
+import { loadStoredImages, saveStoredGameCorrection } from '@/utils/storedImages';
+import { createEmptyGame } from '@/utils/gameCreation';
 
 jest.mock('@/utils/storedImages', () => ({
   loadStoredImages: jest.fn(),
@@ -9,6 +10,9 @@ jest.mock('@/utils/storedImages', () => ({
 }));
 
 const mockedLoadStoredImages = loadStoredImages as jest.MockedFunction<typeof loadStoredImages>;
+const mockedSaveStoredGameCorrection = saveStoredGameCorrection as jest.MockedFunction<
+  typeof saveStoredGameCorrection
+>;
 
 const originalMatchMedia = window.matchMedia;
 const buildImage = (page: number, index: number) => ({
@@ -53,6 +57,12 @@ const buildPage = (page: number, imageCount = 50, totalPages = 2) => ({
 
 beforeEach(() => {
   mockedLoadStoredImages.mockResolvedValue(buildPage(1));
+  mockedSaveStoredGameCorrection.mockImplementation(async (_imageId, gameIndex, game) => ({
+    ...game,
+    id: `saved-${gameIndex}`,
+    gameIndex,
+    isEstimate: false
+  }));
 
   window.matchMedia = jest.fn().mockImplementation((query: string) => ({
     matches: query.includes('min-width: 768px'),
@@ -105,5 +115,50 @@ describe('StoredImagesLibrary', () => {
     await waitFor(() => expect(mockedLoadStoredImages).toHaveBeenLastCalledWith(1, 50));
     expect(await screen.findByText('Image 50 of 75')).toBeVisible();
     expect(screen.getByAltText('Uploaded scorecard score-page-1-50.jpg')).toBeVisible();
+  });
+
+  it('saves a new player score using the next unused game index', async () => {
+    mockedLoadStoredImages.mockResolvedValueOnce({
+      ...buildPage(1, 1, 1),
+      totalImages: 1,
+      images: [
+        {
+          ...buildImage(1, 0),
+          games: [
+            {
+              ...createEmptyGame('Library Player 1-1'),
+              id: 'game-0',
+              gameIndex: 0,
+              isEstimate: false
+            },
+            {
+              ...createEmptyGame('Library Player 1-1B'),
+              id: 'game-2',
+              gameIndex: 2,
+              isEstimate: false
+            }
+          ]
+        }
+      ]
+    });
+
+    render(<StoredImagesLibrary />);
+
+    await screen.findByText('Game 1 of 2');
+
+    fireEvent.click(screen.getByRole('button', { name: 'Add player score' }));
+
+    await waitFor(() =>
+      expect(mockedSaveStoredGameCorrection).toHaveBeenCalledWith(
+        'image-page-1-1',
+        3,
+        expect.objectContaining({
+          playerName: 'Player',
+          totalScore: 0
+        })
+      )
+    );
+    expect(await screen.findByRole('dialog', { name: 'Edit player name' })).toBeVisible();
+    expect(screen.getByText('Game 3 of 3')).toBeVisible();
   });
 });

@@ -1,6 +1,8 @@
-import { fireEvent, render, screen } from '@testing-library/react';
+import { fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { useState } from 'react';
 import { StoredImagesPanel } from './StoredImagesPanel';
 import type { StoredImageSummary } from '@/types/stored-image';
+import type { Game } from '@/types/bowling';
 
 const originalMatchMedia = window.matchMedia;
 
@@ -87,5 +89,60 @@ describe('StoredImagesPanel', () => {
       'step'
     );
     expect(screen.getByTestId('scorecard-root')).toBeVisible();
+  });
+
+  it('adds a new player score, saves it with the next game index, and opens rename', async () => {
+    const onUpdateGame = jest.fn();
+
+    const Harness = () => {
+      const [images, setImages] = useState([buildImageSummary()]);
+
+      return (
+        <StoredImagesPanel
+          images={images}
+          isLoading={false}
+          error={null}
+          onRetry={jest.fn()}
+          onUpdateGame={async (imageId: string, gameIndex: number, updatedGame: Game) => {
+            onUpdateGame(imageId, gameIndex, updatedGame);
+            setImages((prev) =>
+              prev.map((image) =>
+                image.id === imageId
+                  ? {
+                      ...image,
+                      games: [
+                        ...image.games,
+                        {
+                          ...updatedGame,
+                          id: `game-${gameIndex}`,
+                          gameIndex,
+                          isEstimate: false
+                        }
+                      ]
+                    }
+                  : image
+              )
+            );
+          }}
+        />
+      );
+    };
+
+    render(<Harness />);
+
+    fireEvent.click(screen.getByRole('button', { name: 'Add player score' }));
+
+    await waitFor(() => expect(onUpdateGame).toHaveBeenCalled());
+    expect(onUpdateGame).toHaveBeenCalledWith(
+      'image-1',
+      1,
+      expect.objectContaining({
+        playerName: 'Player',
+        totalScore: 0,
+        isEstimate: false
+      })
+    );
+    expect(await screen.findByRole('dialog', { name: 'Edit player name' })).toBeVisible();
+    expect(screen.getByText('Game 2 of 2')).toBeVisible();
   });
 });

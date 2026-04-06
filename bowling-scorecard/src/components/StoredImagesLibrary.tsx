@@ -9,6 +9,7 @@ import {
   normalizeStoredImage,
   saveStoredGameCorrection
 } from '@/utils/storedImages';
+import { upsertStoredGameByIndex } from '@/utils/gameCreation';
 
 type StoredImagesLibraryProps = {
   initialImageId?: string | null;
@@ -201,12 +202,7 @@ export function StoredImagesLibrary({ initialImageId, initialGameIndex }: Stored
             if (image.id !== imageId) {
               return image;
             }
-            const nextGames = image.games.some((game) => game.gameIndex === normalized.gameIndex)
-              ? image.games.map((game) =>
-                  game.gameIndex === normalized.gameIndex ? normalized : game
-                )
-              : [...image.games, normalized];
-            return { ...image, games: nextGames };
+            return { ...image, games: upsertStoredGameByIndex(image.games, normalized) };
           })
         );
         setError(null);

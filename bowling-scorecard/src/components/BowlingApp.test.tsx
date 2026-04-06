@@ -168,3 +168,23 @@ test('uses desktop keyboard entry without opening the modal', async () => {
     'step'
   );
 });
+
+test('adds a blank player score and opens player rename', async () => {
+  render(<BowlingApp />);
+
+  const input = screen.getByLabelText('Upload scorecard');
+  const fakeFile = new File(['fake-bowling'], 'score.jpg', { type: 'image/jpeg' });
+  fireEvent.change(input, { target: { files: [fakeFile] } });
+
+  await waitFor(() => expect(mockedExtractScores).toHaveBeenCalled());
+
+  fireEvent.click(screen.getByRole('button', { name: 'Add player score' }));
+
+  expect(await screen.findByRole('dialog', { name: 'Edit player name' })).toBeVisible();
+  const nameInput = screen.getByPlaceholderText('Player name');
+  fireEvent.change(nameInput, { target: { value: 'Player Three' } });
+  fireEvent.click(screen.getByRole('button', { name: 'Save' }));
+
+  const renamedPlayerButtons = await screen.findAllByRole('button', { name: 'Player Three' });
+  expect(renamedPlayerButtons.length).toBeGreaterThan(0);
+});

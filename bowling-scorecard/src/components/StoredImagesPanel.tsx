@@ -8,6 +8,7 @@ import { FrameCorrectionModal } from './FrameCorrectionModal';
 import { PlayerNameModal } from './PlayerNameModal';
 import { useDesktopKeyboardMode } from '../utils/useDesktopKeyboardMode';
 import { useDesktopScoreCorrection } from '../utils/useDesktopScoreCorrection';
+import { createEmptyGame, getNextGameIndex } from '../utils/gameCreation';
 
 interface StoredImagesPanelProps {
   images: StoredImageSummary[];
@@ -286,6 +287,14 @@ const gameControlsStyles: CSSProperties = {
   marginTop: '16px'
 };
 
+const gameActionsStyles: CSSProperties = {
+  display: 'flex',
+  justifyContent: 'center',
+  gap: '12px',
+  flexWrap: 'wrap',
+  marginTop: '16px'
+};
+
 const closeButtonStyles: CSSProperties = {
   padding: '8px 14px',
   borderRadius: '8px',
@@ -384,6 +393,7 @@ export function StoredImagesPanel({
   const scorecardPressTimerRef = useRef<NodeJS.Timeout | null>(null);
   const initialSelectionAppliedRef = useRef(false);
   const skipNextGameResetRef = useRef(false);
+  const pendingAddedGameIndexRef = useRef<number | null>(null);
   const hasImages = images.length > 0;
   const resetInitialSelectionRef = useRef({ imageId: initialImageId, gameIndex: initialGameIndex });
   const isDesktopKeyboardMode = useDesktopKeyboardMode();
@@ -478,6 +488,17 @@ export function StoredImagesPanel({
     setPendingPlayerName('');
     setCorrectionError(null);
   }, [activeImage?.id, boundedGameIndex]);
+
+  useEffect(() => {
+    if (
+      pendingAddedGameIndexRef.current !== null &&
+      activeGame?.gameIndex === pendingAddedGameIndexRef.current
+    ) {
+      setPendingPlayerName(activeGame.playerName);
+      setIsRenamingPlayer(true);
+      pendingAddedGameIndexRef.current = null;
+    }
+  }, [activeGame]);
 
   useEffect(() => {
     setMetaModalOpen(false);
@@ -585,6 +606,31 @@ export function StoredImagesPanel({
     },
     [activeGame, activeImage, onUpdateGame]
   );
+
+  const handleAddPlayerScore = useCallback(async () => {
+    if (!onUpdateGame || !activeImage || !canEditScores || isSavingCorrection) {
+      return;
+    }
+
+    const nextGameIndex = getNextGameIndex(gamesForImage);
+    const blankGame = createEmptyGame();
+
+    setCorrectionError(null);
+    pendingAddedGameIndexRef.current = nextGameIndex;
+
+    try {
+      setIsSavingCorrection(true);
+      await onUpdateGame(activeImage.id, nextGameIndex, blankGame);
+      setActiveGameIndex(gamesForImage.length);
+    } catch (error) {
+      pendingAddedGameIndexRef.current = null;
+      setCorrectionError(
+        error instanceof Error ? error.message : 'Failed to save your correction'
+      );
+    } finally {
+      setIsSavingCorrection(false);
+    }
+  }, [activeImage, canEditScores, gamesForImage, isSavingCorrection, onUpdateGame]);
 
   const desktopCorrection = useDesktopScoreCorrection({
     enabled: isDesktopInlineEditing,
@@ -856,6 +902,22 @@ export function StoredImagesPanel({
                       aria-label="Show next game"
                     >
                       →
+                    </button>
+                  </div>
+                )}
+                {canEditScores && (
+                  <div style={gameActionsStyles}>
+                    <button
+                      type="button"
+                      style={
+                        isSavingCorrection ? primaryActionButtonDisabledStyles : primaryActionButtonStyles
+                      }
+                      disabled={isSavingCorrection}
+                      onClick={() => {
+                        void handleAddPlayerScore();
+                      }}
+                    >
+                      Add player score
                     </button>
                   </div>
                 )}

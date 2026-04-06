@@ -14,6 +14,7 @@ import { initClientDiagnostics, logClientEvent } from '../utils/clientDiagnostic
 import { loadStoredImages, normalizeStoredImage, saveStoredGameCorrection } from '../utils/storedImages';
 import { useDesktopKeyboardMode } from '../utils/useDesktopKeyboardMode';
 import { useDesktopScoreCorrection } from '../utils/useDesktopScoreCorrection';
+import { createEmptyGame, upsertStoredGameByIndex } from '../utils/gameCreation';
 
 type ErrorDiagnostics = {
   endpoint?: string;
@@ -328,12 +329,7 @@ function BowlingApp() {
         if (image.id !== imageId) {
           return image;
         }
-        const nextGames = image.games.some((game) => game.gameIndex === updatedGame.gameIndex)
-          ? image.games.map((game) =>
-              game.gameIndex === updatedGame.gameIndex ? updatedGame : game
-            )
-          : [...image.games, updatedGame];
-        return { ...image, games: nextGames };
+        return { ...image, games: upsertStoredGameByIndex(image.games, updatedGame) };
       })
     );
   }, []);
@@ -666,9 +662,42 @@ function BowlingApp() {
     );
     setIsRenamingPlayer(false);
     setPendingPlayerName('');
+    if (activeStoredImageId && activeGame) {
+      void persistStoredImageCorrection(activeStoredImageId, currentGameIndex, {
+        ...activeGame,
+        playerName: name,
+        isEstimate: false
+      }).catch((error) => {
+        setCorrectionError(
+          error instanceof Error ? error.message : 'Failed to save your correction'
+        );
+      });
+    }
   };
 
   const controlsLocked = isProcessing || editingFrameIndex !== null || isRenamingPlayer;
+  const handleAddPlayerScore = useCallback(() => {
+    if (controlsLocked) {
+      return;
+    }
+
+    const blankGame = createEmptyGame();
+    const nextIndex = games.length;
+    setCorrectionError(null);
+    setGames((prev) => [...prev, blankGame]);
+    setCurrentGameIndex(nextIndex);
+    setPendingPlayerName(blankGame.playerName);
+    setIsRenamingPlayer(true);
+
+    if (activeStoredImageId) {
+      void persistStoredImageCorrection(activeStoredImageId, nextIndex, blankGame).catch((error) => {
+        setCorrectionError(
+          error instanceof Error ? error.message : 'Failed to save your correction'
+        );
+      });
+    }
+  }, [activeStoredImageId, controlsLocked, games.length, persistStoredImageCorrection]);
+
   const desktopCorrection = useDesktopScoreCorrection({
     enabled: isDesktopInlineEditing,
     game: displayedGame,
@@ -772,6 +801,22 @@ function BowlingApp() {
       >
         Next
       </button>
+      <button
+        type="button"
+        onClick={handleAddPlayerScore}
+        disabled={controlsLocked}
+        style={{
+          padding: '8px 12px',
+          borderRadius: '6px',
+          border: '1px solid #475569',
+          backgroundColor: controlsLocked ? '#334155' : '#0f172a',
+          color: controlsLocked ? '#94a3b8' : '#e2e8f0',
+          cursor: controlsLocked ? 'not-allowed' : 'pointer',
+          fontWeight: 600
+        }}
+      >
+        Add player score
+      </button>
     </div>
   );
 
@@ -871,7 +916,7 @@ function BowlingApp() {
               />
             </div>
           </div>
-          {hasMultipleGames && paginationControls}
+          {displayedGame && paginationControls}
         </div>
       ) : (
         <div style={emptyStateStyles}>
