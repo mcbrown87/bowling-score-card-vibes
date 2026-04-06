@@ -14,6 +14,8 @@ const getClient = () => {
   return new OpenAI({ apiKey });
 };
 
+const usesMaxCompletionTokens = (model: string) => model.startsWith('gpt-5');
+
 export const openaiProvider = async ({ imageDataUrl, prompt }: ProviderRequest): Promise<ProviderResult> => {
   const client = getClient();
   const configuredModel = process.env.OPENAI_MODEL ?? 'gpt-4o';
@@ -40,9 +42,13 @@ export const openaiProvider = async ({ imageDataUrl, prompt }: ProviderRequest):
   let bestResult: ProviderResult | null = null;
 
   for (let attempt = 0; attempt < 5; attempt += 1) {
+    const tokenOptions = usesMaxCompletionTokens(configuredModel)
+      ? { max_completion_tokens: 4000 }
+      : { max_tokens: 4000 };
+
     const response = await client.chat.completions.create({
       model: configuredModel,
-      max_tokens: 4000,
+      ...tokenOptions,
       temperature: 0.1,
       messages
     });
