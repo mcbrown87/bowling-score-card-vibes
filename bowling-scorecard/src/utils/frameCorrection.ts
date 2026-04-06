@@ -217,7 +217,18 @@ export const setPinsForRoll = (
 };
 
 export const clearRollValue = (game: Game, frameIndex: number, activeRoll: ActiveRoll): Game =>
-  setPinsForRoll(game, frameIndex, activeRoll, 0);
+  updateFrame(game, frameIndex, (nextGame) => {
+    if (frameIndex === 9 && activeRoll === 'roll3') {
+      nextGame.tenthFrame = normalizeTenthFrame({
+        ...nextGame.tenthFrame,
+        rolls: nextGame.tenthFrame.rolls.slice(0, 2)
+      });
+      return;
+    }
+
+    const updatedGame = setPinsForRoll(nextGame, frameIndex, activeRoll, 0);
+    Object.assign(nextGame, updatedGame);
+  });
 
 export const applyStrikeToRoll = (
   game: Game,

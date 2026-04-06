@@ -72,7 +72,7 @@ describe('FrameCorrectionModal', () => {
     );
 
     const roll3Before = screen.getByRole('button', {
-      name: 'Select roll 3 (0)'
+      name: 'Select roll 3 (blank)'
     });
     expect(roll3Before).toBeDisabled();
 
@@ -80,7 +80,7 @@ describe('FrameCorrectionModal', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Spare (/)' }));
 
     const roll3After = screen.getByRole('button', {
-      name: 'Select roll 3 (0)'
+      name: 'Select roll 3 (blank)'
     });
     expect(roll3After).toBeEnabled();
 
@@ -90,5 +90,29 @@ describe('FrameCorrectionModal', () => {
 
     const updated = onApply.mock.calls[0][0] as Game;
     expect(updated.tenthFrame.rolls).toEqual([{ pins: 6 }, { pins: 4 }, { pins: 7 }]);
+  });
+
+  it('removes the tenth frame third roll when it is cleared', () => {
+    const onApply = jest.fn();
+    const game: Game = {
+      ...buildGame(),
+      tenthFrame: {
+        rolls: [{ pins: 6 }, { pins: 4 }, { pins: 7 }],
+        isStrike: false,
+        isSpare: true,
+        score: 17
+      }
+    };
+
+    render(
+      <FrameCorrectionModal game={game} frameIndex={9} onApply={onApply} onClose={jest.fn()} />
+    );
+
+    fireEvent.click(screen.getByRole('button', { name: 'Select roll 3 (7)' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Clear Active' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Save' }));
+
+    const updated = onApply.mock.calls[0][0] as Game;
+    expect(updated.tenthFrame.rolls).toEqual([{ pins: 6 }, { pins: 4 }]);
   });
 });

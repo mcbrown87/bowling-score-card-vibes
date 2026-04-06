@@ -263,6 +263,21 @@ const modalBodyStyle = {
   gap: '12px'
 };
 
+const buildTenthFrameRolls = (
+  roll1: number,
+  roll2: number,
+  roll3: number | null,
+  canEditRoll3: boolean
+) => {
+  const rolls = [{ pins: clampPins(roll1) }, { pins: clampPins(roll2) }];
+
+  if (canEditRoll3 && roll3 !== null) {
+    rolls.push({ pins: clampPins(roll3) });
+  }
+
+  return rolls;
+};
+
 export const FrameCorrectionModal: React.FC<FrameCorrectionModalProps> = ({
   game,
   frameIndex,
@@ -275,7 +290,9 @@ export const FrameCorrectionModal: React.FC<FrameCorrectionModalProps> = ({
 
   const [roll1, setRoll1] = useState(baseFrame?.rolls[0]?.pins ?? 0);
   const [roll2, setRoll2] = useState(baseFrame?.rolls[1]?.pins ?? 0);
-  const [roll3, setRoll3] = useState(isTenthFrame ? baseFrame?.rolls[2]?.pins ?? 0 : 0);
+  const [roll3, setRoll3] = useState<number | null>(
+    isTenthFrame ? baseFrame?.rolls[2]?.pins ?? null : null
+  );
   const [activeRoll, setActiveRoll] = useState<ActiveRoll>('roll1');
 
   const frameLabel = useMemo(() => (isTenthFrame ? 'Frame 10' : `Frame ${frameIndex + 1}`), [
@@ -342,12 +359,12 @@ export const FrameCorrectionModal: React.FC<FrameCorrectionModalProps> = ({
   }, [isTenthFrame, roll1, roll2]);
 
   useEffect(() => {
-    if (!isTenthFrame && roll3 !== 0) {
-      setRoll3(0);
+    if (!isTenthFrame && roll3 !== null) {
+      setRoll3(null);
       return;
     }
-    if (isTenthFrame && !canEditRoll3 && roll3 !== 0) {
-      setRoll3(0);
+    if (isTenthFrame && !canEditRoll3 && roll3 !== null) {
+      setRoll3(null);
     }
   }, [canEditRoll3, isTenthFrame, roll3]);
 
@@ -418,7 +435,7 @@ export const FrameCorrectionModal: React.FC<FrameCorrectionModalProps> = ({
       setRoll2(0);
       return;
     }
-    setRoll3(0);
+    setRoll3(null);
   };
 
   const handleApply = () => {
@@ -430,11 +447,7 @@ export const FrameCorrectionModal: React.FC<FrameCorrectionModalProps> = ({
     if (isTenthFrame) {
       nextGame.tenthFrame = normalizeTenthFrame({
         ...nextGame.tenthFrame,
-        rolls: [
-          { pins: clampPins(roll1) },
-          { pins: clampPins(roll2) },
-          { pins: clampPins(canEditRoll3 ? roll3 : 0) }
-        ]
+        rolls: buildTenthFrameRolls(roll1, roll2, roll3, canEditRoll3)
       });
     } else {
       const nextFrame = normalizeRegularFrame(nextGame.frames[frameIndex], [
@@ -454,11 +467,7 @@ export const FrameCorrectionModal: React.FC<FrameCorrectionModalProps> = ({
     if (isTenthFrame) {
       previewGame.tenthFrame = normalizeTenthFrame({
         ...previewGame.tenthFrame,
-        rolls: [
-          { pins: clampPins(roll1) },
-          { pins: clampPins(roll2) },
-          { pins: clampPins(canEditRoll3 ? roll3 : 0) }
-        ]
+        rolls: buildTenthFrameRolls(roll1, roll2, roll3, canEditRoll3)
       });
       return recalculateGame(previewGame).tenthFrame.score ?? 0;
     }
@@ -489,10 +498,11 @@ export const FrameCorrectionModal: React.FC<FrameCorrectionModalProps> = ({
       {
         key: 'roll3' as const,
         label: 'Roll 3',
-        value: isTenthFrame ? toDisplaySymbol(roll3, 2, { roll1, roll2 }, true) : '',
+        value:
+          isTenthFrame && roll3 !== null ? toDisplaySymbol(roll3, 2, { roll1, roll2 }, true) : '',
         disabled: !rollEnabled.roll3,
         ariaLabel: isTenthFrame
-          ? `Select roll 3 (${roll3})`
+          ? `Select roll 3 (${roll3 ?? 'blank'})`
           : 'Roll 3 unavailable for frames 1 through 9'
       }
     ],
@@ -560,7 +570,7 @@ export const FrameCorrectionModal: React.FC<FrameCorrectionModalProps> = ({
               const isActiveValue =
                 (activeRoll === 'roll1' && roll1 === pins) ||
                 (activeRoll === 'roll2' && roll2 === pins) ||
-                (activeRoll === 'roll3' && roll3 === pins);
+                (activeRoll === 'roll3' && roll3 !== null && roll3 === pins);
 
               return (
                 <button
