@@ -78,6 +78,11 @@ const sampleGames = [
   }
 ];
 
+const randomGamePlayerName =
+  getFlagValue('--random-player-name') ||
+  process.env.BOOTSTRAP_RANDOM_PLAYER_NAME ||
+  bootstrapUser.name;
+
 function hasFlag(flag) {
   return process.argv.includes(flag);
 }
@@ -106,6 +111,7 @@ const bootstrapImageCount = parsePositiveInteger(
   getFlagValue('--image-count') ?? process.env.BOOTSTRAP_IMAGE_COUNT ?? '1',
   1
 );
+const useRandomGames = hasFlag('--random-games') || process.env.BOOTSTRAP_RANDOM_GAMES === 'true';
 
 function normalizeServiceUrl(rawUrl, hostMap) {
   if (!rawUrl) {
@@ -125,6 +131,107 @@ function normalizeServiceUrl(rawUrl, hostMap) {
   } catch (_error) {
     return rawUrl;
   }
+}
+
+function randomInt(min, max) {
+  const clampedMin = Math.ceil(min);
+  const clampedMax = Math.floor(max);
+  return Math.floor(Math.random() * (clampedMax - clampedMin + 1)) + clampedMin;
+}
+
+function generateRandomGame(playerName, gameIndex) {
+  const frames = [];
+  const rolls = [];
+
+  for (let index = 0; index < 9; index += 1) {
+    const firstRoll = randomInt(0, 10);
+
+    if (firstRoll === 10) {
+      frames.push({
+        rolls: [{ pins: 10 }],
+        isStrike: true,
+        isSpare: false,
+        score: 0
+      });
+      rolls.push(10);
+      continue;
+    }
+
+    const secondRoll = randomInt(0, 10 - firstRoll);
+    const isSpare = firstRoll + secondRoll === 10;
+    frames.push({
+      rolls: [{ pins: firstRoll }, { pins: secondRoll }],
+      isStrike: false,
+      isSpare,
+      score: 0
+    });
+    rolls.push(firstRoll, secondRoll);
+  }
+
+  const tenthRolls = [];
+  const tenthFirst = randomInt(0, 10);
+
+  if (tenthFirst === 10) {
+    const second = randomInt(0, 10);
+    const third = second === 10 ? randomInt(0, 10) : randomInt(0, 10 - second);
+    tenthRolls.push(10, second, third);
+  } else {
+    const second = randomInt(0, 10 - tenthFirst);
+    tenthRolls.push(tenthFirst, second);
+    if (tenthFirst + second === 10) {
+      tenthRolls.push(randomInt(0, 10));
+    }
+  }
+
+  rolls.push(...tenthRolls);
+
+  const tenthFrame = {
+    rolls: tenthRolls.map((pins) => ({ pins })),
+    isStrike: tenthRolls[0] === 10,
+    isSpare: tenthRolls[0] !== 10 && (tenthRolls[0] ?? 0) + (tenthRolls[1] ?? 0) === 10,
+    score: 0
+  };
+
+  let rollIndex = 0;
+  let runningTotal = 0;
+
+  for (let frameIndex = 0; frameIndex < frames.length; frameIndex += 1) {
+    const frame = frames[frameIndex];
+    let frameScore = 0;
+
+    if (frame.isStrike) {
+      frameScore = 10 + (rolls[rollIndex + 1] ?? 0) + (rolls[rollIndex + 2] ?? 0);
+      rollIndex += 1;
+    } else if (frame.isSpare) {
+      frameScore = 10 + (rolls[rollIndex + 2] ?? 0);
+      rollIndex += 2;
+    } else {
+      frameScore = (rolls[rollIndex] ?? 0) + (rolls[rollIndex + 1] ?? 0);
+      rollIndex += 2;
+    }
+
+    runningTotal += frameScore;
+    frame.score = runningTotal;
+  }
+
+  runningTotal += tenthRolls.reduce((sum, pins) => sum + pins, 0);
+  tenthFrame.score = runningTotal;
+
+  return {
+    gameIndex,
+    playerName,
+    totalScore: runningTotal,
+    frames,
+    tenthFrame
+  };
+}
+
+function buildGamesForImage(imageIndex) {
+  if (!useRandomGames) {
+    return sampleGames;
+  }
+
+  return [generateRandomGame(randomGamePlayerName, imageIndex)];
 }
 
 function getStorageClient() {
@@ -257,8 +364,10 @@ async function seedBootstrapData() {
       }
     });
 
+    const gamesForImage = buildGamesForImage(index);
+
     await prisma.bowlingScore.createMany({
-      data: sampleGames.map((game) => ({
+      data: gamesForImage.map((game) => ({
         storedImageId: storedImage.id,
         gameIndex: game.gameIndex,
         playerName: game.playerName,
@@ -272,6 +381,11 @@ async function seedBootstrapData() {
   }
 
   console.log(`Seeded ${bootstrapImageCount} bootstrap image${bootstrapImageCount === 1 ? '' : 's'} for ${bootstrapUser.email}.`);
+  if (useRandomGames) {
+    console.log(
+      `Random mode enabled: seeded ${bootstrapImageCount} varied game${bootstrapImageCount === 1 ? '' : 's'} for player ${randomGamePlayerName}.`
+    );
+  }
 }
 
 async function openLoggedInBrowser() {

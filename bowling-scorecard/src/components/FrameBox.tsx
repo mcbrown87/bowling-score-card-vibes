@@ -8,9 +8,11 @@ interface FrameBoxProps {
   isTenthFrame?: boolean;
   compact?: boolean;
   activeRoll?: ActiveRoll | null;
+  heatIntensity?: number;
 }
 
 const frameBoxStyles: React.CSSProperties = {
+  position: 'relative',
   border: '1px solid #93c5fd',
   borderRadius: '10px',
   backgroundColor: '#0b1738',
@@ -23,6 +25,8 @@ const frameBoxStyles: React.CSSProperties = {
 };
 
 const frameHeaderStyles: React.CSSProperties = {
+  position: 'relative',
+  zIndex: 1,
   backgroundColor: '#0f224a',
   textAlign: 'center',
   padding: '4px',
@@ -34,6 +38,8 @@ const frameHeaderStyles: React.CSSProperties = {
 };
 
 const rollsContainerStyles: React.CSSProperties = {
+  position: 'relative',
+  zIndex: 1,
   flex: 1,
   display: 'flex'
 };
@@ -80,6 +86,8 @@ const activeRollStyles: React.CSSProperties = {
 };
 
 const scoreBoxStyles: React.CSSProperties = {
+  position: 'relative',
+  zIndex: 1,
   borderTop: '1px solid #93c5fd',
   height: '30px',
   display: 'flex',
@@ -97,7 +105,8 @@ export const FrameBox: React.FC<FrameBoxProps> = ({
   frameDisplay,
   isTenthFrame = false,
   compact = false,
-  activeRoll = null
+  activeRoll = null,
+  heatIntensity
 }) => {
   const containerStyles = compact
     ? { ...frameBoxStyles, height: '78px' }
@@ -125,9 +134,32 @@ export const FrameBox: React.FC<FrameBoxProps> = ({
 
   const visibleActiveRoll =
     !isTenthFrame && activeRoll === 'roll1' && frameDisplay.roll2 === 'X' ? 'roll2' : activeRoll;
+  const clampedHeatIntensity =
+    typeof heatIntensity === 'number' && Number.isFinite(heatIntensity)
+      ? Math.min(1, Math.max(0, heatIntensity))
+      : null;
+  const heatOverlayStyles =
+    clampedHeatIntensity === null
+      ? null
+      : {
+          position: 'absolute' as const,
+          inset: '0',
+          borderRadius: containerStyles.borderRadius,
+          background: `linear-gradient(180deg, rgba(248, 113, 113, ${
+            0.14 + clampedHeatIntensity * 0.18
+          }) 0%, rgba(185, 28, 28, ${0.08 + clampedHeatIntensity * 0.28}) 100%)`,
+          pointerEvents: 'none' as const
+        };
 
   return (
-    <div style={containerStyles} data-testid={`frame-box-${frameNumber}`}>
+    <div
+      style={containerStyles}
+      data-testid={`frame-box-${frameNumber}`}
+      data-heat-intensity={
+        clampedHeatIntensity === null ? undefined : clampedHeatIntensity.toFixed(2)
+      }
+    >
+      {heatOverlayStyles ? <div style={heatOverlayStyles} aria-hidden="true" /> : null}
       <div style={headerStyles} data-testid={`frame-header-${frameNumber}`}>
         {frameNumber}
       </div>

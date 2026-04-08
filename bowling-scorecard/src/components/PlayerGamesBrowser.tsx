@@ -4,6 +4,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import type { CSSProperties } from 'react';
 import { useRouter } from 'next/navigation';
 import type { StoredGameSummary, StoredImageSummary } from '@/types/stored-image';
+import { buildPlayerFrameHeatmap } from '@/utils/playerFrameHeatmap';
 import { loadStoredImages } from '@/utils/storedImages';
 import { Scorecard } from './Scorecard';
 
@@ -189,6 +190,23 @@ const chartHintStyles: CSSProperties = {
   fontSize: '12px',
   color: '#93c5fd',
   marginTop: '6px'
+};
+
+const heatmapLegendStyles: CSSProperties = {
+  display: 'flex',
+  alignItems: 'center',
+  gap: '10px',
+  flexWrap: 'wrap',
+  marginTop: '10px'
+};
+
+const heatmapScaleStyles: CSSProperties = {
+  width: '160px',
+  height: '10px',
+  borderRadius: '999px',
+  background:
+    'linear-gradient(90deg, rgba(248, 113, 113, 0.12) 0%, rgba(220, 38, 38, 0.78) 100%)',
+  border: '1px solid rgba(248, 113, 113, 0.28)'
 };
 
 const dropdownStyles: CSSProperties = {
@@ -512,6 +530,14 @@ export function PlayerGamesBrowser() {
     }));
   }, [selectedPlayerGroup]);
 
+  const frameHeatmap = useMemo(() => {
+    if (!selectedPlayerGroup) {
+      return null;
+    }
+
+    return buildPlayerFrameHeatmap(selectedPlayerGroup.games.map((entry) => entry.game));
+  }, [selectedPlayerGroup]);
+
   const handleOpenInLibrary = useCallback(() => {
     if (!selectedGame) {
       return;
@@ -708,10 +734,22 @@ export function PlayerGamesBrowser() {
                       }}
                       aria-label="Open this game in the library view"
                     >
-                      <Scorecard game={selectedGame.game} disableEditing compact />
+                      <Scorecard
+                        game={selectedGame.game}
+                        frameHeatmap={frameHeatmap ?? undefined}
+                        disableEditing
+                        compact
+                      />
+                    </div>
+                    <div style={heatmapLegendStyles}>
+                      <span style={hintTextStyles}>Frame heatmap</span>
+                      <div style={heatmapScaleStyles} aria-hidden="true" />
+                      <span style={hintTextStyles}>Lower average gain</span>
+                      <span style={hintTextStyles}>Higher average gain</span>
                     </div>
                     <p style={{ ...hintTextStyles, marginTop: '6px' }}>
-                      Click the scorecard to jump to the library with this game selected.
+                      Click the scorecard to jump to the library with this game selected. Darker red
+                      frames mark where this player averages more points.
                     </p>
                   </div>
                 ) : (

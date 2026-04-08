@@ -108,4 +108,17 @@ describe('Scorecard', () => {
 
     expect(onKeyboardKeyDown).toHaveBeenCalled();
   });
+
+  it('passes optional frame heatmap values through to the frame boxes', () => {
+    render(
+      <Scorecard
+        game={buildGame()}
+        frameHeatmap={[0.12, 0.2, 0.28, 0.36, 0.44, 0.52, 0.6, 0.68, 0.76, 0.78]}
+        compact
+      />
+    );
+
+    expect(screen.getByTestId('frame-box-1')).toHaveAttribute('data-heat-intensity', '0.12');
+    expect(screen.getByTestId('frame-box-10')).toHaveAttribute('data-heat-intensity', '0.78');
+  });
 });

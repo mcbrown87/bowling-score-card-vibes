@@ -6,6 +6,7 @@ import type { ActiveRoll } from '../utils/frameCorrection';
 
 interface ScorecardProps {
   game: Game;
+  frameHeatmap?: number[];
   onFrameSelect?: (frameIndex: number) => void;
   onPlayerNameClick?: () => void;
   disableEditing?: boolean;
@@ -137,6 +138,7 @@ const keyboardHintStyles: React.CSSProperties = {
 
 export const Scorecard: React.FC<ScorecardProps> = ({
   game,
+  frameHeatmap,
   onFrameSelect,
   onPlayerNameClick,
   disableEditing,
@@ -165,6 +167,7 @@ export const Scorecard: React.FC<ScorecardProps> = ({
     const isSelected = selectedFrameIndex === frameIndex;
     const wrapper = (
       <div
+        key={`frame-wrapper-${frameNumber}`}
         style={{
           ...frameWrapperBaseStyles,
           ...(isSelected ? selectedFrameWrapperStyles : {})
@@ -209,6 +212,8 @@ export const Scorecard: React.FC<ScorecardProps> = ({
       </button>
     );
   };
+
+  const getHeatIntensity = (frameIndex: number) => frameHeatmap?.[frameIndex];
 
   const containerStyle = useMemo<React.CSSProperties>(
     () => ({
@@ -305,6 +310,7 @@ export const Scorecard: React.FC<ScorecardProps> = ({
                     frameNumber={frameNumber}
                     frameDisplay={formatFrameDisplay(frame, frameNumber)}
                     compact
+                    heatIntensity={getHeatIntensity(idx)}
                     activeRoll={selectedFrameIndex === idx ? activeRoll : null}
                   />,
                   idx
@@ -317,6 +323,7 @@ export const Scorecard: React.FC<ScorecardProps> = ({
                   frameDisplay={formatTenthFrameDisplay(game.tenthFrame)}
                   isTenthFrame
                   compact
+                  heatIntensity={getHeatIntensity(9)}
                   activeRoll={selectedFrameIndex === 9 ? activeRoll : null}
                 />,
                 9
@@ -333,6 +340,7 @@ export const Scorecard: React.FC<ScorecardProps> = ({
                   frameNumber={frameNumber}
                   frameDisplay={formatFrameDisplay(frame, frameNumber)}
                   compact={compact}
+                  heatIntensity={getHeatIntensity(index)}
                   activeRoll={selectedFrameIndex === index ? activeRoll : null}
                 />,
                 index
@@ -345,6 +353,7 @@ export const Scorecard: React.FC<ScorecardProps> = ({
                 frameDisplay={formatTenthFrameDisplay(game.tenthFrame)}
                 isTenthFrame={true}
                 compact={compact}
+                heatIntensity={getHeatIntensity(9)}
                 activeRoll={selectedFrameIndex === 9 ? activeRoll : null}
               />,
               9
