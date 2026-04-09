@@ -4,8 +4,12 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import type { CSSProperties } from 'react';
 import { useRouter } from 'next/navigation';
 import type { StoredGameSummary, StoredImageSummary } from '@/types/stored-image';
-import { buildPlayerFrameHeatmap } from '@/utils/playerFrameHeatmap';
+import {
+  buildFrameTrendSeries,
+  buildPlayerFrameHeatmap
+} from '@/utils/playerFrameHeatmap';
 import { loadStoredImages } from '@/utils/storedImages';
+import { useDesktopKeyboardMode } from '@/utils/useDesktopKeyboardMode';
 import { Scorecard } from './Scorecard';
 
 type PlayerGameEntry = {
@@ -377,6 +381,7 @@ export function PlayerGamesBrowser() {
   const [selectedGameKey, setSelectedGameKey] = useState<string | null>(null);
   const [isStackedLayout, setIsStackedLayout] = useState(false);
   const router = useRouter();
+  const isHoverCapable = useDesktopKeyboardMode();
 
   useEffect(() => {
     const updateLayout = () => {
@@ -512,6 +517,7 @@ export function PlayerGamesBrowser() {
     if (!selectedPlayerGroup) {
       return [];
     }
+
     return selectedPlayerGroup.games
       .slice()
       .sort(
@@ -526,9 +532,34 @@ export function PlayerGamesBrowser() {
         label:
           entry.image.originalFileName ??
           `Game ${index + 1} on ${formatShortDate(entry.image.createdAt)}`,
-      isEstimate: Boolean(entry.game.isEstimate)
-    }));
+        isEstimate: Boolean(entry.game.isEstimate)
+      }));
   }, [selectedPlayerGroup]);
+
+  const frameTrendSeries = useMemo(() => {
+    if (!selectedPlayerGroup) {
+      return null;
+    }
+
+    const sortedGames = selectedPlayerGroup.games
+      .slice()
+      .sort(
+        (a, b) =>
+          new Date(a.image.createdAt).getTime() - new Date(b.image.createdAt).getTime()
+      )
+      .map((entry) => entry.game);
+
+    return buildFrameTrendSeries(sortedGames);
+  }, [selectedPlayerGroup]);
+
+  const selectedTrendIndex = useMemo(() => {
+    if (!selectedGame) {
+      return null;
+    }
+
+    const matchIndex = timelineData.findIndex((entry) => entry.key === selectedGame.key);
+    return matchIndex >= 0 ? matchIndex : null;
+  }, [selectedGame, timelineData]);
 
   const frameHeatmap = useMemo(() => {
     if (!selectedPlayerGroup) {
@@ -737,6 +768,9 @@ export function PlayerGamesBrowser() {
                       <Scorecard
                         game={selectedGame.game}
                         frameHeatmap={frameHeatmap ?? undefined}
+                        frameTrendSeries={frameTrendSeries ?? undefined}
+                        showFrameTrendPreview={isHoverCapable}
+                        selectedTrendIndex={selectedTrendIndex}
                         disableEditing
                         compact
                       />

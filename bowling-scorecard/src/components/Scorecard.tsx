@@ -1,4 +1,4 @@
-import React, { useMemo } from 'react';
+import React, { useMemo, useState } from 'react';
 import { Game } from '../types/bowling';
 import { FrameBox } from './FrameBox';
 import { formatFrameDisplay, formatTenthFrameDisplay } from '../utils/displayHelpers';
@@ -7,6 +7,9 @@ import type { ActiveRoll } from '../utils/frameCorrection';
 interface ScorecardProps {
   game: Game;
   frameHeatmap?: number[];
+  frameTrendSeries?: number[][];
+  showFrameTrendPreview?: boolean;
+  selectedTrendIndex?: number | null;
   onFrameSelect?: (frameIndex: number) => void;
   onPlayerNameClick?: () => void;
   disableEditing?: boolean;
@@ -70,7 +73,7 @@ const baseFramesGridStyles: React.CSSProperties = {
 
 const framesScrollContainerStyles: React.CSSProperties = {
   width: '100%',
-  overflowX: 'hidden',
+  overflow: 'visible',
   padding: '0',
   WebkitOverflowScrolling: 'touch'
 };
@@ -79,7 +82,8 @@ const frameWrapperBaseStyles: React.CSSProperties = {
   position: 'relative',
   borderRadius: '12px',
   padding: '2px',
-  backgroundColor: 'rgba(15, 23, 42, 0.45)'
+  backgroundColor: 'rgba(15, 23, 42, 0.45)',
+  overflow: 'visible'
 };
 
 const selectedFrameWrapperStyles: React.CSSProperties = {
@@ -95,6 +99,7 @@ const frameButtonStyles: React.CSSProperties = {
   borderColor: 'transparent',
   borderRadius: '12px',
   padding: 0,
+  overflow: 'visible',
   cursor: 'pointer',
   transition: 'transform 120ms ease, box-shadow 120ms ease, border-color 120ms ease'
 };
@@ -139,6 +144,9 @@ const keyboardHintStyles: React.CSSProperties = {
 export const Scorecard: React.FC<ScorecardProps> = ({
   game,
   frameHeatmap,
+  frameTrendSeries,
+  showFrameTrendPreview = false,
+  selectedTrendIndex = null,
   onFrameSelect,
   onPlayerNameClick,
   disableEditing,
@@ -151,6 +159,7 @@ export const Scorecard: React.FC<ScorecardProps> = ({
   onKeyboardBlur,
   onKeyboardKeyDown
 }) => {
+  const [activeTrendFrameIndex, setActiveTrendFrameIndex] = useState<number | null>(null);
   const gridStyles = useMemo<React.CSSProperties>(
     () => ({
       ...baseFramesGridStyles,
@@ -165,6 +174,22 @@ export const Scorecard: React.FC<ScorecardProps> = ({
 
   const renderFrame = (frameNumber: number, content: React.ReactNode, frameIndex: number) => {
     const isSelected = selectedFrameIndex === frameIndex;
+    const isTrendPreviewEnabled =
+      showFrameTrendPreview && Boolean(frameTrendSeries?.[frameIndex]?.length);
+    const interactiveFrameProps = isTrendPreviewEnabled
+      ? {
+          onMouseEnter: () => setActiveTrendFrameIndex(frameIndex),
+          onMouseLeave: () =>
+            setActiveTrendFrameIndex((current) => (current === frameIndex ? null : current)),
+          onFocus: () => setActiveTrendFrameIndex(frameIndex),
+          onBlur: (event: React.FocusEvent<HTMLElement>) => {
+            const nextTarget = event.relatedTarget as Node | null;
+            if (!nextTarget || !event.currentTarget.contains(nextTarget)) {
+              setActiveTrendFrameIndex((current) => (current === frameIndex ? null : current));
+            }
+          }
+        }
+      : {};
     const wrapper = (
       <div
         key={`frame-wrapper-${frameNumber}`}
@@ -173,6 +198,8 @@ export const Scorecard: React.FC<ScorecardProps> = ({
           ...(isSelected ? selectedFrameWrapperStyles : {})
         }}
         data-active-roll={isSelected && activeRoll ? activeRoll : undefined}
+        tabIndex={!onFrameSelect && isTrendPreviewEnabled ? 0 : undefined}
+        {...interactiveFrameProps}
       >
         {isSelected && keyboardMode && (
           <span style={keyboardHintStyles}>
@@ -207,6 +234,7 @@ export const Scorecard: React.FC<ScorecardProps> = ({
         }}
         aria-label={`Edit frame ${frameNumber}`}
         aria-current={isSelected ? 'step' : undefined}
+        {...interactiveFrameProps}
       >
         {wrapper}
       </button>
@@ -312,6 +340,9 @@ export const Scorecard: React.FC<ScorecardProps> = ({
                     compact
                     heatIntensity={getHeatIntensity(idx)}
                     activeRoll={selectedFrameIndex === idx ? activeRoll : null}
+                    frameTrend={frameTrendSeries?.[idx]}
+                    showTrendPreview={activeTrendFrameIndex === idx}
+                    trendSelectedIndex={selectedTrendIndex}
                   />,
                   idx
                 );
@@ -325,6 +356,9 @@ export const Scorecard: React.FC<ScorecardProps> = ({
                   compact
                   heatIntensity={getHeatIntensity(9)}
                   activeRoll={selectedFrameIndex === 9 ? activeRoll : null}
+                  frameTrend={frameTrendSeries?.[9]}
+                  showTrendPreview={activeTrendFrameIndex === 9}
+                  trendSelectedIndex={selectedTrendIndex}
                 />,
                 9
               )}
@@ -342,6 +376,9 @@ export const Scorecard: React.FC<ScorecardProps> = ({
                   compact={compact}
                   heatIntensity={getHeatIntensity(index)}
                   activeRoll={selectedFrameIndex === index ? activeRoll : null}
+                  frameTrend={frameTrendSeries?.[index]}
+                  showTrendPreview={activeTrendFrameIndex === index}
+                  trendSelectedIndex={selectedTrendIndex}
                 />,
                 index
               );
@@ -355,6 +392,9 @@ export const Scorecard: React.FC<ScorecardProps> = ({
                 compact={compact}
                 heatIntensity={getHeatIntensity(9)}
                 activeRoll={selectedFrameIndex === 9 ? activeRoll : null}
+                frameTrend={frameTrendSeries?.[9]}
+                showTrendPreview={activeTrendFrameIndex === 9}
+                trendSelectedIndex={selectedTrendIndex}
               />,
               9
             )}

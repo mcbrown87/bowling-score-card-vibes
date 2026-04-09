@@ -1,5 +1,6 @@
 import type { Game } from '@/types/bowling';
 import {
+  buildFrameTrendSeries,
   buildPlayerFrameHeatmap,
   getAverageFrameGains,
   getFrameGains,
@@ -59,6 +60,20 @@ describe('playerFrameHeatmap', () => {
     ];
 
     expect(getAverageFrameGains(games)).toEqual([8.5, 15, 10.5, 17, 12.5, 19, 14.5, 21, 16.5, 23]);
+  });
+
+  it('builds per-frame trend series from ordered games', () => {
+    const games = [
+      buildGameFromRunningTotals('A', [9, 29, 38, 58, 67, 87, 96, 116, 125, 145]),
+      buildGameFromRunningTotals('A', [8, 18, 30, 44, 60, 78, 98, 120, 144, 170])
+    ];
+
+    const series = buildFrameTrendSeries(games);
+
+    expect(series).toHaveLength(10);
+    expect(series[0]).toEqual([9, 8]);
+    expect(series[1]).toEqual([20, 10]);
+    expect(series[9]).toEqual([20, 26]);
   });
 
   it('returns a low neutral baseline when every frame average is equal', () => {

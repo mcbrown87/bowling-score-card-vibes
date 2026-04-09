@@ -121,4 +121,52 @@ describe('Scorecard', () => {
     expect(screen.getByTestId('frame-box-1')).toHaveAttribute('data-heat-intensity', '0.12');
     expect(screen.getByTestId('frame-box-10')).toHaveAttribute('data-heat-intensity', '0.78');
   });
+
+  it('shows a frame trend preview on hover when enabled', () => {
+    render(
+      <Scorecard
+        game={buildGame()}
+        frameTrendSeries={[
+          [9, 8, 10],
+          [20, 10, 12],
+          [9, 12, 14],
+          [20, 14, 16],
+          [9, 16, 18],
+          [20, 18, 20],
+          [9, 20, 22],
+          [20, 22, 24],
+          [9, 24, 26],
+          [20, 26, 28]
+        ]}
+        selectedTrendIndex={1}
+        showFrameTrendPreview
+        compact
+      />
+    );
+
+    const frameWrapper = screen.getByTestId('frame-box-1').parentElement;
+    expect(frameWrapper).not.toBeNull();
+
+    fireEvent.mouseEnter(frameWrapper as HTMLElement);
+
+    expect(screen.getByTestId('frame-trend-preview-1')).toBeVisible();
+    expect(screen.getByLabelText('Frame 1 trend preview')).toBeVisible();
+  });
+
+  it('does not show a frame trend preview when disabled', () => {
+    render(
+      <Scorecard
+        game={buildGame()}
+        frameTrendSeries={Array.from({ length: 10 }, () => [8, 9, 10])}
+        compact
+      />
+    );
+
+    const frameWrapper = screen.getByTestId('frame-box-1').parentElement;
+    expect(frameWrapper).not.toBeNull();
+
+    fireEvent.mouseEnter(frameWrapper as HTMLElement);
+
+    expect(screen.queryByTestId('frame-trend-preview-1')).not.toBeInTheDocument();
+  });
 });

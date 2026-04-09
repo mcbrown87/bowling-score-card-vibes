@@ -14,6 +14,7 @@ jest.mock('@/utils/storedImages', () => ({
 
 const mockedLoadStoredImages = loadStoredImages as jest.MockedFunction<typeof loadStoredImages>;
 const originalInnerWidth = window.innerWidth;
+const originalMatchMedia = window.matchMedia;
 
 const buildGame = (playerName: string, runningTotals: number[], totalScore = runningTotals[9]) => ({
   gameIndex: 0,
@@ -79,11 +80,22 @@ const buildStoredImagesPage = () => ({
 beforeEach(() => {
   mockedLoadStoredImages.mockResolvedValue(buildStoredImagesPage());
   window.innerWidth = 1200;
+  window.matchMedia = jest.fn().mockImplementation(() => ({
+    matches: true,
+    media: '(min-width: 768px) and (pointer: fine) and (hover: hover)',
+    onchange: null,
+    addEventListener: jest.fn(),
+    removeEventListener: jest.fn(),
+    addListener: jest.fn(),
+    removeListener: jest.fn(),
+    dispatchEvent: jest.fn()
+  }));
 });
 
 afterEach(() => {
   jest.clearAllMocks();
   window.innerWidth = originalInnerWidth;
+  window.matchMedia = originalMatchMedia;
 });
 
 describe('PlayerGamesBrowser', () => {
@@ -106,5 +118,42 @@ describe('PlayerGamesBrowser', () => {
     await waitFor(() => expect(screen.getByText(/Viewing Bob/)).toBeVisible());
     expect(screen.getByTestId('frame-box-1')).toHaveAttribute('data-heat-intensity', '0.78');
     expect(screen.getByTestId('frame-box-3')).toHaveAttribute('data-heat-intensity', '0.12');
+  });
+
+  it('shows a frame trend preview on hover for hover-capable layouts', async () => {
+    render(<PlayerGamesBrowser />);
+
+    await screen.findByText(/Viewing Alice/);
+
+    const frameWrapper = screen.getByTestId('frame-box-1').parentElement;
+    expect(frameWrapper).not.toBeNull();
+
+    fireEvent.mouseEnter(frameWrapper as HTMLElement);
+
+    expect(screen.getByTestId('frame-trend-preview-1')).toBeVisible();
+  });
+
+  it('does not show frame trend previews when hover is unavailable', async () => {
+    window.matchMedia = jest.fn().mockImplementation(() => ({
+      matches: false,
+      media: '(min-width: 768px) and (pointer: fine) and (hover: hover)',
+      onchange: null,
+      addEventListener: jest.fn(),
+      removeEventListener: jest.fn(),
+      addListener: jest.fn(),
+      removeListener: jest.fn(),
+      dispatchEvent: jest.fn()
+    }));
+
+    render(<PlayerGamesBrowser />);
+
+    await screen.findByText(/Viewing Alice/);
+
+    const frameWrapper = screen.getByTestId('frame-box-1').parentElement;
+    expect(frameWrapper).not.toBeNull();
+
+    fireEvent.mouseEnter(frameWrapper as HTMLElement);
+
+    expect(screen.queryByTestId('frame-trend-preview-1')).not.toBeInTheDocument();
   });
 });

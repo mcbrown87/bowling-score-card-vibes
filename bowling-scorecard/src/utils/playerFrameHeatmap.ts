@@ -45,6 +45,18 @@ export const getAverageFrameGains = (games: Game[]): number[] => {
   return totals.map((total) => total / games.length);
 };
 
+export const buildFrameTrendSeries = (games: Game[]): number[][] => {
+  const series = Array.from({ length: FRAME_COUNT }, () => [] as number[]);
+
+  games.forEach((game) => {
+    getFrameGains(game).forEach((gain, index) => {
+      series[index]?.push(gain);
+    });
+  });
+
+  return series;
+};
+
 export const normalizeFrameHeatmap = (averages: number[]): number[] => {
   const normalizedAverages = averages
     .slice(0, FRAME_COUNT)

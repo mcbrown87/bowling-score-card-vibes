@@ -9,6 +9,9 @@ interface FrameBoxProps {
   compact?: boolean;
   activeRoll?: ActiveRoll | null;
   heatIntensity?: number;
+  frameTrend?: number[];
+  showTrendPreview?: boolean;
+  trendSelectedIndex?: number | null;
 }
 
 const frameBoxStyles: React.CSSProperties = {
@@ -20,7 +23,7 @@ const frameBoxStyles: React.CSSProperties = {
   flexDirection: 'column',
   width: '100%',
   height: '90px',
-  overflow: 'hidden',
+  overflow: 'visible',
   boxShadow: '0 8px 18px rgba(2, 6, 23, 0.35), inset 0 0 0 1px rgba(148, 163, 184, 0.24)'
 };
 
@@ -100,13 +103,60 @@ const scoreBoxStyles: React.CSSProperties = {
   fontFamily: "'Courier New', monospace"
 };
 
+const trendPreviewStyles: React.CSSProperties = {
+  position: 'absolute',
+  left: '50%',
+  bottom: 'calc(100% + 10px)',
+  transform: 'translateX(-50%)',
+  zIndex: 8,
+  width: '148px',
+  borderRadius: '10px',
+  padding: '8px 8px 6px',
+  background: 'linear-gradient(180deg, rgba(8, 16, 42, 0.96) 0%, rgba(15, 23, 42, 0.96) 100%)',
+  border: '1px solid rgba(96, 165, 250, 0.45)',
+  boxShadow: '0 12px 28px rgba(2, 6, 23, 0.6)',
+  pointerEvents: 'none'
+};
+
+const trendPreviewArrowStyles: React.CSSProperties = {
+  position: 'absolute',
+  left: '50%',
+  bottom: '-7px',
+  width: '12px',
+  height: '12px',
+  background: '#0f172a',
+  borderRight: '1px solid rgba(96, 165, 250, 0.45)',
+  borderBottom: '1px solid rgba(96, 165, 250, 0.45)',
+  transform: 'translateX(-50%) rotate(45deg)'
+};
+
+const trendHeaderStyles: React.CSSProperties = {
+  display: 'flex',
+  alignItems: 'center',
+  justifyContent: 'space-between',
+  gap: '6px',
+  marginBottom: '4px',
+  fontSize: '9px',
+  color: '#cbd5e1',
+  textTransform: 'uppercase',
+  letterSpacing: '0.06em'
+};
+
+const trendValueStyles: React.CSSProperties = {
+  color: '#f8fafc',
+  fontWeight: 800
+};
+
 export const FrameBox: React.FC<FrameBoxProps> = ({
   frameNumber,
   frameDisplay,
   isTenthFrame = false,
   compact = false,
   activeRoll = null,
-  heatIntensity
+  heatIntensity,
+  frameTrend,
+  showTrendPreview = false,
+  trendSelectedIndex = null
 }) => {
   const containerStyles = compact
     ? { ...frameBoxStyles, height: '78px' }
@@ -151,6 +201,36 @@ export const FrameBox: React.FC<FrameBoxProps> = ({
           pointerEvents: 'none' as const
         };
 
+  const trendValues =
+    frameTrend?.filter((value): value is number => Number.isFinite(value)) ?? [];
+  const selectedTrendValue =
+    trendSelectedIndex !== null && trendSelectedIndex >= 0
+      ? trendValues[trendSelectedIndex] ?? null
+      : null;
+  const trendPreviewWidth = compact ? 102 : 126;
+  const trendPreviewHeight = compact ? 56 : 64;
+  const trendPadding = 6;
+  const trendMin = trendValues.length ? Math.min(...trendValues) : 0;
+  const trendMax = trendValues.length ? Math.max(...trendValues) : 0;
+  const trendRange = Math.max(trendMax - trendMin, 4);
+  const trendXStep =
+    trendValues.length > 1
+      ? (trendPreviewWidth - trendPadding * 2) / (trendValues.length - 1)
+      : 0;
+  const trendPoints = trendValues.map((value, index) => {
+    const x = trendPadding + trendXStep * index;
+    const normalized = (value - trendMin) / trendRange;
+    const y =
+      trendPadding + (1 - normalized) * (trendPreviewHeight - trendPadding * 2);
+    return { value, x, y };
+  });
+  const trendPolyline = trendPoints.map((point) => `${point.x},${point.y}`).join(' ');
+  const trendActivePoint =
+    trendSelectedIndex !== null && trendSelectedIndex >= 0
+      ? trendPoints[trendSelectedIndex] ?? null
+      : null;
+  const shouldRenderTrendPreview = showTrendPreview && trendValues.length > 0;
+
   return (
     <div
       style={containerStyles}
@@ -160,6 +240,73 @@ export const FrameBox: React.FC<FrameBoxProps> = ({
       }
     >
       {heatOverlayStyles ? <div style={heatOverlayStyles} aria-hidden="true" /> : null}
+      {shouldRenderTrendPreview ? (
+        <div
+          data-testid={`frame-trend-preview-${frameNumber}`}
+          aria-label={`Frame ${frameNumber} trend preview`}
+          style={{
+            ...trendPreviewStyles,
+            width: compact ? '132px' : trendPreviewStyles.width
+          }}
+        >
+          <div style={trendPreviewArrowStyles} aria-hidden="true" />
+          <div style={trendHeaderStyles}>
+            <span>{`Frame ${frameNumber} trend`}</span>
+            <span style={trendValueStyles}>
+              {selectedTrendValue !== null ? `Now ${selectedTrendValue}` : `Best ${trendMax}`}
+            </span>
+          </div>
+          <svg
+            viewBox={`0 0 ${trendPreviewWidth} ${trendPreviewHeight}`}
+            width="100%"
+            height={trendPreviewHeight}
+            aria-hidden="true"
+          >
+            <line
+              x1={trendPadding}
+              x2={trendPreviewWidth - trendPadding}
+              y1={trendPreviewHeight - trendPadding}
+              y2={trendPreviewHeight - trendPadding}
+              stroke="rgba(148, 163, 184, 0.25)"
+              strokeWidth="1"
+            />
+            {trendPoints.length > 1 ? (
+              <polyline
+                fill="none"
+                stroke="#60a5fa"
+                strokeWidth="2"
+                strokeLinejoin="round"
+                strokeLinecap="round"
+                points={trendPolyline}
+              />
+            ) : null}
+            {trendPoints.map((point, index) => {
+              const isActive = trendSelectedIndex === index;
+              return (
+                <circle
+                  key={`trend-point-${frameNumber}-${index}`}
+                  cx={point.x}
+                  cy={point.y}
+                  r={isActive ? 3.5 : 2.5}
+                  fill={isActive ? '#f8fafc' : '#93c5fd'}
+                  stroke={isActive ? '#2563eb' : 'none'}
+                  strokeWidth={isActive ? 1.5 : 0}
+                />
+              );
+            })}
+            {trendActivePoint ? (
+              <circle
+                cx={trendActivePoint.x}
+                cy={trendActivePoint.y}
+                r={4}
+                fill="none"
+                stroke="rgba(248, 250, 252, 0.7)"
+                strokeWidth="1.5"
+              />
+            ) : null}
+          </svg>
+        </div>
+      ) : null}
       <div style={headerStyles} data-testid={`frame-header-${frameNumber}`}>
         {frameNumber}
       </div>
