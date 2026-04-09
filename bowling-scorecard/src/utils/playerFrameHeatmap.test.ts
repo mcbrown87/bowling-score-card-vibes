@@ -67,6 +67,13 @@ describe('playerFrameHeatmap', () => {
     );
   });
 
+  it('uses a nonlinear scale so midrange frame differences stay more visible', () => {
+    const heatmap = normalizeFrameHeatmap([0, 10, 20, 30, 40, 50, 60, 70, 80, 90]);
+
+    expect(heatmap[5]).toBeGreaterThan(0.48);
+    expect(heatmap[5]).toBeLessThan(0.78);
+  });
+
   it('builds a 10-frame normalized heatmap for a player', () => {
     const heatmap = buildPlayerFrameHeatmap([
       buildGameFromRunningTotals('A', [8, 18, 30, 44, 60, 78, 98, 120, 144, 170])

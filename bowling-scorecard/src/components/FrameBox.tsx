@@ -146,8 +146,8 @@ export const FrameBox: React.FC<FrameBoxProps> = ({
           inset: '0',
           borderRadius: containerStyles.borderRadius,
           background: `linear-gradient(180deg, rgba(248, 113, 113, ${
-            0.14 + clampedHeatIntensity * 0.18
-          }) 0%, rgba(185, 28, 28, ${0.08 + clampedHeatIntensity * 0.28}) 100%)`,
+            0.18 + clampedHeatIntensity * 0.26
+          }) 0%, rgba(185, 28, 28, ${0.14 + clampedHeatIntensity * 0.36}) 100%)`,
           pointerEvents: 'none' as const
         };
 

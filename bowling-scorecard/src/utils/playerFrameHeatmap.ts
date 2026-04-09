@@ -4,6 +4,7 @@ import { recalculateGame } from '@/utils/recalculateGame';
 const HEATMAP_BASELINE_INTENSITY = 0.18;
 const HEATMAP_MIN_INTENSITY = 0.12;
 const HEATMAP_MAX_INTENSITY = 0.78;
+const HEATMAP_CONTRAST_EXPONENT = 0.72;
 const FRAME_COUNT = 10;
 
 const isFiniteNumber = (value: unknown): value is number =>
@@ -63,7 +64,11 @@ export const normalizeFrameHeatmap = (averages: number[]): number[] => {
   const range = max - min;
   return normalizedAverages.map((value) => {
     const scaled = (value - min) / range;
-    return HEATMAP_MIN_INTENSITY + scaled * (HEATMAP_MAX_INTENSITY - HEATMAP_MIN_INTENSITY);
+    const emphasized = Math.pow(scaled, HEATMAP_CONTRAST_EXPONENT);
+    return (
+      HEATMAP_MIN_INTENSITY +
+      emphasized * (HEATMAP_MAX_INTENSITY - HEATMAP_MIN_INTENSITY)
+    );
   });
 };
 
