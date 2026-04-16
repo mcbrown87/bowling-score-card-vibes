@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server';
 
 import { requireAdmin } from '@/server/auth/admin';
-import { buildValidatedScoreDatasetZipExport } from '@/server/services/localModelArtifacts';
+import { buildValidatedScoreDatasetZipExportStream } from '@/server/services/localModelArtifacts';
 
 export const dynamic = 'force-dynamic';
 
@@ -17,12 +17,13 @@ export async function GET() {
   }
 
   const exportedDate = new Date().toISOString().slice(0, 10);
-  const body = await buildValidatedScoreDatasetZipExport();
+  const body = buildValidatedScoreDatasetZipExportStream();
 
   return new NextResponse(body, {
     headers: {
       'Content-Type': 'application/zip',
-      'Content-Disposition': `attachment; filename="bowling-validated-scores-${exportedDate}.zip"`
+      'Content-Disposition': `attachment; filename="bowling-validated-scores-${exportedDate}.zip"`,
+      'Cache-Control': 'no-store'
     }
   });
 }

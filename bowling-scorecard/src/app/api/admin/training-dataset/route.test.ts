@@ -1,5 +1,5 @@
 const requireAdmin = jest.fn();
-const buildValidatedScoreDatasetZipExport = jest.fn();
+const buildValidatedScoreDatasetZipExportStream = jest.fn();
 
 class TestHeaders {
   private readonly values = new Map<string, string>();
@@ -54,7 +54,7 @@ jest.mock('@/server/auth/admin', () => ({
 }));
 
 jest.mock('@/server/services/localModelArtifacts', () => ({
-  buildValidatedScoreDatasetZipExport
+  buildValidatedScoreDatasetZipExportStream
 }));
 
 describe('/api/admin/training-dataset', () => {
@@ -96,7 +96,8 @@ describe('/api/admin/training-dataset', () => {
       session: { user: { id: 'admin-1' } },
       isAdmin: true
     });
-    buildValidatedScoreDatasetZipExport.mockResolvedValue(Buffer.from('zip-bytes'));
+    const stream = { stream: true };
+    buildValidatedScoreDatasetZipExportStream.mockReturnValue(stream);
 
     const { GET } = await import('./route');
     const response = await GET();
@@ -106,6 +107,7 @@ describe('/api/admin/training-dataset', () => {
     expect(response.headers.get('Content-Disposition')).toMatch(
       /^attachment; filename="bowling-validated-scores-\d{4}-\d{2}-\d{2}\.zip"$/
     );
-    await expect(response.text()).resolves.toBe('zip-bytes');
+    expect(response.headers.get('Cache-Control')).toBe('no-store');
+    expect(buildValidatedScoreDatasetZipExportStream).toHaveBeenCalledTimes(1);
   });
 });
