@@ -44,6 +44,7 @@ export default async function LibraryPage({ searchParams }: LibraryPageProps) {
         userLabel={`Signed in as ${
           session?.user?.name ?? session?.user?.email ?? 'E2E Test User'
         }`}
+        isAdmin={session?.user?.role === 'ADMIN'}
       />
       <div style={{ padding: '0 16px 16px', maxWidth: '1200px', margin: '0 auto' }}>
         <StoredImagesLibrary initialImageId={initialImageId} initialGameIndex={initialGameIndex} />

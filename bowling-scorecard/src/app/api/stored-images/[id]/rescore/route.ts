@@ -3,11 +3,10 @@ import { NextResponse } from 'next/server';
 import { BOWLING_EXTRACTION_PROMPT } from '@/server/prompts/bowling';
 import { auth } from '@/server/auth';
 import { prisma } from '@/server/db/client';
+import { getProviderModel, getRuntimeSettings } from '@/server/config/appConfig';
 import { enqueueScoreEstimatorJob } from '@/server/queues/scoreEstimatorQueue';
 import { serializeStoredImage, storedImageInclude } from '@/server/serializers/storedImage';
 import {
-  DEFAULT_PROVIDER,
-  PROVIDER_MODELS,
   PROMPT_VERSION
 } from '@/server/services/scoreEstimator';
 
@@ -67,8 +66,9 @@ export async function POST(_request: Request, context: RouteContext) {
       );
     }
 
-    const provider = DEFAULT_PROVIDER;
-    const providerModel = PROVIDER_MODELS[provider];
+    const settings = await getRuntimeSettings();
+    const provider = settings.activeProvider;
+    const providerModel = await getProviderModel(provider);
     const [promptRecord] = await prisma.$transaction([
       prisma.prompt.upsert({
         where: { version: PROMPT_VERSION },

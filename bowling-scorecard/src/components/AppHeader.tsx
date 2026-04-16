@@ -8,6 +8,7 @@ import { SignOutButton } from './auth/SignOutButton';
 
 type AppHeaderProps = {
   userLabel: string;
+  isAdmin?: boolean;
 };
 
 const headerStyles: CSSProperties = {
@@ -52,7 +53,7 @@ const activeLinkStyles = {
   color: '#f8fafc'
 };
 
-export function AppHeader({ userLabel }: AppHeaderProps) {
+export function AppHeader({ userLabel, isAdmin = false }: AppHeaderProps) {
   const pathname = usePathname();
   const [isMobile, setIsMobile] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
@@ -69,6 +70,7 @@ export function AppHeader({ userLabel }: AppHeaderProps) {
   const isHome = pathname === '/';
   const isLibrary = pathname?.startsWith('/library');
   const isPlayers = pathname?.startsWith('/players');
+  const isAdminRoute = pathname?.startsWith('/admin');
 
   return (
     <header style={headerStyles}>
@@ -119,6 +121,11 @@ export function AppHeader({ userLabel }: AppHeaderProps) {
           <Link href="/players" style={isPlayers ? activeLinkStyles : linkStyles}>
             Players
           </Link>
+          {isAdmin && (
+            <Link href="/admin" style={isAdminRoute ? activeLinkStyles : linkStyles}>
+              Admin
+            </Link>
+          )}
         </div>
       )}
     </header>

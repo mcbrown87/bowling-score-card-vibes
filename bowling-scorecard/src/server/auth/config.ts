@@ -1,4 +1,5 @@
 import { PrismaAdapter } from '@auth/prisma-adapter';
+import { UserRole } from '@prisma/client';
 import type { Adapter } from 'next-auth/adapters';
 import type { NextAuthOptions } from 'next-auth';
 import Credentials from 'next-auth/providers/credentials';
@@ -83,6 +84,14 @@ export const authConfig: NextAuthOptions = {
         token.id = user.id;
         token.email = user.email;
         token.name = user.name ?? user.email ?? null;
+        token.role = user.role ?? UserRole.USER;
+      } else if (token.email) {
+        const existingUser = await prisma.user.findUnique({
+          where: { email: token.email as string },
+          select: { role: true, name: true }
+        });
+        token.role = existingUser?.role ?? UserRole.USER;
+        token.name = existingUser?.name ?? token.name ?? token.email;
       }
       return token;
     },
@@ -91,6 +100,7 @@ export const authConfig: NextAuthOptions = {
         session.user.id = (token.id as string) ?? token.sub ?? '';
         if (token.email) session.user.email = token.email as string;
         if (token.name) session.user.name = token.name as string;
+        session.user.role = (token.role as UserRole) ?? UserRole.USER;
       }
       return session;
     }

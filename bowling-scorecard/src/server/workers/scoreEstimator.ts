@@ -1,17 +1,17 @@
 import { createScoreEstimatorWorker } from '@/server/queues/scoreEstimatorQueue';
 import { logger } from '@/server/utils/logger';
 
-const worker = createScoreEstimatorWorker();
+const scoreWorker = createScoreEstimatorWorker();
 
 const handleShutdown = async () => {
-  logger.info('Shutting down score estimator worker');
-  await worker.close();
+  logger.info('Shutting down workers');
+  await scoreWorker.close();
   process.exit(0);
 };
 
 process.on('SIGINT', handleShutdown);
 process.on('SIGTERM', handleShutdown);
 
-worker.on('ready', () => {
+scoreWorker.on('ready', () => {
   logger.info('Score estimator worker ready');
 });

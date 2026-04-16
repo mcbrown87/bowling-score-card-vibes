@@ -23,7 +23,10 @@ export default async function HomePage() {
 
   return (
     <main>
-      <AppHeader userLabel={`Signed in as ${session.user.name ?? session.user.email}`} />
+      <AppHeader
+        userLabel={`Signed in as ${session.user.name ?? session.user.email}`}
+        isAdmin={session.user.role === 'ADMIN'}
+      />
       <BowlingApp />
     </main>
   );

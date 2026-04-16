@@ -32,6 +32,16 @@ We use NextAuth with the Prisma adapter to support credential-based signup and l
 - Google sign-in is available; set `GOOGLE_CLIENT_ID` and `GOOGLE_CLIENT_SECRET` in `.env`. If you already have a credentials-based account with the same email, Google will now link to it automatically.
 - For a ready-to-use local session, run `npm run bootstrap:session`. The script will start the Docker stack if needed, upsert a deterministic test user, seed a sample scorecard into storage/Postgres, and open a browser already signed in. Override the default credentials with `BOOTSTRAP_USER_EMAIL`, `BOOTSTRAP_USER_PASSWORD`, and `BOOTSTRAP_USER_NAME` if needed.
 - To seed varied player-history data for the Players page, run `npm run bootstrap:session -- --image-count 10 --random-games`. This seeds 10 images with 10 different games for the same player so heatmaps and longitudinal score trends are visible. Override the player label with `--random-player-name "Your Name"` or `BOOTSTRAP_RANDOM_PLAYER_NAME`.
+- To grant admin access to an existing user, run `npm run user:set-role -- your@email.com ADMIN`.
+
+## Admin OCR Training
+
+The app now includes an `/admin` portal for runtime OCR settings and local-model training orchestration.
+
+- Admin access is role-based through the `User.role` column.
+- Runtime provider selection is stored in the database instead of only in `.env`.
+- Local OCR training/inference is hosted by the `ml-service` container on port `8000`.
+- The first implementation is infrastructure-oriented: it supports job orchestration, model artifact registration, activation, and a placeholder local inference/training service boundary that can be replaced with a full Donut pipeline.
 
 ## Available Scripts
 

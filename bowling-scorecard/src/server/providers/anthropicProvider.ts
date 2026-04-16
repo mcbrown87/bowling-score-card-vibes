@@ -14,10 +14,14 @@ const getClient = () => {
   return new Anthropic({ apiKey });
 };
 
-export const anthropicProvider = async ({ imageDataUrl, prompt }: ProviderRequest): Promise<ProviderResult> => {
+export const anthropicProvider = async ({
+  imageDataUrl,
+  prompt,
+  model
+}: ProviderRequest): Promise<ProviderResult> => {
   const client = getClient();
   const { mediaType, base64Data } = parseDataUrl(imageDataUrl);
-  const configuredModel = process.env.ANTHROPIC_MODEL ?? 'claude-3-7-sonnet-latest';
+  const configuredModel = model ?? process.env.ANTHROPIC_MODEL ?? 'claude-3-7-sonnet-latest';
 
   const response = await client.messages.create({
     model: configuredModel,

@@ -20,6 +20,7 @@ services:
       - '3000:3000'
     environment:
       CHOKIDAR_USEPOLLING: 'true'
+      ML_SERVICE_URL: http://ml-service:8000
       REDIS_URL: redis://redis:6379
     volumes:
       - ./bowling-scorecard:/app
@@ -130,6 +131,7 @@ services:
       redis:
         condition: service_healthy
     environment:
+      ML_SERVICE_URL: http://ml-service:8000
       NODE_ENV: development
       REDIS_URL: redis://redis:6379
     env_file:
@@ -138,8 +140,23 @@ services:
       - ./bowling-scorecard:/app
       - /app/node_modules
     restart: unless-stopped
+  ml-service:
+    build:
+      context: .
+      dockerfile: ml-service/Dockerfile
+      args:
+        INSTALL_DONUT_DEPS: ${INSTALL_DONUT_DEPS:-false}
+    environment:
+      MODEL_STORAGE_DIR: /app/data/models
+    ports:
+      - '8000:8000'
+    volumes:
+      - ./ml-service:/app
+      - ml-model-data:/app/data
+    restart: unless-stopped
 
 volumes:
   postgres-data:
   minio-data:
   redis-data:
+  ml-model-data:

@@ -1,13 +1,13 @@
 import { NextResponse } from 'next/server';
-import type { ProviderName } from '@/server/providers/types';
-
-const DEFAULT_PROVIDER: ProviderName = (process.env.DEFAULT_PROVIDER as ProviderName) ?? 'openai';
+import { getRuntimeSettings } from '@/server/config/appConfig';
 
 export const dynamic = 'force-dynamic';
 
-export function GET() {
+export async function GET() {
+  const settings = await getRuntimeSettings();
+
   return NextResponse.json({
     status: 'ok',
-    provider: DEFAULT_PROVIDER
+    provider: settings.activeProvider
   });
 }

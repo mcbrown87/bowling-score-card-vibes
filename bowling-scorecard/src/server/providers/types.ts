@@ -3,6 +3,7 @@ import type { Game } from '@/types/bowling';
 export interface ProviderRequest {
   imageDataUrl: string;
   prompt: string;
+  model?: string;
 }
 
 export interface ProviderResult {
@@ -11,4 +12,4 @@ export interface ProviderResult {
   model?: string;
 }
 
-export type ProviderName = 'anthropic' | 'openai' | 'stub';
+export type ProviderName = 'anthropic' | 'openai' | 'local' | 'stub';

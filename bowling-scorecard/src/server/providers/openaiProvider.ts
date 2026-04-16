@@ -16,9 +16,13 @@ const getClient = () => {
 
 const usesMaxCompletionTokens = (model: string) => model.startsWith('gpt-5');
 
-export const openaiProvider = async ({ imageDataUrl, prompt }: ProviderRequest): Promise<ProviderResult> => {
+export const openaiProvider = async ({
+  imageDataUrl,
+  prompt,
+  model
+}: ProviderRequest): Promise<ProviderResult> => {
   const client = getClient();
-  const configuredModel = process.env.OPENAI_MODEL ?? 'gpt-4o';
+  const configuredModel = model ?? process.env.OPENAI_MODEL ?? 'gpt-4o';
 
   const baseMessage: ChatCompletionMessageParam = {
     role: 'user',

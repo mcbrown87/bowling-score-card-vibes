@@ -9,12 +9,11 @@ import { uploadObject, getStorageBucket } from '@/server/storage/client';
 import { logger } from '@/server/utils/logger';
 import { dataUrlToBuffer, normalizeImageDataUrl } from '@/server/utils/image';
 import type { ProviderName } from '@/server/providers/types';
+import { getProviderModel, getRuntimeSettings } from '@/server/config/appConfig';
 import { enqueueScoreEstimatorJob } from '@/server/queues/scoreEstimatorQueue';
 import { serializeStoredImage, storedImageInclude } from '@/server/serializers/storedImage';
 import {
-  DEFAULT_PROVIDER,
   INCLUDE_LLM_RAW,
-  PROVIDER_MODELS,
   PROMPT_VERSION
 } from '@/server/services/scoreEstimator';
 
@@ -59,7 +58,8 @@ export async function POST(request: Request) {
 
     const json = await request.json();
     const parsed = requestSchema.parse(json);
-    const provider: ProviderName = DEFAULT_PROVIDER;
+    const settings = await getRuntimeSettings();
+    const provider: ProviderName = settings.activeProvider;
     const [prefix, base64Payload] = parsed.imageDataUrl.split(',', 2);
     const imageMetadata = prefix?.split(';')[0]?.replace('data:', '') ?? 'unknown';
     const base64Length = base64Payload?.length ?? 0;
@@ -103,7 +103,7 @@ export async function POST(request: Request) {
       }
     });
 
-    const providerModel = PROVIDER_MODELS[provider];
+    const providerModel = await getProviderModel(provider);
     const requestPrompt = parsed.prompt ?? BOWLING_EXTRACTION_PROMPT;
 
     const rawRequestData: Prisma.JsonObject = {

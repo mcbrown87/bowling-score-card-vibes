@@ -15,6 +15,7 @@ const repoRoot = path.resolve(__dirname, '../..');
 const packageRoot = path.resolve(__dirname, '..');
 const fixtureImagePath = path.resolve(packageRoot, 'TestImages/blah.jpg');
 const browserProfileDir = path.resolve(packageRoot, 'output/playwright/bootstrap-profile');
+const browserDownloadsDir = path.resolve(packageRoot, 'output/playwright/downloads');
 
 const databaseUrl = normalizeServiceUrl(process.env.DATABASE_URL, {
   db: 'localhost'
@@ -295,7 +296,8 @@ async function ensureAppIsRunning() {
       'minio-setup',
       'app-migrate',
       'app',
-      'queue-worker'
+      'queue-worker',
+      'ml-service'
     ],
     {
       cwd: repoRoot,
@@ -314,12 +316,14 @@ async function seedBootstrapData() {
     where: { email: bootstrapUser.email },
     update: {
       name: bootstrapUser.name,
-      passwordHash
+      passwordHash,
+      role: 'ADMIN'
     },
     create: {
       email: bootstrapUser.email,
       name: bootstrapUser.name,
-      passwordHash
+      passwordHash,
+      role: 'ADMIN'
     }
   });
 
@@ -390,8 +394,11 @@ async function seedBootstrapData() {
 
 async function openLoggedInBrowser() {
   await fs.mkdir(browserProfileDir, { recursive: true });
+  await fs.mkdir(browserDownloadsDir, { recursive: true });
 
   const context = await chromium.launchPersistentContext(browserProfileDir, {
+    acceptDownloads: true,
+    downloadsPath: browserDownloadsDir,
     headless: hasFlag('--headless') || hasFlag('--ci'),
     viewport: { width: 1440, height: 960 }
   });

@@ -23,7 +23,10 @@ export default async function PlayersPage() {
 
   return (
     <main>
-      <AppHeader userLabel={`Signed in as ${session.user.name ?? session.user.email}`} />
+      <AppHeader
+        userLabel={`Signed in as ${session.user.name ?? session.user.email}`}
+        isAdmin={session.user.role === 'ADMIN'}
+      />
       <div style={{ padding: '0 16px 16px', maxWidth: '1200px', margin: '0 auto' }}>
         <PlayerGamesBrowser />
       </div>
