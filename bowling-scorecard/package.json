@@ -28,6 +28,7 @@
     "start": "next start",
     "lint": "next lint",
     "test": "jest",
+    "test:coverage": "cross-env NODE_OPTIONS= VSCODE_INSPECTOR_OPTIONS= jest --runInBand --coverage --coverageProvider=v8 --coverageReporters=text --coverageReporters=text-summary --coverageReporters=html",
     "test:e2e": "playwright test",
     "test:e2e:headed": "playwright test --headed",
     "bootstrap:session": "cross-env NODE_OPTIONS= node scripts/bootstrap-dev-session.cjs",
