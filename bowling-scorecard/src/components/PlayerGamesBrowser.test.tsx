@@ -120,6 +120,19 @@ describe('PlayerGamesBrowser', () => {
     expect(screen.getByTestId('frame-box-3')).toHaveAttribute('data-heat-intensity', '0.12');
   });
 
+  it('limits the selected player view to the most recent games', async () => {
+    render(<PlayerGamesBrowser />);
+
+    await screen.findByText(/Viewing Alice/);
+
+    fireEvent.change(screen.getByLabelText('Games shown'), { target: { value: '1' } });
+
+    await waitFor(() => expect(screen.getByText('Showing: 1 of 2')).toBeVisible());
+    expect(screen.getByText(/Viewing Alice — score 145/)).toBeVisible();
+    expect(screen.getByText(/Source: alice-2.jpg/)).toBeVisible();
+    expect(screen.queryByText(/Score 170/)).not.toBeInTheDocument();
+  });
+
   it('shows a frame trend preview on hover for hover-capable layouts', async () => {
     render(<PlayerGamesBrowser />);
 

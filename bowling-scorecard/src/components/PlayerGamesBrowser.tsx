@@ -23,6 +23,14 @@ type PlayerGroup = {
   games: PlayerGameEntry[];
 };
 
+const gameLimitOptions = [
+  { label: 'All games', value: 0 },
+  { label: 'Last game', value: 1 },
+  { label: 'Last 5 games', value: 5 },
+  { label: 'Last 10 games', value: 10 },
+  { label: 'Last 25 games', value: 25 }
+];
+
 const pageStyles: CSSProperties = {
   width: '100%',
   marginTop: '12px',
@@ -224,6 +232,12 @@ const dropdownStyles: CSSProperties = {
   color: '#e2e8f0'
 };
 
+const compactDropdownStyles: CSSProperties = {
+  ...dropdownStyles,
+  width: 'auto',
+  minWidth: '150px'
+};
+
 type ScoreTimelinePoint = {
   index: number;
   key: string;
@@ -379,6 +393,7 @@ export function PlayerGamesBrowser() {
   const [error, setError] = useState<string | null>(null);
   const [selectedPlayer, setSelectedPlayer] = useState<string | null>(null);
   const [selectedGameKey, setSelectedGameKey] = useState<string | null>(null);
+  const [gameLimit, setGameLimit] = useState(0);
   const [isStackedLayout, setIsStackedLayout] = useState(false);
   const router = useRouter();
   const isHoverCapable = useDesktopKeyboardMode();
@@ -453,36 +468,60 @@ export function PlayerGamesBrowser() {
     [players, selectedPlayer]
   );
 
+  const visiblePlayerGames = useMemo(() => {
+    if (!selectedPlayerGroup) {
+      return [];
+    }
+
+    const sortedGames = selectedPlayerGroup.games
+      .slice()
+      .sort(
+        (a, b) =>
+          new Date(b.image.createdAt).getTime() - new Date(a.image.createdAt).getTime()
+      );
+
+    return gameLimit > 0 ? sortedGames.slice(0, gameLimit) : sortedGames;
+  }, [gameLimit, selectedPlayerGroup]);
+
+  useEffect(() => {
+    if (selectedPlayerGroup && visiblePlayerGames.length > 0) {
+      if (!selectedGameKey || !visiblePlayerGames.some((entry) => entry.key === selectedGameKey)) {
+        setSelectedGameKey(visiblePlayerGames[0].key);
+      }
+    }
+  }, [selectedGameKey, selectedPlayerGroup, visiblePlayerGames]);
+
   const selectedGame = useMemo(() => {
     if (!selectedPlayerGroup) {
       return null;
     }
     return (
-      selectedPlayerGroup.games.find((entry) => entry.key === selectedGameKey) ??
-      selectedPlayerGroup.games[0] ??
+      visiblePlayerGames.find((entry) => entry.key === selectedGameKey) ??
+      visiblePlayerGames[0] ??
       null
     );
-  }, [selectedGameKey, selectedPlayerGroup]);
+  }, [selectedGameKey, selectedPlayerGroup, visiblePlayerGames]);
 
   const playerStats = useMemo(() => {
     if (!selectedPlayerGroup) {
       return null;
     }
-    const totals = selectedPlayerGroup.games.map((entry) => entry.game.totalScore || 0);
+    const totals = visiblePlayerGames.map((entry) => entry.game.totalScore || 0);
     const best = totals.length ? Math.max(...totals) : 0;
     const average = totals.length
       ? totals.reduce((sum, value) => sum + value, 0) / totals.length
       : 0;
-    const lastPlayed = selectedPlayerGroup.games
+    const lastPlayed = visiblePlayerGames
       .map((entry) => entry.image.createdAt)
       .sort((a, b) => new Date(b).getTime() - new Date(a).getTime())[0];
     return {
-      count: selectedPlayerGroup.games.length,
+      count: visiblePlayerGames.length,
+      totalCount: selectedPlayerGroup.games.length,
       best,
       average: Math.round(average),
       lastPlayed
     };
-  }, [selectedPlayerGroup]);
+  }, [selectedPlayerGroup, visiblePlayerGames]);
 
   const totalGamesCount = useMemo(
     () => images.reduce((count, image) => count + image.games.length, 0),
@@ -518,7 +557,7 @@ export function PlayerGamesBrowser() {
       return [];
     }
 
-    return selectedPlayerGroup.games
+    return visiblePlayerGames
       .slice()
       .sort(
         (a, b) =>
@@ -534,14 +573,14 @@ export function PlayerGamesBrowser() {
           `Game ${index + 1} on ${formatShortDate(entry.image.createdAt)}`,
         isEstimate: Boolean(entry.game.isEstimate)
       }));
-  }, [selectedPlayerGroup]);
+  }, [selectedPlayerGroup, visiblePlayerGames]);
 
   const frameTrendSeries = useMemo(() => {
     if (!selectedPlayerGroup) {
       return null;
     }
 
-    const sortedGames = selectedPlayerGroup.games
+    const sortedGames = visiblePlayerGames
       .slice()
       .sort(
         (a, b) =>
@@ -550,7 +589,7 @@ export function PlayerGamesBrowser() {
       .map((entry) => entry.game);
 
     return buildFrameTrendSeries(sortedGames);
-  }, [selectedPlayerGroup]);
+  }, [selectedPlayerGroup, visiblePlayerGames]);
 
   const selectedTrendIndex = useMemo(() => {
     if (!selectedGame) {
@@ -566,8 +605,8 @@ export function PlayerGamesBrowser() {
       return null;
     }
 
-    return buildPlayerFrameHeatmap(selectedPlayerGroup.games.map((entry) => entry.game));
-  }, [selectedPlayerGroup]);
+    return buildPlayerFrameHeatmap(visiblePlayerGames.map((entry) => entry.game));
+  }, [selectedPlayerGroup, visiblePlayerGames]);
 
   const handleOpenInLibrary = useCallback(() => {
     if (!selectedGame) {
@@ -678,8 +717,38 @@ export function PlayerGamesBrowser() {
             <h3 style={sectionTitleStyles}>Games</h3>
             {selectedPlayerGroup && playerStats ? (
               <>
+                <div
+                  style={{
+                    display: 'flex',
+                    flexWrap: 'wrap',
+                    alignItems: 'center',
+                    justifyContent: 'space-between',
+                    gap: '10px',
+                    marginBottom: '12px'
+                  }}
+                >
+                  <label htmlFor="game-limit-select" style={hintTextStyles}>
+                    Games shown
+                  </label>
+                  <select
+                    id="game-limit-select"
+                    style={compactDropdownStyles}
+                    value={gameLimit}
+                    onChange={(event) => setGameLimit(Number(event.target.value))}
+                  >
+                    {gameLimitOptions.map((option) => (
+                      <option key={option.value} value={option.value}>
+                        {option.label}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
                 <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px', marginBottom: '12px' }}>
-                  <span style={badgeStyles}>Total: {playerStats.count}</span>
+                  <span style={badgeStyles}>
+                    Showing: {playerStats.count}
+                    {playerStats.totalCount !== playerStats.count ? ` of ${playerStats.totalCount}` : ''}
+                  </span>
                   <span style={badgeStyles}>Best: {playerStats.best}</span>
                   <span style={badgeStyles}>Average: {playerStats.average}</span>
                   <span style={badgeStyles}>
