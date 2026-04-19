@@ -3,6 +3,8 @@ from __future__ import annotations
 import json
 import base64
 import hashlib
+import logging
+import re
 import shutil
 import tarfile
 import zipfile
@@ -15,6 +17,8 @@ from uuid import uuid4
 from fastapi import FastAPI, File, HTTPException, UploadFile
 from pydantic import BaseModel
 
+
+logger = logging.getLogger("bowling-ml-service")
 
 DATA_DIR = Path("/app/data")
 MODELS_DIR = DATA_DIR / "models"
@@ -60,7 +64,22 @@ class InferRequest(BaseModel):
     modelArtifactId: str | None = None
 
 
+class DonutInferenceError(RuntimeError):
+    def __init__(self, message: str, raw_text: str | None = None) -> None:
+        super().__init__(message)
+        self.raw_text = raw_text
+
+
 app = FastAPI(title="Bowling OCR ML Service", version="0.1.0")
+
+
+def snippet(value: str | None, max_length: int = 800) -> str:
+    if not value:
+        return ""
+    compacted = " ".join(value.split())
+    if len(compacted) <= max_length:
+        return compacted
+    return f"{compacted[:max_length]}..."
 
 
 def image_bytes_from_data_url(data_url: str) -> bytes:
@@ -122,6 +141,37 @@ def build_baseline_games(image_sha256: str) -> list[dict[str, Any]]:
     digest = bytes.fromhex(image_sha256)
     player_count = 1 + digest[0] % 2
     return [build_baseline_game(digest, index) for index in range(player_count)]
+
+
+def extract_player_names(text: str | None) -> list[str]:
+    if not text:
+        return []
+
+    names: list[str] = []
+    for match in re.finditer(r'"playerName"\s*:\s*"((?:\\.|[^"\\])*)"', text):
+        try:
+            name = json.loads(f'"{match.group(1)}"')
+        except json.JSONDecodeError:
+            name = match.group(1)
+        if isinstance(name, str) and name.strip():
+            names.append(name.strip())
+    return names
+
+
+def apply_player_names(
+    games: list[dict[str, Any]],
+    player_names: list[str],
+) -> list[dict[str, Any]]:
+    if not player_names:
+        return games
+
+    renamed_games: list[dict[str, Any]] = []
+    for index, game in enumerate(games):
+        renamed_game = dict(game)
+        if index < len(player_names):
+            renamed_game["playerName"] = player_names[index]
+        renamed_games.append(renamed_game)
+    return renamed_games
 
 
 def find_model(model_name: str | None, model_artifact_id: str | None = None) -> dict[str, Any] | None:
@@ -241,6 +291,45 @@ def payload_to_games(payload: dict[str, Any]) -> list[dict[str, Any]]:
     return []
 
 
+def unwrap_donut_payload(parsed: Any) -> dict[str, Any]:
+    if not isinstance(parsed, dict):
+        return {}
+
+    text_sequence = parsed.get("text_sequence")
+    if isinstance(text_sequence, dict):
+        return unwrap_donut_payload(text_sequence)
+
+    if isinstance(text_sequence, list):
+        for item in text_sequence:
+            if isinstance(item, dict):
+                unwrapped = unwrap_donut_payload(item)
+                if unwrapped.get("players") or unwrapped.get("frames") or unwrapped.get("playerName"):
+                    return unwrapped
+        if all(isinstance(item, str) for item in text_sequence):
+            text_sequence = "".join(text_sequence)
+
+    if isinstance(text_sequence, str):
+        try:
+            nested = extract_json_object(text_sequence)
+            if isinstance(nested, dict):
+                return unwrap_donut_payload(nested)
+        except Exception:
+            return parsed
+
+    return parsed
+
+
+def parsed_key_summary(payload: Any, original: Any) -> str:
+    if not isinstance(payload, dict):
+        return type(payload).__name__
+
+    keys = ", ".join(payload.keys())
+    text_sequence = original.get("text_sequence") if isinstance(original, dict) else None
+    if "text_sequence" in payload:
+        return f"{keys} (text_sequence type: {type(text_sequence).__name__})"
+    return keys
+
+
 def run_donut_artifact(model: dict[str, Any], image_bytes: bytes) -> tuple[str, list[dict[str, Any]]]:
     try:
         from PIL import Image
@@ -257,6 +346,7 @@ def run_donut_artifact(model: dict[str, Any], image_bytes: bytes) -> tuple[str, 
     manifest = load_json(artifact_dir / "manifest.json", {})
     entrypoint = manifest.get("entrypoint") if isinstance(manifest, dict) else {}
     generation = manifest.get("generation") if isinstance(manifest, dict) else {}
+    training_config = manifest.get("trainingConfig") if isinstance(manifest, dict) else {}
     model_relative_path = str(entrypoint.get("modelPath", "model"))
     processor_relative_path = str(entrypoint.get("processorPath", "processor"))
     assert_safe_relative_path(model_relative_path)
@@ -264,10 +354,20 @@ def run_donut_artifact(model: dict[str, Any], image_bytes: bytes) -> tuple[str, 
     model_path = artifact_dir / model_relative_path
     processor_path = artifact_dir / processor_relative_path
     task_prompt = generation.get("taskPrompt", "") if isinstance(generation, dict) else ""
-    max_length = int(generation.get("maxLength", 1024)) if isinstance(generation, dict) else 1024
+    explicit_max_length = generation.get("maxLength") if isinstance(generation, dict) else None
+    trained_max_length = (
+        training_config.get("maxLength") if isinstance(training_config, dict) else None
+    )
+    max_length = int(explicit_max_length or trained_max_length or 1024)
 
     processor = AutoProcessor.from_pretrained(processor_path)
     donut_model = VisionEncoderDecoderModel.from_pretrained(model_path)
+    decoder_max_positions = getattr(donut_model.config.decoder, "max_position_embeddings", None)
+    if isinstance(decoder_max_positions, int):
+        if explicit_max_length is None:
+            max_length = decoder_max_positions
+        else:
+            max_length = min(max_length, decoder_max_positions)
     device = "cuda" if torch.cuda.is_available() else "cpu"
     donut_model.to(device)
     donut_model.eval()
@@ -293,17 +393,30 @@ def run_donut_artifact(model: dict[str, Any], image_bytes: bytes) -> tuple[str, 
         )
 
     raw_text = processor.batch_decode(generated, skip_special_tokens=True)[0]
-    if hasattr(processor, "token2json"):
+    try:
+        parsed = extract_json_object(raw_text)
+    except Exception as json_error:
+        if not hasattr(processor, "token2json"):
+            raise DonutInferenceError(
+                f"Donut model output could not be parsed as JSON: {json_error}",
+                raw_text,
+            ) from json_error
+
         try:
             parsed = processor.token2json(raw_text)
-        except Exception:
-            parsed = extract_json_object(raw_text)
-    else:
-        parsed = extract_json_object(raw_text)
+        except Exception as token_error:
+            raise DonutInferenceError(
+                f"Donut model output could not be parsed as JSON: {json_error}",
+                raw_text,
+            ) from token_error
 
-    games = payload_to_games(parsed if isinstance(parsed, dict) else {})
+    payload = unwrap_donut_payload(parsed)
+    games = payload_to_games(payload)
     if not games:
-        raise RuntimeError("Donut model returned no bowling games")
+        raise DonutInferenceError(
+            f"Donut model returned no bowling games from parsed output keys: {parsed_key_summary(payload, parsed)}",
+            raw_text,
+        )
     return raw_text, games
 
 
@@ -444,6 +557,8 @@ def infer(request: InferRequest) -> dict[str, Any]:
         }
 
     fallback_reason = f"No local example matched image sha256 {image_sha256}"
+    donut_raw_text = ""
+    donut_player_names: list[str] = []
     if model.get("architecture") == "donut":
         try:
             raw_text, games = run_donut_artifact(model, image_bytes)
@@ -452,8 +567,26 @@ def infer(request: InferRequest) -> dict[str, Any]:
                 "rawText": raw_text,
                 "games": games,
             }
+        except DonutInferenceError as exc:
+            fallback_reason = str(exc)
+            donut_raw_text = snippet(exc.raw_text)
+            donut_player_names = extract_player_names(exc.raw_text)
+            logger.warning(
+                "Donut inference failed for model=%s artifact=%s image_sha256=%s reason=%s raw_text=%s",
+                model.get("version") or request.model or "donut-bowling-v1",
+                model.get("id"),
+                image_sha256,
+                fallback_reason,
+                donut_raw_text,
+            )
         except Exception as exc:
             fallback_reason = str(exc)
+            logger.exception(
+                "Donut inference failed for model=%s artifact=%s image_sha256=%s",
+                model.get("version") or request.model or "donut-bowling-v1",
+                model.get("id"),
+                image_sha256,
+            )
 
     examples = load_model_examples(model)
     match = next(
@@ -467,12 +600,17 @@ def infer(request: InferRequest) -> dict[str, Any]:
     )
 
     if not match:
+        raw_text = f"Generated baseline local estimate; {fallback_reason}"
+        if donut_raw_text:
+            raw_text = f"{raw_text}; Donut raw output: {donut_raw_text}"
+        games = build_baseline_games(image_sha256)
+        if donut_player_names:
+            games = apply_player_names(games, donut_player_names)
+            raw_text = f"{raw_text}; Applied Donut player name estimates to baseline scores"
         return {
             "model": model.get("version") or request.model or "donut-bowling-v1",
-            "rawText": (
-                f"Generated baseline local estimate; {fallback_reason}"
-            ),
-            "games": build_baseline_games(image_sha256),
+            "rawText": raw_text,
+            "games": games,
         }
 
     return {
