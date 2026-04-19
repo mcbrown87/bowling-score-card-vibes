@@ -54,6 +54,10 @@ source .venv-local-training/bin/activate
 pip install -r tools/local-training/requirements.txt
 ```
 
+On Intel macOS, PyTorch's pip index currently tops out at the `2.2.x` wheel series, so the
+requirements file uses that compatible wheel on `Darwin x86_64`, pins NumPy below 2 for that
+wheel family, and keeps Transformers on a version that still accepts Torch 2.2.
+
 ## Train
 
 ```bash

@@ -1,0 +1,4 @@
+interface:
+  display_name: "Bowling Bootstrap 50 DevTools"
+  short_description: "Seed 50 games and attach DevTools MCP."
+  default_prompt: "Bootstrap BowlingScoreCardVibes with 50 seeded games and connect Chrome DevTools MCP."

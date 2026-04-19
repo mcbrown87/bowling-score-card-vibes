@@ -68,6 +68,7 @@ def main() -> None:
     parser.add_argument("--learning-rate", type=float, default=5e-5)
     parser.add_argument("--max-length", type=int, default=1024)
     parser.add_argument("--save-steps", type=int, default=100)
+    parser.add_argument("--device", choices=("auto", "cpu"), default="auto")
     args = parser.parse_args()
 
     processor = AutoProcessor.from_pretrained(args.base_model)
@@ -100,6 +101,7 @@ def main() -> None:
         predict_with_generate=False,
         remove_unused_columns=False,
         fp16=torch.cuda.is_available(),
+        use_cpu=args.device == "cpu",
         report_to=[],
     )
 
@@ -136,6 +138,7 @@ def main() -> None:
                 "batchSize": args.batch_size,
                 "learningRate": args.learning_rate,
                 "maxLength": args.max_length,
+                "device": args.device,
             },
             indent=2,
         ),
