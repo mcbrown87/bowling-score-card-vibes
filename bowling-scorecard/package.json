@@ -34,6 +34,7 @@
     "bootstrap:session": "cross-env NODE_OPTIONS= node scripts/bootstrap-dev-session.cjs",
     "queue:worker": "tsx src/server/workers/scoreEstimator.ts",
     "user:set-role": "tsx scripts/set-user-role.ts",
+    "admin:copy-images": "tsx scripts/copy-stored-images.ts",
     "prisma:generate": "prisma generate",
     "prisma:migrate": "prisma migrate dev",
     "prisma:deploy": "prisma migrate deploy",

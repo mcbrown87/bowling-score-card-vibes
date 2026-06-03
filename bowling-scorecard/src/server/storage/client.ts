@@ -3,9 +3,11 @@ import {
   PutObjectCommand,
   GetObjectCommand,
   DeleteObjectCommand,
+  CopyObjectCommand,
   type GetObjectCommandInput,
   type PutObjectCommandInput,
-  type DeleteObjectCommandInput
+  type DeleteObjectCommandInput,
+  type CopyObjectCommandInput
 } from '@aws-sdk/client-s3';
 
 const endpoint = process.env.STORAGE_ENDPOINT;
@@ -46,6 +48,29 @@ export const uploadObject = async (
     Body: input.Body,
     ContentType: input.ContentType,
     Key: input.Key
+  });
+
+  await s3Client.send(command);
+
+  return {
+    bucket: bucket as string,
+    key: input.Key as string
+  };
+};
+
+const encodeCopySource = (sourceBucket: string, sourceKey: string) =>
+  `${sourceBucket}/${encodeURIComponent(sourceKey).replace(/%2F/gu, '/')}`;
+
+export const copyObject = async (
+  input: Pick<CopyObjectCommandInput, 'ContentType' | 'Key'> & { SourceKey: string }
+) => {
+  assertStorageConfig();
+  const command = new CopyObjectCommand({
+    Bucket: bucket,
+    CopySource: encodeCopySource(bucket as string, input.SourceKey),
+    ContentType: input.ContentType,
+    Key: input.Key,
+    MetadataDirective: 'COPY'
   });
 
   await s3Client.send(command);
