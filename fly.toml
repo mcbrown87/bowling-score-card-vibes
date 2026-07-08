@@ -1,4 +1,4 @@
-app = "bowling-scorecard-vibes"
+app = "bowling-score-card-vibes"
 primary_region = "iad"
 
 [build]
