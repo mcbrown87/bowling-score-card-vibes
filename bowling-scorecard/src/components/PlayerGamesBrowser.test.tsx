@@ -120,7 +120,7 @@ describe('PlayerGamesBrowser', () => {
     expect(screen.getByTestId('frame-box-3')).toHaveAttribute('data-heat-intensity', '0.12');
   });
 
-  it('limits the selected player view to the most recent games', async () => {
+  it('limits the selected player view when a recent-game filter is selected', async () => {
     render(<PlayerGamesBrowser />);
 
     await screen.findByText(/Viewing Alice/);
@@ -131,6 +131,49 @@ describe('PlayerGamesBrowser', () => {
     expect(screen.getByText(/Viewing Alice — score 145/)).toBeVisible();
     expect(screen.getByText(/Source: alice-2.jpg/)).toBeVisible();
     expect(screen.queryByText(/Score 170/)).not.toBeInTheDocument();
+  });
+
+  it('loads every stored image page before grouping player games', async () => {
+    mockedLoadStoredImages.mockImplementation(async (page = 1) => {
+      if (page === 1) {
+        return {
+          ...buildStoredImagesPage(),
+          totalImages: 4,
+          totalPages: 2
+        };
+      }
+
+      return {
+        page: 2,
+        pageSize: 50,
+        totalImages: 4,
+        totalPages: 2,
+        images: [
+          {
+            id: 'img-a0',
+            previewUrl: '/a0.jpg',
+            originalFileName: 'alice-0.jpg',
+            contentType: 'image/jpeg',
+            sizeBytes: 1000,
+            createdAt: '2026-03-30T12:00:00.000Z',
+            isProcessingEstimate: false,
+            lastEstimateError: null,
+            games: [buildGame('Alice', [7, 17, 27, 37, 47, 57, 67, 77, 87, 97])]
+          }
+        ]
+      };
+    });
+
+    render(<PlayerGamesBrowser />);
+
+    await waitFor(() => expect(mockedLoadStoredImages).toHaveBeenCalledTimes(2));
+
+    expect(mockedLoadStoredImages).toHaveBeenNthCalledWith(1, 1, 50);
+    expect(mockedLoadStoredImages).toHaveBeenNthCalledWith(2, 2, 50);
+    expect(await screen.findByText('2 players · 4 games')).toBeVisible();
+    expect(screen.getByRole('button', { name: /Alice 3 games/i })).toBeVisible();
+    expect(screen.getByLabelText('Games shown')).toHaveValue('0');
+    expect(screen.getByText('Showing: 3')).toBeVisible();
   });
 
   it('shows a frame trend preview on hover for hover-capable layouts', async () => {

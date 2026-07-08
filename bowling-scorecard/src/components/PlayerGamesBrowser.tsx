@@ -31,6 +31,18 @@ const gameLimitOptions = [
   { label: 'Last 25 games', value: 25 }
 ];
 
+const PLAYER_GAMES_PAGE_SIZE = 50;
+
+const sortPlayerGamesByCreatedAt = (games: PlayerGameEntry[]) =>
+  games
+    .slice()
+    .sort(
+      (a, b) => new Date(b.image.createdAt).getTime() - new Date(a.image.createdAt).getTime()
+    );
+
+const getNewestPlayerGame = (games: PlayerGameEntry[]) =>
+  sortPlayerGamesByCreatedAt(games)[0] ?? null;
+
 const pageStyles: CSSProperties = {
   width: '100%',
   marginTop: '12px',
@@ -414,8 +426,16 @@ export function PlayerGamesBrowser() {
     setIsLoading(true);
     setError(null);
     try {
-      const parsed = await loadStoredImages();
-      setImages(parsed.images);
+      const firstPage = await loadStoredImages(1, PLAYER_GAMES_PAGE_SIZE);
+      const remainingPages =
+        firstPage.totalPages > 1
+          ? await Promise.all(
+              Array.from({ length: firstPage.totalPages - 1 }, (_, index) =>
+                loadStoredImages(index + 2, PLAYER_GAMES_PAGE_SIZE)
+              )
+            )
+          : [];
+      setImages([firstPage, ...remainingPages].flatMap((page) => page.images));
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to load your uploads');
     } finally {
@@ -450,7 +470,7 @@ export function PlayerGamesBrowser() {
   useEffect(() => {
     if (!selectedPlayer && players.length > 0) {
       setSelectedPlayer(players[0].playerName);
-      setSelectedGameKey(players[0].games[0]?.key ?? null);
+      setSelectedGameKey(getNewestPlayerGame(players[0].games)?.key ?? null);
     }
   }, [players, selectedPlayer]);
 
@@ -458,7 +478,7 @@ export function PlayerGamesBrowser() {
     const activePlayer = players.find((player) => player.playerName === selectedPlayer);
     if (activePlayer && activePlayer.games.length > 0) {
       if (!selectedGameKey || !activePlayer.games.some((entry) => entry.key === selectedGameKey)) {
-        setSelectedGameKey(activePlayer.games[0].key);
+        setSelectedGameKey(getNewestPlayerGame(activePlayer.games)?.key ?? null);
       }
     }
   }, [players, selectedPlayer, selectedGameKey]);
@@ -473,13 +493,7 @@ export function PlayerGamesBrowser() {
       return [];
     }
 
-    const sortedGames = selectedPlayerGroup.games
-      .slice()
-      .sort(
-        (a, b) =>
-          new Date(b.image.createdAt).getTime() - new Date(a.image.createdAt).getTime()
-      );
-
+    const sortedGames = sortPlayerGamesByCreatedAt(selectedPlayerGroup.games);
     return gameLimit > 0 ? sortedGames.slice(0, gameLimit) : sortedGames;
   }, [gameLimit, selectedPlayerGroup]);
 
@@ -798,7 +812,7 @@ export function PlayerGamesBrowser() {
                         const next = e.target.value;
                         const target = players.find((p) => p.playerName === next);
                         setSelectedPlayer(next);
-                        setSelectedGameKey(target?.games[0]?.key ?? null);
+                        setSelectedGameKey(target ? getNewestPlayerGame(target.games)?.key ?? null : null);
                       }}
                     >
                       {players.map((player) => (
