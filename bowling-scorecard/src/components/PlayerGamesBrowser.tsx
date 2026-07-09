@@ -32,6 +32,7 @@ const gameLimitOptions = [
 ];
 
 const PLAYER_GAMES_PAGE_SIZE = 50;
+const rollingAverageOptions = [3, 6, 9];
 
 const sortPlayerGamesByCreatedAt = (games: PlayerGameEntry[]) =>
   games
@@ -204,10 +205,41 @@ const chartLegendStyles: CSSProperties = {
   marginBottom: '10px'
 };
 
-const legendSwatchStyles: CSSProperties = {
-  width: '14px',
-  height: '14px',
-  borderRadius: '4px'
+const scoreLegendSwatchStyles: CSSProperties = {
+  width: '28px',
+  height: '0',
+  borderTop: '3px solid #2563eb'
+};
+
+const trendLegendSwatchStyles: CSSProperties = {
+  width: '28px',
+  height: '0',
+  borderTop: '3px dashed #22d3ee'
+};
+
+const lineLegendItemStyles: CSSProperties = {
+  display: 'inline-flex',
+  alignItems: 'center',
+  gap: '6px',
+  color: '#cbd5e1'
+};
+
+const lineLegendToggleStyles: CSSProperties = {
+  display: 'inline-flex',
+  alignItems: 'center',
+  padding: 0,
+  border: 'none',
+  background: 'transparent',
+  cursor: 'pointer'
+};
+
+const lineLegendTextButtonStyles: CSSProperties = {
+  padding: 0,
+  border: 'none',
+  background: 'transparent',
+  color: '#cbd5e1',
+  font: 'inherit',
+  cursor: 'pointer'
 };
 
 const chartHintStyles: CSSProperties = {
@@ -261,28 +293,49 @@ type ScoreTimelinePoint = {
 
 type ScoreTimelineProps = {
   data: ScoreTimelinePoint[];
+  rollingAverageWindow: number;
+  showScoreLine: boolean;
+  showRollingAverageLine: boolean;
   selectedKey: string | null;
   onSelect: (key: string) => void;
 };
 
-const ScoreTimeline = ({ data, selectedKey, onSelect }: ScoreTimelineProps) => {
+const ScoreTimeline = ({
+  data,
+  rollingAverageWindow,
+  showScoreLine,
+  showRollingAverageLine,
+  selectedKey,
+  onSelect
+}: ScoreTimelineProps) => {
   const width = 900;
   const height = 260;
   const padding = 42;
-  const scores = data.map((item) => item.score);
+  const dataWithAverages = data.map((item, idx) => {
+    const windowStart = Math.max(0, idx - rollingAverageWindow + 1);
+    const windowScores = data.slice(windowStart, idx + 1).map((entry) => entry.score);
+    const rollingAverage =
+      windowScores.reduce((sum, score) => sum + score, 0) / windowScores.length;
+
+    return { ...item, rollingAverage };
+  });
+  const scores = dataWithAverages.flatMap((item) => [item.score, item.rollingAverage]);
   const minScore = Math.min(...scores, 0);
   const maxScore = Math.max(...scores, 0);
   const range = Math.max(maxScore - minScore, 30);
   const xStep = data.length > 1 ? (width - padding * 2) / (data.length - 1) : 0;
 
-  const points = data.map((item, idx) => {
+  const points = dataWithAverages.map((item, idx) => {
     const x = padding + xStep * idx;
     const normalized = (item.score - minScore) / range;
+    const normalizedAverage = (item.rollingAverage - minScore) / range;
     const y = padding + (1 - normalized) * (height - padding * 2);
-    return { ...item, x, y };
+    const averageY = padding + (1 - normalizedAverage) * (height - padding * 2);
+    return { ...item, x, y, averageY };
   });
 
   const polylinePoints = points.map((pt) => `${pt.x},${pt.y}`).join(' ');
+  const rollingAveragePoints = points.map((pt) => `${pt.x},${pt.averageY}`).join(' ');
   const yTicks = [minScore, Math.round(minScore + range / 2), maxScore].filter(
     (value, idx, arr) => arr.indexOf(value) === idx
   );
@@ -330,49 +383,68 @@ const ScoreTimeline = ({ data, selectedKey, onSelect }: ScoreTimelineProps) => {
 
       {points.length > 1 && (
         <>
-          <polyline
-            fill="url(#score-area)"
-            stroke="none"
-            points={`${points
-              .map((pt) => `${pt.x},${pt.y}`)
-              .join(' ')} ${points[points.length - 1].x},${height - padding} ${
-              points[0].x
-            },${height - padding}`}
-          />
-          <polyline
-            fill="none"
-            stroke="#2563eb"
-            strokeWidth={3}
-            strokeLinejoin="round"
-            strokeLinecap="round"
-            points={polylinePoints}
-          />
+          {showScoreLine && (
+            <polyline
+              fill="url(#score-area)"
+              stroke="none"
+              points={`${points
+                .map((pt) => `${pt.x},${pt.y}`)
+                .join(' ')} ${points[points.length - 1].x},${height - padding} ${
+                points[0].x
+              },${height - padding}`}
+            />
+          )}
+          {showScoreLine && (
+            <polyline
+              data-testid="score-line"
+              fill="none"
+              stroke="#2563eb"
+              strokeWidth={3}
+              strokeLinejoin="round"
+              strokeLinecap="round"
+              points={polylinePoints}
+            />
+          )}
+          {showRollingAverageLine && (
+            <polyline
+              data-testid="rolling-average-line"
+              fill="none"
+              stroke="#22d3ee"
+              strokeWidth={4}
+              strokeDasharray="10 8"
+              strokeLinejoin="round"
+              strokeLinecap="round"
+              points={rollingAveragePoints}
+            />
+          )}
         </>
       )}
 
-      {points.map((pt) => {
-        const isSelected = selectedKey === pt.key;
-        const color = isSelected ? '#f8fafc' : pt.isEstimate ? '#fb923c' : '#60a5fa';
-        return (
-          <g
-            key={pt.key}
-            onClick={() => onSelect(pt.key)}
-            style={{ cursor: 'pointer' }}
-          >
-            <circle
-              cx={pt.x}
-              cy={pt.y}
-              r={isSelected ? 7 : 6}
-              fill={color}
-              stroke="#ffffff"
-              strokeWidth={2}
-            />
-            <title>
-              {pt.label} • Score {pt.score}
-            </title>
-          </g>
-        );
-      })}
+      {showScoreLine &&
+        points.map((pt) => {
+          const isSelected = selectedKey === pt.key;
+          const color = isSelected ? '#f8fafc' : pt.isEstimate ? '#fb923c' : '#60a5fa';
+          return (
+            <g
+              key={pt.key}
+              onClick={() => onSelect(pt.key)}
+              style={{ cursor: 'pointer' }}
+            >
+              <circle
+                cx={pt.x}
+                cy={pt.y}
+                r={isSelected ? 7 : 6}
+                fill={color}
+                stroke="#ffffff"
+                strokeWidth={2}
+              />
+              <title>
+                {pt.label} • Score {pt.score} • {rollingAverageWindow}-game avg{' '}
+                {Math.round(pt.rollingAverage)}
+              </title>
+            </g>
+          );
+        })}
 
       {points.map((pt) => (
         <text
@@ -406,6 +478,9 @@ export function PlayerGamesBrowser() {
   const [selectedPlayer, setSelectedPlayer] = useState<string | null>(null);
   const [selectedGameKey, setSelectedGameKey] = useState<string | null>(null);
   const [gameLimit, setGameLimit] = useState(0);
+  const [rollingAverageWindow, setRollingAverageWindow] = useState(rollingAverageOptions[0]);
+  const [showScoreLine, setShowScoreLine] = useState(true);
+  const [showRollingAverageLine, setShowRollingAverageLine] = useState(true);
   const [isStackedLayout, setIsStackedLayout] = useState(false);
   const router = useRouter();
   const isHoverCapable = useDesktopKeyboardMode();
@@ -772,22 +847,60 @@ export function PlayerGamesBrowser() {
 
                 <div style={chartCardStyles}>
                   <div style={chartLegendStyles}>
-                    <div style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}>
-                      <span style={{ ...legendSwatchStyles, backgroundColor: '#60a5fa' }} />
-                      <span>Corrected</span>
-                    </div>
-                    <div style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}>
-                      <span style={{ ...legendSwatchStyles, backgroundColor: '#fb923c' }} />
-                      <span>Estimate</span>
-                    </div>
-                    <div style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}>
-                      <span style={{ ...legendSwatchStyles, backgroundColor: '#f8fafc' }} />
-                      <span>Selected</span>
-                    </div>
+                    <span style={lineLegendItemStyles}>
+                      <button
+                        type="button"
+                        style={{
+                          ...lineLegendToggleStyles,
+                          opacity: showScoreLine ? 1 : 0.48
+                        }}
+                        onClick={() => setShowScoreLine((isVisible) => !isVisible)}
+                        aria-pressed={showScoreLine}
+                        aria-label={`${showScoreLine ? 'Hide' : 'Show'} score line`}
+                      >
+                        <span style={scoreLegendSwatchStyles} />
+                      </button>
+                      <span>Scores</span>
+                    </span>
+                    <span style={lineLegendItemStyles}>
+                      <button
+                        type="button"
+                        style={{
+                          ...lineLegendToggleStyles,
+                          opacity: showRollingAverageLine ? 1 : 0.48
+                        }}
+                        onClick={() =>
+                          setShowRollingAverageLine((isVisible) => !isVisible)
+                        }
+                        aria-pressed={showRollingAverageLine}
+                        aria-label={`${
+                          showRollingAverageLine ? 'Hide' : 'Show'
+                        } rolling average line`}
+                      >
+                        <span style={trendLegendSwatchStyles} />
+                      </button>
+                      <button
+                        type="button"
+                        style={lineLegendTextButtonStyles}
+                        onClick={() => {
+                          setRollingAverageWindow((current) => {
+                            const currentIndex = rollingAverageOptions.indexOf(current);
+                            const nextIndex = (currentIndex + 1) % rollingAverageOptions.length;
+                            return rollingAverageOptions[nextIndex];
+                          });
+                        }}
+                        aria-label={`Change rolling average window. Current window is ${rollingAverageWindow} games.`}
+                      >
+                        {rollingAverageWindow}-game average
+                      </button>
+                    </span>
                   </div>
                   {timelineData.length > 0 ? (
                     <ScoreTimeline
                       data={timelineData}
+                      rollingAverageWindow={rollingAverageWindow}
+                      showScoreLine={showScoreLine}
+                      showRollingAverageLine={showRollingAverageLine}
                       onSelect={(key) => setSelectedGameKey(key)}
                       selectedKey={selectedGame?.key ?? null}
                     />

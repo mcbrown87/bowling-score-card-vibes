@@ -77,6 +77,24 @@ const buildStoredImagesPage = () => ({
   ]
 });
 
+const buildAliceHistoryPage = (scores: number[]) => ({
+  page: 1,
+  pageSize: 50,
+  totalImages: scores.length,
+  totalPages: 1,
+  images: scores.map((score, index) => ({
+    id: `img-history-${index + 1}`,
+    previewUrl: `/history-${index + 1}.jpg`,
+    originalFileName: `alice-history-${index + 1}.jpg`,
+    contentType: 'image/jpeg',
+    sizeBytes: 1000,
+    createdAt: `2026-04-${String(index + 1).padStart(2, '0')}T12:00:00.000Z`,
+    isProcessingEstimate: false,
+    lastEstimateError: null,
+    games: [buildGame('Alice', [8, 18, 30, 44, 60, 78, 98, 120, 144, score], score)]
+  }))
+});
+
 beforeEach(() => {
   mockedLoadStoredImages.mockResolvedValue(buildStoredImagesPage());
   window.innerWidth = 1200;
@@ -131,6 +149,84 @@ describe('PlayerGamesBrowser', () => {
     expect(screen.getByText(/Viewing Alice — score 145/)).toBeVisible();
     expect(screen.getByText(/Source: alice-2.jpg/)).toBeVisible();
     expect(screen.queryByText(/Score 170/)).not.toBeInTheDocument();
+  });
+
+  it('shows a 3-game rolling average on the score timeline', async () => {
+    render(<PlayerGamesBrowser />);
+
+    await screen.findByText(/Viewing Alice/);
+
+    expect(screen.getByText('3-game average')).toBeVisible();
+    expect(screen.queryByText('Corrected')).not.toBeInTheDocument();
+    expect(screen.queryByText('Estimate')).not.toBeInTheDocument();
+    expect(screen.queryByText('Selected')).not.toBeInTheDocument();
+    expect(screen.getByText('alice-1.jpg • Score 170 • 3-game avg 170')).toBeInTheDocument();
+    expect(screen.getByText('alice-2.jpg • Score 145 • 3-game avg 158')).toBeInTheDocument();
+  });
+
+  it('recalculates the rolling average from visible games after filtering', async () => {
+    render(<PlayerGamesBrowser />);
+
+    await screen.findByText(/Viewing Alice/);
+
+    fireEvent.change(screen.getByLabelText('Games shown'), { target: { value: '1' } });
+
+    await waitFor(() =>
+      expect(screen.getByText('alice-2.jpg • Score 145 • 3-game avg 145')).toBeInTheDocument()
+    );
+    expect(screen.queryByText('alice-2.jpg • Score 145 • 3-game avg 158')).not.toBeInTheDocument();
+  });
+
+  it('cycles the rolling average window from the chart legend', async () => {
+    mockedLoadStoredImages.mockResolvedValue(buildAliceHistoryPage([100, 110, 120, 130, 140, 200]));
+
+    render(<PlayerGamesBrowser />);
+
+    await screen.findByText(/Viewing Alice/);
+
+    expect(
+      screen.getByText('alice-history-6.jpg • Score 200 • 3-game avg 157')
+    ).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole('button', { name: /Current window is 3 games/i }));
+
+    expect(screen.getByRole('button', { name: /Current window is 6 games/i })).toBeVisible();
+    expect(
+      screen.getByText('alice-history-6.jpg • Score 200 • 6-game avg 133')
+    ).toBeInTheDocument();
+    expect(
+      screen.queryByText('alice-history-6.jpg • Score 200 • 3-game avg 157')
+    ).not.toBeInTheDocument();
+  });
+
+  it('toggles score and rolling average lines from the legend line controls', async () => {
+    render(<PlayerGamesBrowser />);
+
+    await screen.findByText(/Viewing Alice/);
+
+    expect(screen.getByTestId('score-line')).toBeInTheDocument();
+    expect(screen.getByTestId('rolling-average-line')).toBeInTheDocument();
+    expect(screen.getByText('alice-1.jpg • Score 170 • 3-game avg 170')).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole('button', { name: 'Hide score line' }));
+
+    expect(screen.queryByTestId('score-line')).not.toBeInTheDocument();
+    expect(screen.getByTestId('rolling-average-line')).toBeInTheDocument();
+    expect(
+      screen.queryByText('alice-1.jpg • Score 170 • 3-game avg 170')
+    ).not.toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole('button', { name: 'Hide rolling average line' }));
+
+    expect(screen.queryByTestId('score-line')).not.toBeInTheDocument();
+    expect(screen.queryByTestId('rolling-average-line')).not.toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole('button', { name: 'Show score line' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Show rolling average line' }));
+
+    expect(screen.getByTestId('score-line')).toBeInTheDocument();
+    expect(screen.getByTestId('rolling-average-line')).toBeInTheDocument();
+    expect(screen.getByText('alice-1.jpg • Score 170 • 3-game avg 170')).toBeInTheDocument();
   });
 
   it('loads every stored image page before grouping player games', async () => {
