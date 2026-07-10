@@ -33,6 +33,29 @@ const gameLimitOptions = [
 
 const PLAYER_GAMES_PAGE_SIZE = 50;
 const rollingAverageOptions = [3, 6, 9];
+type RollingAverageDisplayMode = 'averageAndStdDev' | 'averageOnly' | 'hidden';
+
+const nextRollingAverageDisplayMode = (
+  current: RollingAverageDisplayMode
+): RollingAverageDisplayMode => {
+  if (current === 'averageAndStdDev') {
+    return 'averageOnly';
+  }
+  if (current === 'averageOnly') {
+    return 'hidden';
+  }
+  return 'averageAndStdDev';
+};
+
+const getRollingAverageDisplayLabel = (mode: RollingAverageDisplayMode) => {
+  if (mode === 'averageAndStdDev') {
+    return 'Show rolling average only';
+  }
+  if (mode === 'averageOnly') {
+    return 'Hide rolling average';
+  }
+  return 'Show rolling average and standard deviation';
+};
 
 const sortPlayerGamesByCreatedAt = (games: PlayerGameEntry[]) =>
   games
@@ -212,8 +235,27 @@ const scoreLegendSwatchStyles: CSSProperties = {
 };
 
 const trendLegendSwatchStyles: CSSProperties = {
-  width: '28px',
-  height: '0',
+  position: 'relative',
+  display: 'inline-flex',
+  alignItems: 'center',
+  width: '34px',
+  height: '14px'
+};
+
+const trendLegendBandStyles: CSSProperties = {
+  position: 'absolute',
+  left: 0,
+  right: 0,
+  top: '3px',
+  height: '8px',
+  borderRadius: '999px',
+  backgroundColor: 'rgba(34, 211, 238, 0.18)'
+};
+
+const trendLegendLineStyles: CSSProperties = {
+  position: 'relative',
+  width: '34px',
+  height: 0,
   borderTop: '3px dashed #22d3ee'
 };
 
@@ -295,7 +337,7 @@ type ScoreTimelineProps = {
   data: ScoreTimelinePoint[];
   rollingAverageWindow: number;
   showScoreLine: boolean;
-  showRollingAverageLine: boolean;
+  rollingAverageDisplayMode: RollingAverageDisplayMode;
   selectedKey: string | null;
   onSelect: (key: string) => void;
 };
@@ -304,22 +346,41 @@ const ScoreTimeline = ({
   data,
   rollingAverageWindow,
   showScoreLine,
-  showRollingAverageLine,
+  rollingAverageDisplayMode,
   selectedKey,
   onSelect
 }: ScoreTimelineProps) => {
   const width = 900;
   const height = 260;
   const padding = 42;
+  const showRollingAverageLine = rollingAverageDisplayMode !== 'hidden';
+  const showRollingStdDevBand = rollingAverageDisplayMode === 'averageAndStdDev';
   const dataWithAverages = data.map((item, idx) => {
     const windowStart = Math.max(0, idx - rollingAverageWindow + 1);
     const windowScores = data.slice(windowStart, idx + 1).map((entry) => entry.score);
     const rollingAverage =
       windowScores.reduce((sum, score) => sum + score, 0) / windowScores.length;
+    const rollingStdDev = Math.sqrt(
+      windowScores.reduce(
+        (sum, score) => sum + Math.pow(score - rollingAverage, 2),
+        0
+      ) / windowScores.length
+    );
 
-    return { ...item, rollingAverage };
+    return {
+      ...item,
+      rollingAverage,
+      rollingStdDev,
+      rollingStdDevUpper: rollingAverage + rollingStdDev,
+      rollingStdDevLower: rollingAverage - rollingStdDev
+    };
   });
-  const scores = dataWithAverages.flatMap((item) => [item.score, item.rollingAverage]);
+  const scores = dataWithAverages.flatMap((item) => [
+    item.score,
+    item.rollingAverage,
+    item.rollingStdDevUpper,
+    item.rollingStdDevLower
+  ]);
   const minScore = Math.min(...scores, 0);
   const maxScore = Math.max(...scores, 0);
   const range = Math.max(maxScore - minScore, 30);
@@ -329,13 +390,26 @@ const ScoreTimeline = ({
     const x = padding + xStep * idx;
     const normalized = (item.score - minScore) / range;
     const normalizedAverage = (item.rollingAverage - minScore) / range;
+    const normalizedStdDevUpper = (item.rollingStdDevUpper - minScore) / range;
+    const normalizedStdDevLower = (item.rollingStdDevLower - minScore) / range;
     const y = padding + (1 - normalized) * (height - padding * 2);
     const averageY = padding + (1 - normalizedAverage) * (height - padding * 2);
-    return { ...item, x, y, averageY };
+    const stdDevUpperY =
+      padding + (1 - normalizedStdDevUpper) * (height - padding * 2);
+    const stdDevLowerY =
+      padding + (1 - normalizedStdDevLower) * (height - padding * 2);
+    return { ...item, x, y, averageY, stdDevUpperY, stdDevLowerY };
   });
 
   const polylinePoints = points.map((pt) => `${pt.x},${pt.y}`).join(' ');
   const rollingAveragePoints = points.map((pt) => `${pt.x},${pt.averageY}`).join(' ');
+  const rollingStdDevBandPoints = [
+    ...points.map((pt) => `${pt.x},${pt.stdDevUpperY}`),
+    ...points
+      .slice()
+      .reverse()
+      .map((pt) => `${pt.x},${pt.stdDevLowerY}`)
+  ].join(' ');
   const yTicks = [minScore, Math.round(minScore + range / 2), maxScore].filter(
     (value, idx, arr) => arr.indexOf(value) === idx
   );
@@ -405,6 +479,15 @@ const ScoreTimeline = ({
               points={polylinePoints}
             />
           )}
+          {showRollingStdDevBand && (
+            <polygon
+              data-testid="rolling-stddev-band"
+              fill="rgba(34, 211, 238, 0.18)"
+              stroke="rgba(34, 211, 238, 0.3)"
+              strokeWidth={1}
+              points={rollingStdDevBandPoints}
+            />
+          )}
           {showRollingAverageLine && (
             <polyline
               data-testid="rolling-average-line"
@@ -439,8 +522,12 @@ const ScoreTimeline = ({
                 strokeWidth={2}
               />
               <title>
-                {pt.label} • Score {pt.score} • {rollingAverageWindow}-game avg{' '}
-                {Math.round(pt.rollingAverage)}
+                {pt.label} • Score {pt.score}
+                {showRollingAverageLine
+                  ? ` • ${rollingAverageWindow}-game avg ${Math.round(
+                      pt.rollingAverage
+                    )} • std dev ${Math.round(pt.rollingStdDev)}`
+                  : ''}
               </title>
             </g>
           );
@@ -480,7 +567,8 @@ export function PlayerGamesBrowser() {
   const [gameLimit, setGameLimit] = useState(0);
   const [rollingAverageWindow, setRollingAverageWindow] = useState(rollingAverageOptions[0]);
   const [showScoreLine, setShowScoreLine] = useState(true);
-  const [showRollingAverageLine, setShowRollingAverageLine] = useState(true);
+  const [rollingAverageDisplayMode, setRollingAverageDisplayMode] =
+    useState<RollingAverageDisplayMode>('averageAndStdDev');
   const [isStackedLayout, setIsStackedLayout] = useState(false);
   const router = useRouter();
   const isHoverCapable = useDesktopKeyboardMode();
@@ -867,17 +955,22 @@ export function PlayerGamesBrowser() {
                         type="button"
                         style={{
                           ...lineLegendToggleStyles,
-                          opacity: showRollingAverageLine ? 1 : 0.48
+                          opacity: rollingAverageDisplayMode === 'hidden' ? 0.48 : 1
                         }}
                         onClick={() =>
-                          setShowRollingAverageLine((isVisible) => !isVisible)
+                          setRollingAverageDisplayMode((current) =>
+                            nextRollingAverageDisplayMode(current)
+                          )
                         }
-                        aria-pressed={showRollingAverageLine}
-                        aria-label={`${
-                          showRollingAverageLine ? 'Hide' : 'Show'
-                        } rolling average line`}
+                        aria-pressed={rollingAverageDisplayMode !== 'hidden'}
+                        aria-label={getRollingAverageDisplayLabel(rollingAverageDisplayMode)}
                       >
-                        <span style={trendLegendSwatchStyles} />
+                        <span style={trendLegendSwatchStyles}>
+                          {rollingAverageDisplayMode === 'averageAndStdDev' && (
+                            <span style={trendLegendBandStyles} />
+                          )}
+                          <span style={trendLegendLineStyles} />
+                        </span>
                       </button>
                       <button
                         type="button"
@@ -900,7 +993,7 @@ export function PlayerGamesBrowser() {
                       data={timelineData}
                       rollingAverageWindow={rollingAverageWindow}
                       showScoreLine={showScoreLine}
-                      showRollingAverageLine={showRollingAverageLine}
+                      rollingAverageDisplayMode={rollingAverageDisplayMode}
                       onSelect={(key) => setSelectedGameKey(key)}
                       selectedKey={selectedGame?.key ?? null}
                     />
