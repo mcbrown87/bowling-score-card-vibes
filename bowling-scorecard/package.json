@@ -24,6 +24,9 @@
   },
   "scripts": {
     "dev": "next dev",
+    "deps:up": "docker compose -f ../docker-compose.yml up -d db redis minio minio-setup ml-service",
+    "deps:down": "docker compose -f ../docker-compose.yml stop db redis minio ml-service",
+    "dev:full": "npm run deps:up && npm run dev",
     "dev:prod-data": "dotenv -e .env.production-proxy.local -- next dev",
     "build": "next build",
     "start": "next start",

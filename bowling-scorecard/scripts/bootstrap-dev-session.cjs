@@ -13,7 +13,7 @@ const { S3Client, PutObjectCommand } = require('@aws-sdk/client-s3');
 const appUrl = process.env.NEXTAUTH_URL || 'http://localhost:3000';
 const repoRoot = path.resolve(__dirname, '../..');
 const packageRoot = path.resolve(__dirname, '..');
-const fixtureImagePath = path.resolve(packageRoot, 'TestImages/blah.jpg');
+const fixtureImagePath = path.resolve(packageRoot, 'TestImages/sample.jpg');
 const browserProfileDir = path.resolve(packageRoot, 'output/playwright/bootstrap-profile');
 const browserDownloadsDir = path.resolve(packageRoot, 'output/playwright/downloads');
 
@@ -83,6 +83,13 @@ const randomGamePlayerName =
   getFlagValue('--random-player-name') ||
   process.env.BOOTSTRAP_RANDOM_PLAYER_NAME ||
   bootstrapUser.name;
+const randomGamePlayerNames = (process.env.BOOTSTRAP_RANDOM_PLAYER_NAMES || 'M.C.B.,G.M.,K.K.,G.P.')
+  .split(',')
+  .map((name) => name.trim())
+  .filter(Boolean)
+  .slice(0, 4);
+const effectiveRandomGamePlayerNames =
+  randomGamePlayerNames.length > 0 ? randomGamePlayerNames : [randomGamePlayerName];
 
 function hasFlag(flag) {
   return process.argv.includes(flag);
@@ -232,7 +239,9 @@ function buildGamesForImage(imageIndex) {
     return sampleGames;
   }
 
-  return [generateRandomGame(randomGamePlayerName, imageIndex)];
+  return effectiveRandomGamePlayerNames.map((playerName, playerIndex) =>
+    generateRandomGame(playerName, playerIndex)
+  );
 }
 
 function getStorageClient() {
@@ -386,8 +395,9 @@ async function seedBootstrapData() {
 
   console.log(`Seeded ${bootstrapImageCount} bootstrap image${bootstrapImageCount === 1 ? '' : 's'} for ${bootstrapUser.email}.`);
   if (useRandomGames) {
+    const seededGameCount = bootstrapImageCount * effectiveRandomGamePlayerNames.length;
     console.log(
-      `Random mode enabled: seeded ${bootstrapImageCount} varied game${bootstrapImageCount === 1 ? '' : 's'} for player ${randomGamePlayerName}.`
+      `Random mode enabled: seeded ${seededGameCount} varied game${seededGameCount === 1 ? '' : 's'} across ${effectiveRandomGamePlayerNames.length} player${effectiveRandomGamePlayerNames.length === 1 ? '' : 's'}.`
     );
   }
 }
