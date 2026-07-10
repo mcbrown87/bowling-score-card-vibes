@@ -85,7 +85,8 @@ const frameWrapperBaseStyles: React.CSSProperties = {
   borderRadius: '12px',
   padding: '2px',
   backgroundColor: 'rgba(15, 23, 42, 0.45)',
-  overflow: 'visible'
+  overflow: 'visible',
+  minWidth: 0
 };
 
 const selectedFrameWrapperStyles: React.CSSProperties = {
@@ -101,6 +102,8 @@ const frameButtonStyles: React.CSSProperties = {
   borderColor: 'transparent',
   borderRadius: '12px',
   padding: 0,
+  width: '100%',
+  minWidth: 0,
   overflow: 'visible',
   cursor: 'pointer',
   transition: 'transform 120ms ease, box-shadow 120ms ease, border-color 120ms ease'
@@ -333,8 +336,8 @@ export const Scorecard: React.FC<ScorecardProps> = ({
               style={{
                 display: 'grid',
                 gridTemplateColumns: 'repeat(5, minmax(0, 1fr))',
-                minWidth: '480px',
-                gap: '8px'
+                gap: '8px',
+                width: '100%'
               }}
             >
               {game.frames.slice(0, 9).map((frame, idx) => {

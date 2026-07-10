@@ -24,6 +24,7 @@ const frameBoxStyles: React.CSSProperties = {
   display: 'flex',
   flexDirection: 'column',
   width: '100%',
+  minWidth: 0,
   height: '90px',
   overflow: 'visible',
   boxShadow: '0 8px 18px rgba(2, 6, 23, 0.35), inset 0 0 0 1px rgba(148, 163, 184, 0.24)'
@@ -46,11 +47,13 @@ const rollsContainerStyles: React.CSSProperties = {
   position: 'relative',
   zIndex: 1,
   flex: 1,
-  display: 'flex'
+  display: 'flex',
+  minWidth: 0
 };
 
 const rollBoxStyles: React.CSSProperties = {
   flex: 1,
+  minWidth: 0,
   display: 'flex',
   alignItems: 'center',
   justifyContent: 'center',
@@ -175,7 +178,7 @@ export const FrameBox: React.FC<FrameBoxProps> = ({
     : rollBoxStyles;
 
   const secondaryRollStyles = compact
-    ? { ...rollBox2Styles, fontSize: '16px', width: '26px' }
+    ? { ...rollBox2Styles, fontSize: '15px', width: '22px', minWidth: '22px' }
     : rollBox2Styles;
 
   const tenthRollStyles = compact
