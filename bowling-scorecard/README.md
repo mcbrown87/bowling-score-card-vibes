@@ -13,6 +13,24 @@ The app now persists users in Postgres via Prisma. To work locally:
 
 Migrations live in `prisma/migrations/` and the primary schema is `prisma/schema.prisma`.
 
+### Production Data Proxy
+
+Keep `.env` pointed at local Docker services. When you intentionally need production data locally, start the Fly Managed Postgres proxy and use the explicit prod-data scripts:
+
+```bash
+flyctl mpg proxy zp2wjreg7gzodn4q --local-port 16380
+npm run dev:prod-data
+npm run prisma:studio:prod-data
+```
+
+The local machine also needs this host alias so Prisma sends the Fly pgbouncer hostname during TLS negotiation:
+
+```bash
+sudo sh -c 'printf "\n127.0.0.1 pgbouncer.zp2wjreg7gzodn4q.flympg.net # BowlingScoreCardVibes Fly MPG proxy\n" >> /etc/hosts'
+```
+
+Do not run migrations, bootstrap scripts, seed scripts, or destructive admin scripts with the prod-data environment.
+
 ## Object Storage (MinIO)
 
 Uploaded scorecard photos now persist to an S3-compatible bucket and are linked to the user in the new `StoredImage` table (run `npx prisma migrate dev` after pulling these changes).
