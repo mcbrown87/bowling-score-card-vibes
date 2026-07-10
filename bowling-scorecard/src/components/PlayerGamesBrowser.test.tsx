@@ -196,15 +196,34 @@ describe('PlayerGamesBrowser', () => {
       screen.getByText('alice-history-6.jpg • Score 200 • 3-game avg 157 • std dev 31')
     ).toBeInTheDocument();
 
-    fireEvent.click(screen.getByRole('button', { name: /Current window is 3 games/i }));
+    fireEvent.click(
+      screen.getByRole('button', {
+        name: 'Change rolling average window. Current window is 3 games.'
+      })
+    );
 
-    expect(screen.getByRole('button', { name: /Current window is 6 games/i })).toBeVisible();
+    expect(
+      screen.getByRole('button', {
+        name: 'Change rolling average window. Current window is 6 games.'
+      })
+    ).toBeVisible();
     expect(
       screen.getByText('alice-history-6.jpg • Score 200 • 6-game avg 133 • std dev 32')
     ).toBeInTheDocument();
     expect(
       screen.queryByText('alice-history-6.jpg • Score 200 • 3-game avg 157 • std dev 31')
     ).not.toBeInTheDocument();
+  });
+
+  it('rounds score timeline y-axis ticks to whole scores', async () => {
+    mockedLoadStoredImages.mockResolvedValue(buildAliceHistoryPage([122, 124, 109]));
+
+    render(<PlayerGamesBrowser />);
+
+    await screen.findByText(/Viewing Alice/);
+
+    expect(screen.getByText('125')).toBeVisible();
+    expect(screen.queryByText('124.98331244775333')).not.toBeInTheDocument();
   });
 
   it('toggles score, rolling average, and rolling standard deviation from the legend line controls', async () => {
@@ -300,6 +319,7 @@ describe('PlayerGamesBrowser', () => {
     render(<PlayerGamesBrowser />);
 
     await screen.findByText(/Viewing Alice/);
+    expect(screen.queryByText('3-game frame avg')).not.toBeInTheDocument();
 
     const frameWrapper = screen.getByTestId('frame-box-1').parentElement;
     expect(frameWrapper).not.toBeNull();
@@ -307,6 +327,62 @@ describe('PlayerGamesBrowser', () => {
     fireEvent.mouseEnter(frameWrapper as HTMLElement);
 
     expect(screen.getByTestId('frame-trend-preview-1')).toBeVisible();
+    expect(screen.getByTestId('frame-trend-raw-line-1')).toBeInTheDocument();
+    expect(screen.getByTestId('frame-trend-average-line-1')).toBeInTheDocument();
+  });
+
+  it('applies the shared legend controls to frame trend previews', async () => {
+    render(<PlayerGamesBrowser />);
+
+    await screen.findByText(/Viewing Alice/);
+
+    fireEvent.click(
+      screen.getByRole('button', {
+        name: 'Change rolling average window. Current window is 3 games.'
+      })
+    );
+
+    expect(screen.getByText('6-game average')).toBeVisible();
+
+    const frameWrapper = screen.getByTestId('frame-box-1').parentElement;
+    expect(frameWrapper).not.toBeNull();
+
+    fireEvent.mouseEnter(frameWrapper as HTMLElement);
+
+    expect(screen.getByTestId('frame-trend-preview-1')).toBeVisible();
+    expect(screen.getByText('6-game avg 9')).toBeVisible();
+    expect(screen.getByTestId('frame-trend-raw-line-1')).toBeInTheDocument();
+    expect(screen.getByTestId('frame-trend-average-line-1')).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole('button', { name: 'Hide score line' }));
+
+    expect(screen.getByTestId('frame-trend-preview-1')).toBeVisible();
+    expect(screen.queryByTestId('frame-trend-raw-line-1')).not.toBeInTheDocument();
+    expect(screen.getByTestId('frame-trend-average-line-1')).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole('button', { name: 'Show rolling average only' }));
+
+    expect(screen.getByTestId('frame-trend-preview-1')).toBeVisible();
+    expect(screen.queryByTestId('frame-trend-raw-line-1')).not.toBeInTheDocument();
+    expect(screen.getByTestId('frame-trend-average-line-1')).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole('button', { name: 'Hide rolling average' }));
+
+    expect(screen.queryByTestId('frame-trend-preview-1')).not.toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole('button', { name: 'Show score line' }));
+    fireEvent.mouseEnter(frameWrapper as HTMLElement);
+    expect(screen.getByTestId('frame-trend-preview-1')).toBeVisible();
+    expect(screen.getByTestId('frame-trend-raw-line-1')).toBeInTheDocument();
+    expect(screen.queryByTestId('frame-trend-average-line-1')).not.toBeInTheDocument();
+
+    fireEvent.click(
+      screen.getByRole('button', { name: 'Show rolling average and standard deviation' })
+    );
+
+    expect(screen.getByTestId('frame-trend-preview-1')).toBeVisible();
+    expect(screen.getByTestId('frame-trend-raw-line-1')).toBeInTheDocument();
+    expect(screen.getByTestId('frame-trend-average-line-1')).toBeInTheDocument();
   });
 
   it('does not show frame trend previews when hover is unavailable', async () => {
@@ -324,6 +400,7 @@ describe('PlayerGamesBrowser', () => {
     render(<PlayerGamesBrowser />);
 
     await screen.findByText(/Viewing Alice/);
+    expect(screen.queryByText('3-game frame avg')).not.toBeInTheDocument();
 
     const frameWrapper = screen.getByTestId('frame-box-1').parentElement;
     expect(frameWrapper).not.toBeNull();

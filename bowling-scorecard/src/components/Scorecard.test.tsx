@@ -151,6 +151,74 @@ describe('Scorecard', () => {
 
     expect(screen.getByTestId('frame-trend-preview-1')).toBeVisible();
     expect(screen.getByLabelText('Frame 1 trend preview')).toBeVisible();
+    expect(screen.getByText('3-game avg 9')).toBeVisible();
+    expect(screen.getByTestId('frame-trend-raw-line-1')).toBeInTheDocument();
+    expect(screen.getByTestId('frame-trend-average-line-1')).toBeInTheDocument();
+  });
+
+  it('can show raw frame trend previews without the rolling average line', () => {
+    render(
+      <Scorecard
+        game={buildGame()}
+        frameTrendSeries={Array.from({ length: 10 }, () => [8, 9, 10])}
+        frameTrendDisplayMode="rawOnly"
+        selectedTrendIndex={1}
+        showFrameTrendPreview
+        compact
+      />
+    );
+
+    const frameWrapper = screen.getByTestId('frame-box-1').parentElement;
+    expect(frameWrapper).not.toBeNull();
+
+    fireEvent.mouseEnter(frameWrapper as HTMLElement);
+
+    expect(screen.getByTestId('frame-trend-preview-1')).toBeVisible();
+    expect(screen.getByText('Now 9')).toBeVisible();
+    expect(screen.getByTestId('frame-trend-raw-line-1')).toBeInTheDocument();
+    expect(screen.queryByTestId('frame-trend-average-line-1')).not.toBeInTheDocument();
+  });
+
+  it('can show frame rolling averages without the raw trend line', () => {
+    render(
+      <Scorecard
+        game={buildGame()}
+        frameTrendSeries={Array.from({ length: 10 }, () => [8, 9, 10])}
+        frameTrendDisplayMode="averageOnly"
+        selectedTrendIndex={1}
+        showFrameTrendPreview
+        compact
+      />
+    );
+
+    const frameWrapper = screen.getByTestId('frame-box-1').parentElement;
+    expect(frameWrapper).not.toBeNull();
+
+    fireEvent.mouseEnter(frameWrapper as HTMLElement);
+
+    expect(screen.getByTestId('frame-trend-preview-1')).toBeVisible();
+    expect(screen.getByText('3-game avg 9')).toBeVisible();
+    expect(screen.queryByTestId('frame-trend-raw-line-1')).not.toBeInTheDocument();
+    expect(screen.getByTestId('frame-trend-average-line-1')).toBeInTheDocument();
+  });
+
+  it('hides frame trend previews when the display mode is hidden', () => {
+    render(
+      <Scorecard
+        game={buildGame()}
+        frameTrendSeries={Array.from({ length: 10 }, () => [8, 9, 10])}
+        frameTrendDisplayMode="hidden"
+        showFrameTrendPreview
+        compact
+      />
+    );
+
+    const frameWrapper = screen.getByTestId('frame-box-1').parentElement;
+    expect(frameWrapper).not.toBeNull();
+
+    fireEvent.mouseEnter(frameWrapper as HTMLElement);
+
+    expect(screen.queryByTestId('frame-trend-preview-1')).not.toBeInTheDocument();
   });
 
   it('does not show a frame trend preview when disabled', () => {

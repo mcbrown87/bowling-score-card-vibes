@@ -9,6 +9,8 @@ interface ScorecardProps {
   frameHeatmap?: number[];
   frameTrendSeries?: number[][];
   showFrameTrendPreview?: boolean;
+  frameTrendWindow?: number;
+  frameTrendDisplayMode?: 'rawAndAverage' | 'averageOnly' | 'rawOnly' | 'hidden';
   selectedTrendIndex?: number | null;
   onFrameSelect?: (frameIndex: number) => void;
   onPlayerNameClick?: () => void;
@@ -146,6 +148,8 @@ export const Scorecard: React.FC<ScorecardProps> = ({
   frameHeatmap,
   frameTrendSeries,
   showFrameTrendPreview = false,
+  frameTrendWindow = 3,
+  frameTrendDisplayMode = 'rawAndAverage',
   selectedTrendIndex = null,
   onFrameSelect,
   onPlayerNameClick,
@@ -175,7 +179,9 @@ export const Scorecard: React.FC<ScorecardProps> = ({
   const renderFrame = (frameNumber: number, content: React.ReactNode, frameIndex: number) => {
     const isSelected = selectedFrameIndex === frameIndex;
     const isTrendPreviewEnabled =
-      showFrameTrendPreview && Boolean(frameTrendSeries?.[frameIndex]?.length);
+      showFrameTrendPreview &&
+      frameTrendDisplayMode !== 'hidden' &&
+      Boolean(frameTrendSeries?.[frameIndex]?.length);
     const interactiveFrameProps = isTrendPreviewEnabled
       ? {
           onMouseEnter: () => setActiveTrendFrameIndex(frameIndex),
@@ -327,6 +333,7 @@ export const Scorecard: React.FC<ScorecardProps> = ({
               style={{
                 display: 'grid',
                 gridTemplateColumns: 'repeat(5, minmax(0, 1fr))',
+                minWidth: '480px',
                 gap: '8px'
               }}
             >
@@ -342,6 +349,8 @@ export const Scorecard: React.FC<ScorecardProps> = ({
                     activeRoll={selectedFrameIndex === idx ? activeRoll : null}
                     frameTrend={frameTrendSeries?.[idx]}
                     showTrendPreview={activeTrendFrameIndex === idx}
+                    frameTrendWindow={frameTrendWindow}
+                    frameTrendDisplayMode={frameTrendDisplayMode}
                     trendSelectedIndex={selectedTrendIndex}
                   />,
                   idx
@@ -358,6 +367,8 @@ export const Scorecard: React.FC<ScorecardProps> = ({
                   activeRoll={selectedFrameIndex === 9 ? activeRoll : null}
                   frameTrend={frameTrendSeries?.[9]}
                   showTrendPreview={activeTrendFrameIndex === 9}
+                  frameTrendWindow={frameTrendWindow}
+                  frameTrendDisplayMode={frameTrendDisplayMode}
                   trendSelectedIndex={selectedTrendIndex}
                 />,
                 9
@@ -378,6 +389,8 @@ export const Scorecard: React.FC<ScorecardProps> = ({
                   activeRoll={selectedFrameIndex === index ? activeRoll : null}
                   frameTrend={frameTrendSeries?.[index]}
                   showTrendPreview={activeTrendFrameIndex === index}
+                  frameTrendWindow={frameTrendWindow}
+                  frameTrendDisplayMode={frameTrendDisplayMode}
                   trendSelectedIndex={selectedTrendIndex}
                 />,
                 index
@@ -394,6 +407,8 @@ export const Scorecard: React.FC<ScorecardProps> = ({
                 activeRoll={selectedFrameIndex === 9 ? activeRoll : null}
                 frameTrend={frameTrendSeries?.[9]}
                 showTrendPreview={activeTrendFrameIndex === 9}
+                frameTrendWindow={frameTrendWindow}
+                frameTrendDisplayMode={frameTrendDisplayMode}
                 trendSelectedIndex={selectedTrendIndex}
               />,
               9

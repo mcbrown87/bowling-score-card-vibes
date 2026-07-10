@@ -11,6 +11,8 @@ interface FrameBoxProps {
   heatIntensity?: number;
   frameTrend?: number[];
   showTrendPreview?: boolean;
+  frameTrendWindow?: number;
+  frameTrendDisplayMode?: 'rawAndAverage' | 'averageOnly' | 'rawOnly' | 'hidden';
   trendSelectedIndex?: number | null;
 }
 
@@ -156,6 +158,8 @@ export const FrameBox: React.FC<FrameBoxProps> = ({
   heatIntensity,
   frameTrend,
   showTrendPreview = false,
+  frameTrendWindow = 3,
+  frameTrendDisplayMode = 'rawAndAverage',
   trendSelectedIndex = null
 }) => {
   const containerStyles = compact
@@ -203,15 +207,31 @@ export const FrameBox: React.FC<FrameBoxProps> = ({
 
   const trendValues =
     frameTrend?.filter((value): value is number => Number.isFinite(value)) ?? [];
+  const showRawTrendLine =
+    frameTrendDisplayMode === 'rawAndAverage' || frameTrendDisplayMode === 'rawOnly';
+  const showRollingTrendLine =
+    frameTrendDisplayMode === 'rawAndAverage' || frameTrendDisplayMode === 'averageOnly';
+  const rollingTrendValues = trendValues.map((_, index) => {
+    const windowStart = Math.max(0, index - frameTrendWindow + 1);
+    const windowValues = trendValues.slice(windowStart, index + 1);
+    return windowValues.reduce((sum, value) => sum + value, 0) / windowValues.length;
+  });
   const selectedTrendValue =
     trendSelectedIndex !== null && trendSelectedIndex >= 0
       ? trendValues[trendSelectedIndex] ?? null
       : null;
-  const trendPreviewWidth = compact ? 102 : 126;
-  const trendPreviewHeight = compact ? 56 : 64;
+  const selectedRollingTrendValue =
+    trendSelectedIndex !== null && trendSelectedIndex >= 0
+      ? rollingTrendValues[trendSelectedIndex] ?? null
+      : null;
+  const trendPreviewWidth = compact ? 156 : 172;
+  const trendPreviewHeight = compact ? 68 : 76;
   const trendPadding = 6;
-  const trendMin = trendValues.length ? Math.min(...trendValues) : 0;
-  const trendMax = trendValues.length ? Math.max(...trendValues) : 0;
+  const chartValues = showRollingTrendLine
+    ? [...trendValues, ...rollingTrendValues]
+    : trendValues;
+  const trendMin = chartValues.length ? Math.min(...chartValues) : 0;
+  const trendMax = chartValues.length ? Math.max(...chartValues) : 0;
   const trendRange = Math.max(trendMax - trendMin, 4);
   const trendXStep =
     trendValues.length > 1
@@ -224,12 +244,29 @@ export const FrameBox: React.FC<FrameBoxProps> = ({
       trendPadding + (1 - normalized) * (trendPreviewHeight - trendPadding * 2);
     return { value, x, y };
   });
+  const rollingTrendPoints = rollingTrendValues.map((value, index) => {
+    const x = trendPadding + trendXStep * index;
+    const normalized = (value - trendMin) / trendRange;
+    const y =
+      trendPadding + (1 - normalized) * (trendPreviewHeight - trendPadding * 2);
+    return { value, x, y };
+  });
   const trendPolyline = trendPoints.map((point) => `${point.x},${point.y}`).join(' ');
+  const rollingTrendPolyline = rollingTrendPoints
+    .map((point) => `${point.x},${point.y}`)
+    .join(' ');
   const trendActivePoint =
     trendSelectedIndex !== null && trendSelectedIndex >= 0
       ? trendPoints[trendSelectedIndex] ?? null
       : null;
-  const shouldRenderTrendPreview = showTrendPreview && trendValues.length > 0;
+  const shouldRenderTrendPreview =
+    showTrendPreview && frameTrendDisplayMode !== 'hidden' && trendValues.length > 0;
+  const trendSummaryLabel =
+    showRollingTrendLine && selectedRollingTrendValue !== null
+      ? `${frameTrendWindow}-game avg ${Math.round(selectedRollingTrendValue)}`
+      : selectedTrendValue !== null
+        ? `Now ${selectedTrendValue}`
+        : `Best ${trendMax}`;
 
   return (
     <div
@@ -246,15 +283,13 @@ export const FrameBox: React.FC<FrameBoxProps> = ({
           aria-label={`Frame ${frameNumber} trend preview`}
           style={{
             ...trendPreviewStyles,
-            width: compact ? '132px' : trendPreviewStyles.width
+            width: compact ? '188px' : '204px'
           }}
         >
           <div style={trendPreviewArrowStyles} aria-hidden="true" />
           <div style={trendHeaderStyles}>
             <span>{`Frame ${frameNumber} trend`}</span>
-            <span style={trendValueStyles}>
-              {selectedTrendValue !== null ? `Now ${selectedTrendValue}` : `Best ${trendMax}`}
-            </span>
+            <span style={trendValueStyles}>{trendSummaryLabel}</span>
           </div>
           <svg
             viewBox={`0 0 ${trendPreviewWidth} ${trendPreviewHeight}`}
@@ -270,8 +305,9 @@ export const FrameBox: React.FC<FrameBoxProps> = ({
               stroke="rgba(148, 163, 184, 0.25)"
               strokeWidth="1"
             />
-            {trendPoints.length > 1 ? (
+            {showRawTrendLine && trendPoints.length > 1 ? (
               <polyline
+                data-testid={`frame-trend-raw-line-${frameNumber}`}
                 fill="none"
                 stroke="#60a5fa"
                 strokeWidth="2"
@@ -280,7 +316,19 @@ export const FrameBox: React.FC<FrameBoxProps> = ({
                 points={trendPolyline}
               />
             ) : null}
-            {trendPoints.map((point, index) => {
+            {showRollingTrendLine && rollingTrendPoints.length > 1 ? (
+              <polyline
+                data-testid={`frame-trend-average-line-${frameNumber}`}
+                fill="none"
+                stroke="#22d3ee"
+                strokeWidth="2.5"
+                strokeDasharray="7 5"
+                strokeLinejoin="round"
+                strokeLinecap="round"
+                points={rollingTrendPolyline}
+              />
+            ) : null}
+            {showRawTrendLine && trendPoints.map((point, index) => {
               const isActive = trendSelectedIndex === index;
               return (
                 <circle

@@ -34,6 +34,7 @@ const gameLimitOptions = [
 const PLAYER_GAMES_PAGE_SIZE = 50;
 const rollingAverageOptions = [3, 6, 9];
 type RollingAverageDisplayMode = 'averageAndStdDev' | 'averageOnly' | 'hidden';
+type FrameTrendDisplayMode = 'rawAndAverage' | 'averageOnly' | 'rawOnly' | 'hidden';
 
 const nextRollingAverageDisplayMode = (
   current: RollingAverageDisplayMode
@@ -449,7 +450,7 @@ const ScoreTimeline = ({
               fontSize="11"
               fill="#93c5fd"
             >
-              {tick}
+              {Math.round(tick)}
             </text>
           </g>
         );
@@ -785,6 +786,20 @@ export function PlayerGamesBrowser() {
     return buildPlayerFrameHeatmap(visiblePlayerGames.map((entry) => entry.game));
   }, [selectedPlayerGroup, visiblePlayerGames]);
 
+  const frameTrendDisplayMode = useMemo<FrameTrendDisplayMode>(() => {
+    const showRollingAverage = rollingAverageDisplayMode !== 'hidden';
+    if (showScoreLine && showRollingAverage) {
+      return 'rawAndAverage';
+    }
+    if (showScoreLine) {
+      return 'rawOnly';
+    }
+    if (showRollingAverage) {
+      return 'averageOnly';
+    }
+    return 'hidden';
+  }, [rollingAverageDisplayMode, showScoreLine]);
+
   const handleOpenInLibrary = useCallback(() => {
     if (!selectedGame) {
       return;
@@ -1058,7 +1073,11 @@ export function PlayerGamesBrowser() {
                         game={selectedGame.game}
                         frameHeatmap={frameHeatmap ?? undefined}
                         frameTrendSeries={frameTrendSeries ?? undefined}
-                        showFrameTrendPreview={isHoverCapable}
+                        showFrameTrendPreview={
+                          isHoverCapable && frameTrendDisplayMode !== 'hidden'
+                        }
+                        frameTrendWindow={rollingAverageWindow}
+                        frameTrendDisplayMode={frameTrendDisplayMode}
                         selectedTrendIndex={selectedTrendIndex}
                         disableEditing
                         compact
