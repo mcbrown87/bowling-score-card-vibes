@@ -26,6 +26,14 @@ bowling-scorecard/.tsbuildinfo
 # Backend not part of frontend deploy
 backend
 
+# Local-only large artifacts
+.local-models
+.local-models/**
+venv
+venv/**
+.venv
+.venv/**
+
 # Tests / docs / misc
 TestImages
 TestImages/**
