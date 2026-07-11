@@ -49,7 +49,7 @@ We use NextAuth with the Prisma adapter to support credential-based signup and l
 - Protected routes call `auth()` on the server; the homepage redirects anonymous visitors to the auth screens.
 - Google sign-in is available; set `GOOGLE_CLIENT_ID` and `GOOGLE_CLIENT_SECRET` in `.env`. If you already have a credentials-based account with the same email, Google will now link to it automatically.
 - For a ready-to-use local session, run `npm run bootstrap:session`. The script will start the Docker stack if needed, upsert a deterministic test user, seed a sample scorecard into storage/Postgres, and open a browser already signed in. Override the default credentials with `BOOTSTRAP_USER_EMAIL`, `BOOTSTRAP_USER_PASSWORD`, and `BOOTSTRAP_USER_NAME` if needed.
-- To seed varied player-history data for the Players page, run `npm run bootstrap:session -- --image-count 10 --random-games`. This seeds 10 images with 10 different games for the same player so heatmaps and longitudinal score trends are visible. Override the player label with `--random-player-name "Your Name"` or `BOOTSTRAP_RANDOM_PLAYER_NAME`.
+- To seed varied player and team-history data for the Players and Teams pages, run `npm run bootstrap:session -- --random-games`. Random mode seeds 60 images by default, which crosses the 50-image pagination boundary used by the library and player/team browsers. Override the image count with `--image-count 75` or `BOOTSTRAP_IMAGE_COUNT`, player labels with `BOOTSTRAP_RANDOM_PLAYER_NAMES`, and team labels with `--random-team-names "Team A,Team B"` or `BOOTSTRAP_RANDOM_TEAM_NAMES`.
 - To grant admin access to an existing user, run `npm run user:set-role -- your@email.com ADMIN`.
 
 ## Admin OCR Training

@@ -90,6 +90,15 @@ const randomGamePlayerNames = (process.env.BOOTSTRAP_RANDOM_PLAYER_NAMES || 'M.C
   .slice(0, 4);
 const effectiveRandomGamePlayerNames =
   randomGamePlayerNames.length > 0 ? randomGamePlayerNames : [randomGamePlayerName];
+const randomTeamNames = (
+  getFlagValue('--random-team-names') ||
+  process.env.BOOTSTRAP_RANDOM_TEAM_NAMES ||
+  'Pin Pushers,Brooklyn Rollers,Spare Change,Ten Pin Tacticians'
+)
+  .split(',')
+  .map((name) => name.trim())
+  .filter(Boolean);
+const defaultRandomImageCount = 60;
 
 function hasFlag(flag) {
   return process.argv.includes(flag);
@@ -115,11 +124,13 @@ function parsePositiveInteger(value, fallback) {
   return parsed;
 }
 
-const bootstrapImageCount = parsePositiveInteger(
-  getFlagValue('--image-count') ?? process.env.BOOTSTRAP_IMAGE_COUNT ?? '1',
-  1
-);
 const useRandomGames = hasFlag('--random-games') || process.env.BOOTSTRAP_RANDOM_GAMES === 'true';
+const bootstrapImageCount = parsePositiveInteger(
+  getFlagValue('--image-count') ??
+    process.env.BOOTSTRAP_IMAGE_COUNT ??
+    (useRandomGames ? String(defaultRandomImageCount) : '1'),
+  useRandomGames ? defaultRandomImageCount : 1
+);
 
 function normalizeServiceUrl(rawUrl, hostMap) {
   if (!rawUrl) {
@@ -252,6 +263,14 @@ function normalizePlayerLookupName(name) {
   return normalizePlayerName(name).toLowerCase();
 }
 
+function normalizeTeamName(name) {
+  return name.trim().replace(/\s+/gu, ' ');
+}
+
+function normalizeTeamLookupName(name) {
+  return normalizeTeamName(name).toLowerCase();
+}
+
 function getStorageClient() {
   if (!storageEndpoint || !storageBucket || !storageAccessKey || !storageSecretKey) {
     throw new Error('Storage is not configured. Check STORAGE_ENDPOINT, STORAGE_BUCKET, STORAGE_ACCESS_KEY, and STORAGE_SECRET_KEY in bowling-scorecard/.env.');
@@ -358,11 +377,37 @@ async function seedBootstrapData() {
     }
   });
 
+  const teams =
+    useRandomGames && randomTeamNames.length > 0
+      ? await Promise.all(
+          randomTeamNames.map((teamName) => {
+            const name = normalizeTeamName(teamName);
+            return prisma.bowlingTeam.upsert({
+              where: {
+                userId_normalizedName: {
+                  userId: user.id,
+                  normalizedName: normalizeTeamLookupName(name)
+                }
+              },
+              update: {
+                name
+              },
+              create: {
+                userId: user.id,
+                name,
+                normalizedName: normalizeTeamLookupName(name)
+              }
+            });
+          })
+        )
+      : [];
+
   for (let index = 0; index < bootstrapImageCount; index += 1) {
     const sequence = String(index + 1).padStart(3, '0');
     const objectKey = `${bootstrapPrefix}${sequence}-${fixtureBaseName}`;
     const originalFileName =
       bootstrapImageCount === 1 ? fixtureBaseName : `bootstrap-${sequence}-${fixtureBaseName}`;
+    const team = teams.length > 0 ? teams[index % teams.length] : null;
 
     await storageClient.send(
       new PutObjectCommand({
@@ -376,6 +421,7 @@ async function seedBootstrapData() {
     const storedImage = await prisma.storedImage.create({
       data: {
         userId: user.id,
+        teamId: team?.id,
         bucket: storageBucket,
         objectKey,
         originalFileName,
@@ -434,6 +480,11 @@ async function seedBootstrapData() {
     console.log(
       `Random mode enabled: seeded ${seededGameCount} varied game${seededGameCount === 1 ? '' : 's'} across ${effectiveRandomGamePlayerNames.length} player${effectiveRandomGamePlayerNames.length === 1 ? '' : 's'}.`
     );
+    if (teams.length > 0) {
+      console.log(
+        `Team mode enabled: assigned bootstrap images across ${teams.length} team${teams.length === 1 ? '' : 's'} (${teams.map((team) => team.name).join(', ')}).`
+      );
+    }
   }
 }
 

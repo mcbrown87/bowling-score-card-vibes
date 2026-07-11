@@ -1,4 +1,4 @@
-import { fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { PlayerGamesBrowser } from './PlayerGamesBrowser';
 import { loadStoredImages } from '@/utils/storedImages';
 
@@ -18,7 +18,12 @@ const mockedLoadStoredImages = loadStoredImages as jest.MockedFunction<typeof lo
 const originalInnerWidth = window.innerWidth;
 const originalMatchMedia = window.matchMedia;
 
-const buildGame = (playerName: string, runningTotals: number[], totalScore = runningTotals[9]) => ({
+const buildGame = (
+  playerName: string,
+  runningTotals: number[],
+  totalScore = runningTotals[9],
+  overrides: Record<string, unknown> = {}
+) => ({
   gameIndex: 0,
   isEstimate: false,
   playerName,
@@ -34,7 +39,8 @@ const buildGame = (playerName: string, runningTotals: number[], totalScore = run
     isStrike: false,
     isSpare: false,
     score: totalScore
-  }
+  },
+  ...overrides
 });
 
 const buildStoredImagesPage = () => ({
@@ -104,7 +110,7 @@ const buildAliceHistoryPage = (scores: number[]) => ({
 const buildTeamHistoryPage = () => ({
   page: 1,
   pageSize: 50,
-  totalImages: 3,
+  totalImages: 4,
   totalPages: 1,
   images: [
     {
@@ -118,12 +124,34 @@ const buildTeamHistoryPage = () => ({
       isProcessingEstimate: false,
       lastEstimateError: null,
       games: [
-        buildGame('Alice', [8, 18, 30, 44, 60, 78, 98, 120, 144, 170]),
+        buildGame('Alice', [8, 18, 30, 44, 60, 78, 98, 120, 144, 170], 170, {
+          player: { id: 'player-alice', name: 'Alice' }
+        }),
         {
-          ...buildGame('Bob', [20, 40, 49, 69, 78, 98, 107, 127, 136, 156]),
-          gameIndex: 1,
+          ...buildGame('Bob', [20, 40, 49, 69, 78, 98, 107, 127, 136, 156], 156, {
+            gameIndex: 1
+          }),
           totalScore: 0
         }
+      ]
+    },
+    {
+      id: 'img-wednesday-older',
+      previewUrl: '/wednesday-older.jpg',
+      team: { id: 'team-1', name: 'Wednesday League' },
+      originalFileName: 'wednesday-older.jpg',
+      contentType: 'image/jpeg',
+      sizeBytes: 1000,
+      createdAt: '2026-04-01T12:00:00.000Z',
+      isProcessingEstimate: false,
+      lastEstimateError: null,
+      games: [
+        buildGame('Alicia', [7, 17, 27, 37, 47, 57, 67, 77, 87, 150], 150, {
+          player: { id: 'player-alice', name: 'Alice' }
+        }),
+        buildGame('Charlie', [6, 16, 26, 36, 46, 56, 66, 76, 86, 120], 120, {
+          gameIndex: 1
+        })
       ]
     },
     {
@@ -192,18 +220,79 @@ describe('PlayerGamesBrowser', () => {
     render(<PlayerGamesBrowser mode="teams" />);
 
     expect(await screen.findByText('Games by team')).toBeVisible();
-    expect(screen.getByText('2 teams · 2 scorecards')).toBeVisible();
+    expect(screen.getByText('2 teams · 3 scorecards')).toBeVisible();
     const wednesdayButton = screen.getByRole('button', {
-      name: /Wednesday League 1 scorecard/i
+      name: /Wednesday League 2 scorecards/i
     });
     expect(wednesdayButton).toBeVisible();
     expect(screen.getByRole('button', { name: /Friday Night 1 scorecard/i })).toBeVisible();
-    expect(screen.getByRole('button', { name: /Wednesday League 1 scorecard Best: 326/i })).toBeVisible();
+    expect(screen.getByRole('button', { name: /Wednesday League 2 scorecards Best: 326/i })).toBeVisible();
     expect(screen.queryByRole('button', { name: /Unassigned/i })).not.toBeInTheDocument();
-    await screen.findByText(/Viewing Friday Night — score 145/);
-    fireEvent.click(screen.getByRole('button', { name: /Wednesday League 1 scorecard/i }));
     expect(await screen.findByText(/Viewing Wednesday League — score 326/)).toBeVisible();
     expect(screen.queryByText('Frame heatmap')).not.toBeInTheDocument();
+  });
+
+  it('shows roster and analytics for the selected team', async () => {
+    mockedLoadStoredImages.mockResolvedValue(buildTeamHistoryPage());
+
+    render(<PlayerGamesBrowser mode="teams" />);
+
+    expect(await screen.findByText('Team roster')).toBeVisible();
+
+    const analytics = screen.getByLabelText('Team analytics');
+    expect(within(analytics).getByText('Scorecards')).toBeVisible();
+    expect(within(analytics).getByText('2')).toBeVisible();
+    expect(within(analytics).getByText('Player games')).toBeVisible();
+    expect(within(analytics).getByText('4')).toBeVisible();
+    expect(within(analytics).getByText('Team average')).toBeVisible();
+    expect(within(analytics).getByText('298')).toBeVisible();
+    expect(within(analytics).getByText('Best team score')).toBeVisible();
+    expect(within(analytics).getAllByText('326')[0]).toBeVisible();
+    expect(within(analytics).getByText('Latest team score')).toBeVisible();
+
+    const roster = screen.getByRole('table', { name: 'Team roster' });
+    expect(within(roster).getByText('Alice')).toBeVisible();
+    expect(within(roster).getByText('160')).toBeVisible();
+    expect(within(roster).getByText('170')).toBeVisible();
+    expect(within(roster).getByText('Bob')).toBeVisible();
+    expect(within(roster).getByText('Charlie')).toBeVisible();
+    expect(screen.queryByText('Alicia')).not.toBeInTheDocument();
+  });
+
+  it('updates the latest lineup when a different team scorecard is selected', async () => {
+    mockedLoadStoredImages.mockResolvedValue(buildTeamHistoryPage());
+
+    render(<PlayerGamesBrowser mode="teams" />);
+
+    await screen.findByText(/Viewing Wednesday League — score 326/);
+    expect(screen.getByText('Selected lineup')).toBeVisible();
+    expect(within(screen.getByRole('table', { name: 'Selected lineup' })).getByText('Bob')).toBeVisible();
+
+    fireEvent.click(screen.getByText('wednesday-older.jpg • Score 270 • 3-game avg 270 • std dev 0'));
+
+    await waitFor(() => expect(screen.getByText(/Viewing Wednesday League — score 270/)).toBeVisible());
+    const lineup = screen.getByRole('table', { name: 'Selected lineup' });
+    expect(within(lineup).getByText('Charlie')).toBeVisible();
+    expect(within(lineup).queryByText('Bob')).not.toBeInTheDocument();
+  });
+
+  it('summarizes team member performance by lineup spot', async () => {
+    mockedLoadStoredImages.mockResolvedValue(buildTeamHistoryPage());
+
+    render(<PlayerGamesBrowser mode="teams" />);
+
+    expect(await screen.findByText('Lineup spot performance')).toBeVisible();
+
+    const spotTable = screen.getByRole('table', { name: 'Lineup spot performance' });
+    const aliceRow = within(spotTable).getByRole('row', { name: /Alice 160 \(2\) — Slot 1/i });
+    expect(aliceRow).toBeVisible();
+    expect(within(spotTable).getByRole('row', { name: /Bob — 156 \(1\) Slot 2/i })).toBeVisible();
+    expect(within(spotTable).getByRole('row', { name: /Charlie — 120 \(1\) Slot 2/i })).toBeVisible();
+    expect(screen.getByText('Values show average score with games in parentheses.')).toBeVisible();
+
+    const strengthTable = screen.getByRole('table', { name: 'Slot strength' });
+    expect(within(strengthTable).getByRole('row', { name: /Slot 1 160 2 Alice Alice/i })).toBeVisible();
+    expect(within(strengthTable).getByRole('row', { name: /Slot 2 138 2 Bob Bob/i })).toBeVisible();
   });
 
   it('recomputes the heatmap when a different player is selected', async () => {

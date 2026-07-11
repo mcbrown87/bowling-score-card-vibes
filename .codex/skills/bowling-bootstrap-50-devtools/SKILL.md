@@ -1,13 +1,13 @@
 ---
 name: bowling-bootstrap-50-devtools
-description: Use for BowlingScoreCardVibes when the user wants to bootstrap the local app with 50 seeded random games and connect Chrome DevTools MCP for browser verification or UI work.
+description: Use for BowlingScoreCardVibes when the user wants to bootstrap the local app with enough seeded random games to exercise pagination and connect Chrome DevTools MCP for browser verification or UI work.
 ---
 
-# Bowling Bootstrap 50 DevTools
+# Bowling Bootstrap Pagination DevTools
 
 ## Purpose
 
-Seed the local BowlingScoreCardVibes app with 50 random bootstrap games, then connect the Chrome DevTools MCP browser to the running app and log in as the bootstrap admin user.
+Seed the local BowlingScoreCardVibes app with random bootstrap player/team history that crosses the 50-image pagination boundary, then connect the Chrome DevTools MCP browser to the running app and log in as the bootstrap admin user.
 
 ## Workflow
 
@@ -20,7 +20,7 @@ Seed the local BowlingScoreCardVibes app with 50 random bootstrap games, then co
 2. Run the bootstrap script headlessly from the frontend package:
 
 ```bash
-BOOTSTRAP_IMAGE_COUNT=50 BOOTSTRAP_RANDOM_GAMES=true npm run bootstrap:session -- --headless
+BOOTSTRAP_RANDOM_GAMES=true npm run bootstrap:session -- --headless
 ```
 
 Use this workdir:
@@ -34,8 +34,9 @@ Use this workdir:
 4. Watch for these success lines:
 
 ```text
-Seeded 50 bootstrap images for dev+bootstrap@example.com.
-Random mode enabled: seeded 50 varied games for player Bootstrap User.
+Seeded 60 bootstrap images for dev+bootstrap@example.com.
+Random mode enabled: seeded 240 varied games across 4 players.
+Team mode enabled: assigned bootstrap images across 4 teams (...).
 Logged in as dev+bootstrap@example.com.
 ```
 
@@ -70,7 +71,8 @@ Password: devpassword123
 ## Notes
 
 - The bootstrap script deletes and replaces prior bootstrap fixture images for the bootstrap user before seeding.
-- `BOOTSTRAP_RANDOM_GAMES=true` creates one varied random game per seeded image, so `BOOTSTRAP_IMAGE_COUNT=50` produces 50 games.
+- `BOOTSTRAP_RANDOM_GAMES=true` defaults to 60 images so pagination is exercised; override with `BOOTSTRAP_IMAGE_COUNT` or `--image-count`.
+- Random mode creates one varied random game per configured player per seeded image and assigns images round-robin across teams. Override players with `BOOTSTRAP_RANDOM_PLAYER_NAMES` and teams with `BOOTSTRAP_RANDOM_TEAM_NAMES` or `--random-team-names`.
 - The bootstrap user is expected to be an admin. If `/admin` is forbidden, run this from `bowling-scorecard`:
 
 ```bash

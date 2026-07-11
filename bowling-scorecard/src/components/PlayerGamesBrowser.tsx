@@ -26,6 +26,43 @@ type PlayerGroup = {
   games: PlayerGameEntry[];
 };
 
+type TeamRosterEntry = {
+  playerKey: string;
+  playerName: string;
+  games: number;
+  best: number;
+  average: number;
+  lastPlayed: string;
+};
+
+type TeamLineupEntry = {
+  key: string;
+  playerName: string;
+  score: number;
+  gameIndex: number;
+};
+
+type TeamLineupSpotCell = {
+  average: number;
+  games: number;
+  isBest: boolean;
+};
+
+type TeamLineupSpotRow = {
+  playerKey: string;
+  playerName: string;
+  slots: Map<number, TeamLineupSpotCell>;
+  bestSlot: number | null;
+};
+
+type TeamSlotStrengthRow = {
+  slot: number;
+  average: number;
+  games: number;
+  bestPlayerName: string;
+  mostFrequentPlayerName: string;
+};
+
 type GamesBrowserMode = 'players' | 'teams';
 
 type GamesBrowserCopy = {
@@ -133,6 +170,16 @@ const getGameScore = (game: StoredGameSummary) => {
 const getImageTeamScore = (image: StoredImageSummary) =>
   image.games.reduce((sum, game) => sum + getGameScore(game), 0);
 
+const normalizePlayerLookupName = (name: string) => name.trim().replace(/\s+/gu, ' ').toLowerCase();
+
+const getGamePlayerName = (game: StoredGameSummary) =>
+  game.player?.name || game.playerName || 'Unnamed player';
+
+const getGamePlayerKey = (game: StoredGameSummary) => {
+  const playerName = getGamePlayerName(game);
+  return game.player?.id ?? `name:${normalizePlayerLookupName(playerName)}`;
+};
+
 const pageStyles: CSSProperties = {
   width: '100%',
   marginTop: '12px',
@@ -230,6 +277,67 @@ const badgeStyles: CSSProperties = {
   color: '#e2e8f0',
   fontSize: '12px',
   fontWeight: 700
+};
+
+const statsGridStyles: CSSProperties = {
+  display: 'grid',
+  gridTemplateColumns: 'repeat(auto-fit, minmax(120px, 1fr))',
+  gap: '8px',
+  marginBottom: '12px'
+};
+
+const statTileStyles: CSSProperties = {
+  border: '1px solid #334155',
+  borderRadius: '10px',
+  backgroundColor: '#0f172a',
+  padding: '10px'
+};
+
+const statLabelStyles: CSSProperties = {
+  display: 'block',
+  color: '#93c5fd',
+  fontSize: '12px',
+  fontWeight: 700,
+  marginBottom: '4px'
+};
+
+const statValueStyles: CSSProperties = {
+  color: '#f8fafc',
+  fontSize: '20px',
+  fontWeight: 800
+};
+
+const dataTableStyles: CSSProperties = {
+  width: '100%',
+  borderCollapse: 'collapse',
+  color: '#e2e8f0',
+  fontSize: '13px'
+};
+
+const dataTableHeaderStyles: CSSProperties = {
+  color: '#93c5fd',
+  fontSize: '11px',
+  textTransform: 'uppercase',
+  letterSpacing: 0,
+  textAlign: 'left',
+  padding: '8px',
+  borderBottom: '1px solid #334155'
+};
+
+const dataTableCellStyles: CSSProperties = {
+  padding: '8px',
+  borderBottom: '1px solid #1e293b',
+  verticalAlign: 'middle'
+};
+
+const dataTableNumberCellStyles: CSSProperties = {
+  ...dataTableCellStyles,
+  textAlign: 'right',
+  fontVariantNumeric: 'tabular-nums'
+};
+
+const subsectionStyles: CSSProperties = {
+  marginTop: '14px'
 };
 
 const selectedGameMetaStyles: CSSProperties = {
@@ -706,8 +814,8 @@ export function PlayerGamesBrowser({ mode = 'players' }: PlayerGamesBrowserProps
       }
 
       image.games.forEach((game) => {
-        const playerName = game.playerName || 'Unnamed player';
-        const playerKey = game.player?.id ?? `name:${playerName}`;
+        const playerName = getGamePlayerName(game);
+        const playerKey = getGamePlayerKey(game);
         const key = `${image.id}-${game.gameIndex}`;
         const entry = map.get(playerKey) ?? { playerKey, playerName, games: [] };
         entry.games.push({ key, game, games: [game], image, score: getGameScore(game) });
@@ -798,6 +906,236 @@ export function PlayerGamesBrowser({ mode = 'players' }: PlayerGamesBrowserProps
       lastPlayed
     };
   }, [selectedPlayerGroup, visiblePlayerGames]);
+
+  const selectedTeamInsights = useMemo(() => {
+    if (mode !== 'teams' || !selectedPlayerGroup) {
+      return null;
+    }
+
+    const rosterMap = new Map<
+      string,
+      {
+        playerKey: string;
+        playerName: string;
+        scores: number[];
+        lastPlayed: string;
+      }
+    >();
+    const playerSlotMap = new Map<
+      string,
+      {
+        playerKey: string;
+        playerName: string;
+        slots: Map<number, number[]>;
+      }
+    >();
+    const slotMap = new Map<
+      number,
+      {
+        scores: number[];
+        playerScores: Map<string, { playerName: string; scores: number[] }>;
+      }
+    >();
+
+    selectedPlayerGroup.games.forEach((entry) => {
+      entry.games.forEach((game) => {
+        const playerKey = getGamePlayerKey(game);
+        const playerName = getGamePlayerName(game);
+        const score = getGameScore(game);
+        const slot = game.gameIndex + 1;
+        const existing =
+          rosterMap.get(playerKey) ?? {
+            playerKey,
+            playerName,
+            scores: [],
+            lastPlayed: entry.image.createdAt
+          };
+        existing.scores.push(score);
+        if (new Date(entry.image.createdAt).getTime() > new Date(existing.lastPlayed).getTime()) {
+          existing.lastPlayed = entry.image.createdAt;
+        }
+        rosterMap.set(playerKey, existing);
+
+        const playerSlots =
+          playerSlotMap.get(playerKey) ?? {
+            playerKey,
+            playerName,
+            slots: new Map<number, number[]>()
+          };
+        playerSlots.slots.set(slot, [...(playerSlots.slots.get(slot) ?? []), score]);
+        playerSlotMap.set(playerKey, playerSlots);
+
+        const slotEntry =
+          slotMap.get(slot) ?? {
+            scores: [],
+            playerScores: new Map<string, { playerName: string; scores: number[] }>()
+          };
+        slotEntry.scores.push(score);
+        const playerSlotScores =
+          slotEntry.playerScores.get(playerKey) ?? {
+            playerName,
+            scores: []
+          };
+        playerSlotScores.scores.push(score);
+        slotEntry.playerScores.set(playerKey, playerSlotScores);
+        slotMap.set(slot, slotEntry);
+      });
+    });
+
+    const roster: TeamRosterEntry[] = Array.from(rosterMap.values())
+      .map((entry) => {
+        const best = entry.scores.length ? Math.max(...entry.scores) : 0;
+        const average = entry.scores.length
+          ? entry.scores.reduce((sum, score) => sum + score, 0) / entry.scores.length
+          : 0;
+        return {
+          playerKey: entry.playerKey,
+          playerName: entry.playerName,
+          games: entry.scores.length,
+          best,
+          average: Math.round(average),
+          lastPlayed: entry.lastPlayed
+        };
+      })
+      .sort((a, b) => {
+        if (b.games !== a.games) {
+          return b.games - a.games;
+        }
+        const lastPlayedDelta = new Date(b.lastPlayed).getTime() - new Date(a.lastPlayed).getTime();
+        if (lastPlayedDelta !== 0) {
+          return lastPlayedDelta;
+        }
+        return a.playerName.localeCompare(b.playerName);
+      });
+
+    const lineupSpotRows: TeamLineupSpotRow[] = Array.from(playerSlotMap.values())
+      .map((entry) => {
+        const slotEntries = Array.from(entry.slots.entries()).map(([slot, scores]) => ({
+          slot,
+          average: Math.round(scores.reduce((sum, score) => sum + score, 0) / scores.length),
+          games: scores.length
+        }));
+        const bestAverage = slotEntries.length
+          ? Math.max(...slotEntries.map((slotEntry) => slotEntry.average))
+          : 0;
+        const bestSlot =
+          slotEntries
+            .slice()
+            .sort((a, b) => {
+              if (b.average !== a.average) {
+                return b.average - a.average;
+              }
+              if (b.games !== a.games) {
+                return b.games - a.games;
+              }
+              return a.slot - b.slot;
+            })[0]?.slot ?? null;
+        const slots = new Map<number, TeamLineupSpotCell>(
+          slotEntries.map((slotEntry) => [
+            slotEntry.slot,
+            {
+              average: slotEntry.average,
+              games: slotEntry.games,
+              isBest: slotEntry.average === bestAverage
+            }
+          ])
+        );
+        return {
+          playerKey: entry.playerKey,
+          playerName: entry.playerName,
+          slots,
+          bestSlot
+        };
+      })
+      .sort((a, b) => a.playerName.localeCompare(b.playerName));
+
+    const lineupSlots = Array.from(slotMap.keys()).sort((a, b) => a - b);
+    const slotStrengthRows: TeamSlotStrengthRow[] = lineupSlots.map((slot) => {
+      const slotEntry = slotMap.get(slot);
+      const scores = slotEntry?.scores ?? [];
+      const playerSummaries = Array.from(slotEntry?.playerScores.values() ?? []).map((entry) => {
+        const average = Math.round(entry.scores.reduce((sum, score) => sum + score, 0) / entry.scores.length);
+        return {
+          playerName: entry.playerName,
+          average,
+          games: entry.scores.length
+        };
+      });
+      const bestPlayerName =
+        playerSummaries
+          .slice()
+          .sort((a, b) => {
+            if (b.average !== a.average) {
+              return b.average - a.average;
+            }
+            if (b.games !== a.games) {
+              return b.games - a.games;
+            }
+            return a.playerName.localeCompare(b.playerName);
+          })[0]?.playerName ?? '—';
+      const mostFrequentPlayerName =
+        playerSummaries
+          .slice()
+          .sort((a, b) => {
+            if (b.games !== a.games) {
+              return b.games - a.games;
+            }
+            if (b.average !== a.average) {
+              return b.average - a.average;
+            }
+            return a.playerName.localeCompare(b.playerName);
+          })[0]?.playerName ?? '—';
+
+      return {
+        slot,
+        average: scores.length
+          ? Math.round(scores.reduce((sum, score) => sum + score, 0) / scores.length)
+          : 0,
+        games: scores.length,
+        bestPlayerName,
+        mostFrequentPlayerName
+      };
+    });
+
+    const latestScore = visiblePlayerGames[0]?.score ?? 0;
+    const totalPlayerGames = selectedPlayerGroup.games.reduce(
+      (count, entry) => count + entry.games.length,
+      0
+    );
+
+    return {
+      scorecardsShown: visiblePlayerGames.length,
+      totalScorecards: selectedPlayerGroup.games.length,
+      totalPlayerGames,
+      averageTeamScore: playerStats?.average ?? 0,
+      bestTeamScore: playerStats?.best ?? 0,
+      latestTeamScore: latestScore,
+      roster,
+      lineupSlots,
+      lineupSpotRows,
+      slotStrengthRows
+    };
+  }, [mode, playerStats, selectedPlayerGroup, visiblePlayerGames]);
+
+  const selectedTeamLineup = useMemo<TeamLineupEntry[]>(() => {
+    if (mode !== 'teams' || !selectedGame) {
+      return [];
+    }
+
+    return selectedGame.games
+      .map((game) => ({
+        key: `${selectedGame.image.id}-${game.gameIndex}`,
+        playerName: getGamePlayerName(game),
+        score: getGameScore(game),
+        gameIndex: game.gameIndex
+      }))
+      .sort((a, b) => {
+        if (b.score !== a.score) {
+          return b.score - a.score;
+        }
+        return a.gameIndex - b.gameIndex;
+      });
+  }, [mode, selectedGame]);
 
   const totalGamesCount = useMemo(
     () =>
@@ -1059,6 +1397,180 @@ export function PlayerGamesBrowser({ mode = 'players' }: PlayerGamesBrowserProps
                   </span>
                 </div>
 
+                {selectedTeamInsights && (
+                  <>
+                    <div style={statsGridStyles} aria-label="Team analytics">
+                      <div style={statTileStyles}>
+                        <span style={statLabelStyles}>Scorecards</span>
+                        <span style={statValueStyles}>
+                          {selectedTeamInsights.scorecardsShown}
+                          {selectedTeamInsights.scorecardsShown !== selectedTeamInsights.totalScorecards
+                            ? ` / ${selectedTeamInsights.totalScorecards}`
+                            : ''}
+                        </span>
+                      </div>
+                      <div style={statTileStyles}>
+                        <span style={statLabelStyles}>Player games</span>
+                        <span style={statValueStyles}>{selectedTeamInsights.totalPlayerGames}</span>
+                      </div>
+                      <div style={statTileStyles}>
+                        <span style={statLabelStyles}>Team average</span>
+                        <span style={statValueStyles}>{selectedTeamInsights.averageTeamScore}</span>
+                      </div>
+                      <div style={statTileStyles}>
+                        <span style={statLabelStyles}>Best team score</span>
+                        <span style={statValueStyles}>{selectedTeamInsights.bestTeamScore}</span>
+                      </div>
+                      <div style={statTileStyles}>
+                        <span style={statLabelStyles}>Latest team score</span>
+                        <span style={statValueStyles}>{selectedTeamInsights.latestTeamScore}</span>
+                      </div>
+                    </div>
+
+                    <div style={subsectionStyles}>
+                      <h4 style={sectionTitleStyles}>Team roster</h4>
+                      {selectedTeamInsights.roster.length > 0 ? (
+                        <table style={dataTableStyles} aria-label="Team roster">
+                          <thead>
+                            <tr>
+                              <th scope="col" style={dataTableHeaderStyles}>
+                                Player
+                              </th>
+                              <th scope="col" style={{ ...dataTableHeaderStyles, textAlign: 'right' }}>
+                                Games
+                              </th>
+                              <th scope="col" style={{ ...dataTableHeaderStyles, textAlign: 'right' }}>
+                                Average
+                              </th>
+                              <th scope="col" style={{ ...dataTableHeaderStyles, textAlign: 'right' }}>
+                                Best
+                              </th>
+                              <th scope="col" style={dataTableHeaderStyles}>
+                                Last played
+                              </th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {selectedTeamInsights.roster.map((player) => (
+                              <tr key={player.playerKey}>
+                                <td style={{ ...dataTableCellStyles, fontWeight: 800 }}>
+                                  {player.playerName}
+                                </td>
+                                <td style={dataTableNumberCellStyles}>{player.games}</td>
+                                <td style={dataTableNumberCellStyles}>{player.average}</td>
+                                <td style={dataTableNumberCellStyles}>{player.best}</td>
+                                <td style={dataTableCellStyles}>{formatShortDate(player.lastPlayed)}</td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      ) : (
+                        <p style={hintTextStyles}>No players found for this team yet.</p>
+                      )}
+                    </div>
+
+                    {selectedTeamInsights.lineupSlots.length > 0 && (
+                      <>
+                        <div style={subsectionStyles}>
+                          <h4 style={sectionTitleStyles}>Lineup spot performance</h4>
+                          <table style={dataTableStyles} aria-label="Lineup spot performance">
+                            <thead>
+                              <tr>
+                                <th scope="col" style={dataTableHeaderStyles}>
+                                  Player
+                                </th>
+                                {selectedTeamInsights.lineupSlots.map((slot) => (
+                                  <th
+                                    key={slot}
+                                    scope="col"
+                                    style={{ ...dataTableHeaderStyles, textAlign: 'right' }}
+                                  >
+                                    Slot {slot}
+                                  </th>
+                                ))}
+                                <th scope="col" style={{ ...dataTableHeaderStyles, textAlign: 'right' }}>
+                                  Best slot
+                                </th>
+                              </tr>
+                            </thead>
+                            <tbody>
+                              {selectedTeamInsights.lineupSpotRows.map((player) => (
+                                <tr key={player.playerKey}>
+                                  <td style={{ ...dataTableCellStyles, fontWeight: 800 }}>
+                                    {player.playerName}
+                                  </td>
+                                  {selectedTeamInsights.lineupSlots.map((slot) => {
+                                    const cell = player.slots.get(slot);
+                                    return (
+                                      <td
+                                        key={slot}
+                                        style={{
+                                          ...dataTableNumberCellStyles,
+                                          color: cell?.isBest ? '#f8fafc' : '#e2e8f0',
+                                          fontWeight: cell?.isBest ? 800 : 500,
+                                          backgroundColor: cell?.isBest
+                                            ? 'rgba(37, 99, 235, 0.18)'
+                                            : 'transparent'
+                                        }}
+                                      >
+                                        {cell ? `${cell.average} (${cell.games})` : '—'}
+                                      </td>
+                                    );
+                                  })}
+                                  <td style={dataTableNumberCellStyles}>
+                                    {player.bestSlot ? `Slot ${player.bestSlot}` : '—'}
+                                  </td>
+                                </tr>
+                              ))}
+                            </tbody>
+                          </table>
+                          <p style={{ ...hintTextStyles, marginTop: '6px' }}>
+                            Values show average score with games in parentheses.
+                          </p>
+                        </div>
+
+                        <div style={subsectionStyles}>
+                          <h4 style={sectionTitleStyles}>Slot strength</h4>
+                          <table style={dataTableStyles} aria-label="Slot strength">
+                            <thead>
+                              <tr>
+                                <th scope="col" style={dataTableHeaderStyles}>
+                                  Slot
+                                </th>
+                                <th scope="col" style={{ ...dataTableHeaderStyles, textAlign: 'right' }}>
+                                  Average
+                                </th>
+                                <th scope="col" style={{ ...dataTableHeaderStyles, textAlign: 'right' }}>
+                                  Games
+                                </th>
+                                <th scope="col" style={dataTableHeaderStyles}>
+                                  Best player
+                                </th>
+                                <th scope="col" style={dataTableHeaderStyles}>
+                                  Most frequent
+                                </th>
+                              </tr>
+                            </thead>
+                            <tbody>
+                              {selectedTeamInsights.slotStrengthRows.map((slot) => (
+                                <tr key={slot.slot}>
+                                  <td style={{ ...dataTableCellStyles, fontWeight: 800 }}>
+                                    Slot {slot.slot}
+                                  </td>
+                                  <td style={dataTableNumberCellStyles}>{slot.average}</td>
+                                  <td style={dataTableNumberCellStyles}>{slot.games}</td>
+                                  <td style={dataTableCellStyles}>{slot.bestPlayerName}</td>
+                                  <td style={dataTableCellStyles}>{slot.mostFrequentPlayerName}</td>
+                                </tr>
+                              ))}
+                            </tbody>
+                          </table>
+                        </div>
+                      </>
+                    )}
+                  </>
+                )}
+
                 <div style={chartCardStyles}>
                   <div style={chartLegendStyles}>
                     <span style={lineLegendItemStyles}>
@@ -1220,6 +1732,36 @@ export function PlayerGamesBrowser({ mode = 'players' }: PlayerGamesBrowserProps
                         <p style={{ ...hintTextStyles, marginTop: '8px' }}>
                           Team scores are tracked as image totals. Frame-by-frame views are hidden for teams.
                         </p>
+                        {selectedTeamLineup.length > 0 && (
+                          <div style={subsectionStyles}>
+                            <h4 style={sectionTitleStyles}>Selected lineup</h4>
+                            <table style={dataTableStyles} aria-label="Selected lineup">
+                              <thead>
+                                <tr>
+                                  <th scope="col" style={dataTableHeaderStyles}>
+                                    Player
+                                  </th>
+                                  <th
+                                    scope="col"
+                                    style={{ ...dataTableHeaderStyles, textAlign: 'right' }}
+                                  >
+                                    Score
+                                  </th>
+                                </tr>
+                              </thead>
+                              <tbody>
+                                {selectedTeamLineup.map((player) => (
+                                  <tr key={player.key}>
+                                    <td style={{ ...dataTableCellStyles, fontWeight: 800 }}>
+                                      {player.playerName}
+                                    </td>
+                                    <td style={dataTableNumberCellStyles}>{player.score}</td>
+                                  </tr>
+                                ))}
+                              </tbody>
+                            </table>
+                          </div>
+                        )}
                       </div>
                     )}
                   </div>
