@@ -23,6 +23,12 @@ export default async function LibraryPage({ searchParams }: LibraryPageProps) {
     typeof parsedGameIndex === 'number' && Number.isFinite(parsedGameIndex)
       ? parsedGameIndex
       : null;
+  const pageParam = searchParams?.page;
+  const parsedPage = typeof pageParam === 'string' ? Number.parseInt(pageParam, 10) : 1;
+  const initialPage =
+    typeof parsedPage === 'number' && Number.isFinite(parsedPage) && parsedPage > 0
+      ? parsedPage
+      : 1;
 
   if (!session?.user && !e2eBypassEnabled) {
     return (
@@ -47,7 +53,11 @@ export default async function LibraryPage({ searchParams }: LibraryPageProps) {
         isAdmin={session?.user?.role === 'ADMIN'}
       />
       <div style={{ padding: '0 16px 16px', maxWidth: '1200px', margin: '0 auto' }}>
-        <StoredImagesLibrary initialImageId={initialImageId} initialGameIndex={initialGameIndex} />
+        <StoredImagesLibrary
+          initialImageId={initialImageId}
+          initialGameIndex={initialGameIndex}
+          initialPage={initialPage}
+        />
       </div>
     </main>
   );

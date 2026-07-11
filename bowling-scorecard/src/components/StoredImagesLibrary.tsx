@@ -21,18 +21,25 @@ import { upsertStoredGameByIndex } from '@/utils/gameCreation';
 type StoredImagesLibraryProps = {
   initialImageId?: string | null;
   initialGameIndex?: number | null;
+  initialPage?: number;
 };
 
 const LIBRARY_PAGE_SIZE = 50;
 
-export function StoredImagesLibrary({ initialImageId, initialGameIndex }: StoredImagesLibraryProps) {
+export function StoredImagesLibrary({
+  initialImageId,
+  initialGameIndex,
+  initialPage = 1
+}: StoredImagesLibraryProps) {
   const [images, setImages] = useState<StoredImageSummary[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [generatingImageId, setGeneratingImageId] = useState<string | null>(null);
   const [clearingImageId, setClearingImageId] = useState<string | null>(null);
   const [deletingImageId, setDeletingImageId] = useState<string | null>(null);
-  const [currentPage, setCurrentPage] = useState(1);
+  const [currentPage, setCurrentPage] = useState(() =>
+    Number.isFinite(initialPage) && initialPage > 0 ? Math.floor(initialPage) : 1
+  );
   const [totalImages, setTotalImages] = useState(0);
   const [totalPages, setTotalPages] = useState(1);
   const [activeImageIndexOnPage, setActiveImageIndexOnPage] = useState(0);

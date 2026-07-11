@@ -47,6 +47,12 @@ const normalizeStoredGame = (
     typeof game.playerName === 'string' && game.playerName.trim().length > 0
       ? game.playerName
       : 'Unnamed player';
+  const totalScore =
+    typeof game.totalScore === 'number' && Number.isFinite(game.totalScore)
+      ? game.totalScore
+      : typeof tenthFrame.score === 'number' && Number.isFinite(tenthFrame.score)
+        ? tenthFrame.score
+        : 0;
 
   return {
     id: (game as StoredGamePayload)?.id,
@@ -57,7 +63,7 @@ const normalizeStoredGame = (
     isEstimate: Boolean((game as StoredGamePayload)?.isEstimate ?? true),
     frames,
     tenthFrame,
-    totalScore: typeof game.totalScore === 'number' ? game.totalScore : 0,
+    totalScore,
     player: (game as StoredGamePayload)?.player ?? null,
     playerName
   };

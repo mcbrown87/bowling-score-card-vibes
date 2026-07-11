@@ -2,9 +2,11 @@ import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { PlayerGamesBrowser } from './PlayerGamesBrowser';
 import { loadStoredImages } from '@/utils/storedImages';
 
+const mockRouterPush = jest.fn();
+
 jest.mock('next/navigation', () => ({
   useRouter: () => ({
-    push: jest.fn()
+    push: mockRouterPush
   })
 }));
 
@@ -99,6 +101,58 @@ const buildAliceHistoryPage = (scores: number[]) => ({
   }))
 });
 
+const buildTeamHistoryPage = () => ({
+  page: 1,
+  pageSize: 50,
+  totalImages: 3,
+  totalPages: 1,
+  images: [
+    {
+      id: 'img-wednesday',
+      previewUrl: '/wednesday.jpg',
+      team: { id: 'team-1', name: 'Wednesday League' },
+      originalFileName: 'wednesday.jpg',
+      contentType: 'image/jpeg',
+      sizeBytes: 1000,
+      createdAt: '2026-04-04T12:00:00.000Z',
+      isProcessingEstimate: false,
+      lastEstimateError: null,
+      games: [
+        buildGame('Alice', [8, 18, 30, 44, 60, 78, 98, 120, 144, 170]),
+        {
+          ...buildGame('Bob', [20, 40, 49, 69, 78, 98, 107, 127, 136, 156]),
+          gameIndex: 1,
+          totalScore: 0
+        }
+      ]
+    },
+    {
+      id: 'img-friday',
+      previewUrl: '/friday.jpg',
+      team: { id: 'team-2', name: 'Friday Night' },
+      originalFileName: 'friday.jpg',
+      contentType: 'image/jpeg',
+      sizeBytes: 1000,
+      createdAt: '2026-04-03T12:00:00.000Z',
+      isProcessingEstimate: false,
+      lastEstimateError: null,
+      games: [buildGame('Alice', [9, 29, 38, 58, 67, 87, 96, 116, 125, 145])]
+    },
+    {
+      id: 'img-unassigned',
+      previewUrl: '/unassigned.jpg',
+      team: null,
+      originalFileName: 'unassigned.jpg',
+      contentType: 'image/jpeg',
+      sizeBytes: 1000,
+      createdAt: '2026-04-02T12:00:00.000Z',
+      isProcessingEstimate: false,
+      lastEstimateError: null,
+      games: [buildGame('Unassigned', [7, 17, 27, 37, 47, 57, 67, 77, 87, 97])]
+    }
+  ]
+});
+
 beforeEach(() => {
   mockedLoadStoredImages.mockResolvedValue(buildStoredImagesPage());
   window.innerWidth = 1200;
@@ -116,6 +170,7 @@ beforeEach(() => {
 
 afterEach(() => {
   jest.clearAllMocks();
+  mockRouterPush.mockClear();
   window.innerWidth = originalInnerWidth;
   window.matchMedia = originalMatchMedia;
 });
@@ -129,6 +184,26 @@ describe('PlayerGamesBrowser', () => {
     expect(await screen.findByText('Frame heatmap')).toBeVisible();
     expect(screen.getByTestId('frame-box-1')).toHaveAttribute('data-heat-intensity', '0.12');
     expect(screen.getByTestId('frame-box-10')).toHaveAttribute('data-heat-intensity', '0.78');
+  });
+
+  it('groups scorecards by team in team mode', async () => {
+    mockedLoadStoredImages.mockResolvedValue(buildTeamHistoryPage());
+
+    render(<PlayerGamesBrowser mode="teams" />);
+
+    expect(await screen.findByText('Games by team')).toBeVisible();
+    expect(screen.getByText('2 teams · 2 scorecards')).toBeVisible();
+    const wednesdayButton = screen.getByRole('button', {
+      name: /Wednesday League 1 scorecard/i
+    });
+    expect(wednesdayButton).toBeVisible();
+    expect(screen.getByRole('button', { name: /Friday Night 1 scorecard/i })).toBeVisible();
+    expect(screen.getByRole('button', { name: /Wednesday League 1 scorecard Best: 326/i })).toBeVisible();
+    expect(screen.queryByRole('button', { name: /Unassigned/i })).not.toBeInTheDocument();
+    await screen.findByText(/Viewing Friday Night — score 145/);
+    fireEvent.click(screen.getByRole('button', { name: /Wednesday League 1 scorecard/i }));
+    expect(await screen.findByText(/Viewing Wednesday League — score 326/)).toBeVisible();
+    expect(screen.queryByText('Frame heatmap')).not.toBeInTheDocument();
   });
 
   it('recomputes the heatmap when a different player is selected', async () => {
@@ -318,6 +393,66 @@ describe('PlayerGamesBrowser', () => {
     expect(screen.getByRole('button', { name: /Alice 3 games/i })).toBeVisible();
     expect(screen.getByLabelText('Games shown')).toHaveValue('0');
     expect(screen.getByText('Showing: 3')).toBeVisible();
+  });
+
+  it('links player games to the source library page', async () => {
+    mockedLoadStoredImages.mockImplementation(async (page = 1) => {
+      if (page === 1) {
+        return {
+          page: 1,
+          pageSize: 50,
+          totalImages: 51,
+          totalPages: 2,
+          images: Array.from({ length: 50 }, (_, index) => ({
+            id: `img-page-1-${index}`,
+            previewUrl: `/page-1-${index}.jpg`,
+            team: null,
+            originalFileName: `page-1-${index}.jpg`,
+            contentType: 'image/jpeg',
+            sizeBytes: 1000,
+            createdAt: `2026-03-01T12:${String(index).padStart(2, '0')}:00.000Z`,
+            isProcessingEstimate: false,
+            lastEstimateError: null,
+            games: [
+              buildGame(
+                index === 0 ? 'Alice' : `Player ${index}`,
+                [8, 18, 30, 44, 60, 78, 98, 120, 144, 170]
+              )
+            ]
+          }))
+        };
+      }
+
+      return {
+        page: 2,
+        pageSize: 50,
+        totalImages: 51,
+        totalPages: 2,
+        images: [
+          {
+            id: 'img-target-page-2',
+            previewUrl: '/target-page-2.jpg',
+            team: null,
+            originalFileName: 'target-page-2.jpg',
+            contentType: 'image/jpeg',
+            sizeBytes: 1000,
+            createdAt: '2026-04-30T12:00:00.000Z',
+            isProcessingEstimate: false,
+            lastEstimateError: null,
+            games: [buildGame('Alice', [9, 29, 38, 58, 67, 87, 96, 116, 125, 145])]
+          }
+        ]
+      };
+    });
+
+    render(<PlayerGamesBrowser />);
+
+    await screen.findByText(/Viewing Alice — score 145/);
+    fireEvent.click(screen.getByRole('button', { name: 'Open this game in the library view' }));
+
+    expect(mockRouterPush).toHaveBeenCalledWith(
+      '/library?imageId=img-target-page-2&gameIndex=0&page=2'
+    );
   });
 
   it('shows a frame trend preview on hover for hover-capable layouts', async () => {

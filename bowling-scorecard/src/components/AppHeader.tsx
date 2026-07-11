@@ -5,7 +5,7 @@ import { usePathname } from 'next/navigation';
 import { useEffect, useState } from 'react';
 import type { CSSProperties } from 'react';
 import type { LucideIcon } from 'lucide-react';
-import { Home, Images, MoreHorizontal, Shield, Users } from 'lucide-react';
+import { Home, Images, MoreHorizontal, Shield, Trophy, Users } from 'lucide-react';
 import { SignOutButton } from './auth/SignOutButton';
 
 type AppHeaderProps = {
@@ -99,7 +99,7 @@ const mobileBottomNavStyles: CSSProperties = {
 
 const mobileNavInnerStyles: CSSProperties = {
   display: 'grid',
-  gridTemplateColumns: 'repeat(4, minmax(0, 1fr))',
+  gridTemplateColumns: 'repeat(5, minmax(0, 1fr))',
   gap: '6px',
   maxWidth: '520px',
   margin: '0 auto'
@@ -271,12 +271,14 @@ export function AppHeader({ userLabel, isAdmin = false }: AppHeaderProps) {
   const isHome = pathname === '/';
   const isLibrary = pathname?.startsWith('/library');
   const isPlayers = pathname?.startsWith('/players');
+  const isTeams = pathname?.startsWith('/teams');
   const isAdminRoute = pathname?.startsWith('/admin');
 
   const primaryNavItems: NavItem[] = [
     { href: '/', label: 'Upload', Icon: Home, active: isHome },
     { href: '/library', label: 'Library', Icon: Images, active: Boolean(isLibrary) },
-    { href: '/players', label: 'Players', Icon: Users, active: Boolean(isPlayers) }
+    { href: '/players', label: 'Players', Icon: Users, active: Boolean(isPlayers) },
+    { href: '/teams', label: 'Teams', Icon: Trophy, active: Boolean(isTeams) }
   ];
 
   if (isMobile) {
@@ -424,6 +426,9 @@ export function AppHeader({ userLabel, isAdmin = false }: AppHeaderProps) {
         </Link>
         <Link href="/players" style={isPlayers ? activeLinkStyles : linkStyles}>
           Players
+        </Link>
+        <Link href="/teams" style={isTeams ? activeLinkStyles : linkStyles}>
+          Teams
         </Link>
         {isAdmin && (
           <Link href="/admin" style={isAdminRoute ? activeLinkStyles : linkStyles}>

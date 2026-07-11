@@ -15,13 +15,62 @@ import { Scorecard } from './Scorecard';
 type PlayerGameEntry = {
   key: string;
   game: StoredGameSummary;
+  games: StoredGameSummary[];
   image: StoredImageSummary;
+  score: number;
 };
 
 type PlayerGroup = {
   playerKey: string;
   playerName: string;
   games: PlayerGameEntry[];
+};
+
+type GamesBrowserMode = 'players' | 'teams';
+
+type GamesBrowserCopy = {
+  title: string;
+  description: string;
+  summaryLabel: string;
+  itemSingular: string;
+  itemPlural: string;
+  listTitle: string;
+  loadingText: string;
+  emptyTitle: string;
+  emptyDescription: string;
+  mobileChooseLabel: string;
+  selectPrompt: string;
+};
+
+const gamesBrowserCopy: Record<GamesBrowserMode, GamesBrowserCopy> = {
+  players: {
+    title: 'Games by player',
+    description:
+      'Browse every stored game grouped by bowler. Pick a player to review their scorecards side by side.',
+    summaryLabel: 'players',
+    itemSingular: 'game',
+    itemPlural: 'games',
+    listTitle: 'Players',
+    loadingText: 'Loading player games…',
+    emptyTitle: 'No games saved yet',
+    emptyDescription: 'Upload a scorecard to start tracking games per player.',
+    mobileChooseLabel: 'Choose player',
+    selectPrompt: 'Select a player to see their games.'
+  },
+  teams: {
+    title: 'Games by team',
+    description:
+      'Browse every stored game grouped by team. Pick a team to review its scorecards side by side.',
+    summaryLabel: 'teams',
+    itemSingular: 'scorecard',
+    itemPlural: 'scorecards',
+    listTitle: 'Teams',
+    loadingText: 'Loading team games…',
+    emptyTitle: 'No team games saved yet',
+    emptyDescription: 'Assign a team to a scorecard in the library to start tracking team history.',
+    mobileChooseLabel: 'Choose team',
+    selectPrompt: 'Select a team to see its games.'
+  }
 };
 
 const gameLimitOptions = [
@@ -68,6 +117,21 @@ const sortPlayerGamesByCreatedAt = (games: PlayerGameEntry[]) =>
 
 const getNewestPlayerGame = (games: PlayerGameEntry[]) =>
   sortPlayerGamesByCreatedAt(games)[0] ?? null;
+
+const getGameScore = (game: StoredGameSummary) => {
+  const totalScore =
+    typeof game.totalScore === 'number' && Number.isFinite(game.totalScore)
+      ? game.totalScore
+      : 0;
+  const finalFrameScore =
+    typeof game.tenthFrame.score === 'number' && Number.isFinite(game.tenthFrame.score)
+      ? game.tenthFrame.score
+      : 0;
+  return Math.max(totalScore, finalFrameScore);
+};
+
+const getImageTeamScore = (image: StoredImageSummary) =>
+  image.games.reduce((sum, game) => sum + getGameScore(game), 0);
 
 const pageStyles: CSSProperties = {
   width: '100%',
@@ -340,6 +404,7 @@ type ScoreTimelineProps = {
   rollingAverageWindow: number;
   showScoreLine: boolean;
   rollingAverageDisplayMode: RollingAverageDisplayMode;
+  xAxisLabel?: string;
   selectedKey: string | null;
   onSelect: (key: string) => void;
 };
@@ -349,6 +414,7 @@ const ScoreTimeline = ({
   rollingAverageWindow,
   showScoreLine,
   rollingAverageDisplayMode,
+  xAxisLabel = 'Games',
   selectedKey,
   onSelect
 }: ScoreTimelineProps) => {
@@ -554,13 +620,17 @@ const ScoreTimeline = ({
         fontSize="11"
         fill="#93c5fd"
       >
-        Games (oldest to newest)
+        {xAxisLabel} (oldest to newest)
       </text>
     </svg>
   );
 };
 
-export function PlayerGamesBrowser() {
+type PlayerGamesBrowserProps = {
+  mode?: GamesBrowserMode;
+};
+
+export function PlayerGamesBrowser({ mode = 'players' }: PlayerGamesBrowserProps) {
   const [images, setImages] = useState<StoredImageSummary[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -574,6 +644,7 @@ export function PlayerGamesBrowser() {
   const [isStackedLayout, setIsStackedLayout] = useState(false);
   const router = useRouter();
   const isHoverCapable = useDesktopKeyboardMode();
+  const copy = gamesBrowserCopy[mode];
 
   useEffect(() => {
     const updateLayout = () => {
@@ -615,12 +686,31 @@ export function PlayerGamesBrowser() {
   const players = useMemo<PlayerGroup[]>(() => {
     const map = new Map<string, PlayerGroup>();
     images.forEach((image) => {
+      if (mode === 'teams') {
+        if (!image.team || image.games.length === 0) {
+          return;
+        }
+
+        const playerName = image.team.name;
+        const playerKey = image.team.id;
+        const entry = map.get(playerKey) ?? { playerKey, playerName, games: [] };
+        entry.games.push({
+          key: image.id,
+          game: image.games[0],
+          games: image.games,
+          image,
+          score: getImageTeamScore(image)
+        });
+        map.set(playerKey, entry);
+        return;
+      }
+
       image.games.forEach((game) => {
         const playerName = game.playerName || 'Unnamed player';
         const playerKey = game.player?.id ?? `name:${playerName}`;
         const key = `${image.id}-${game.gameIndex}`;
         const entry = map.get(playerKey) ?? { playerKey, playerName, games: [] };
-        entry.games.push({ key, game, image });
+        entry.games.push({ key, game, games: [game], image, score: getGameScore(game) });
         map.set(playerKey, entry);
       });
     });
@@ -631,10 +721,16 @@ export function PlayerGamesBrowser() {
       }
       return a.playerName.localeCompare(b.playerName);
     });
-  }, [images]);
+  }, [images, mode]);
 
   useEffect(() => {
-    if (!selectedPlayerKey && players.length > 0) {
+    if (players.length === 0) {
+      setSelectedPlayerKey(null);
+      setSelectedGameKey(null);
+      return;
+    }
+
+    if (!selectedPlayerKey || !players.some((player) => player.playerKey === selectedPlayerKey)) {
       setSelectedPlayerKey(players[0].playerKey);
       setSelectedGameKey(getNewestPlayerGame(players[0].games)?.key ?? null);
     }
@@ -686,7 +782,7 @@ export function PlayerGamesBrowser() {
     if (!selectedPlayerGroup) {
       return null;
     }
-    const totals = visiblePlayerGames.map((entry) => entry.game.totalScore || 0);
+    const totals = visiblePlayerGames.map((entry) => entry.score);
     const best = totals.length ? Math.max(...totals) : 0;
     const average = totals.length
       ? totals.reduce((sum, value) => sum + value, 0) / totals.length
@@ -704,8 +800,11 @@ export function PlayerGamesBrowser() {
   }, [selectedPlayerGroup, visiblePlayerGames]);
 
   const totalGamesCount = useMemo(
-    () => images.reduce((count, image) => count + image.games.length, 0),
-    [images]
+    () =>
+      mode === 'teams'
+        ? players.reduce((count, player) => count + player.games.length, 0)
+        : images.reduce((count, image) => count + image.games.length, 0),
+    [images, mode, players]
   );
 
   const formatDate = (iso: string) => {
@@ -746,7 +845,7 @@ export function PlayerGamesBrowser() {
       .map((entry, index) => ({
         index,
         key: entry.key,
-        score: entry.game.totalScore || 0,
+        score: entry.score,
         createdAt: entry.image.createdAt,
         label:
           entry.image.originalFileName ??
@@ -756,7 +855,7 @@ export function PlayerGamesBrowser() {
   }, [selectedPlayerGroup, visiblePlayerGames]);
 
   const frameTrendSeries = useMemo(() => {
-    if (!selectedPlayerGroup) {
+    if (!selectedPlayerGroup || mode === 'teams') {
       return null;
     }
 
@@ -769,7 +868,7 @@ export function PlayerGamesBrowser() {
       .map((entry) => entry.game);
 
     return buildFrameTrendSeries(sortedGames);
-  }, [selectedPlayerGroup, visiblePlayerGames]);
+  }, [mode, selectedPlayerGroup, visiblePlayerGames]);
 
   const selectedTrendIndex = useMemo(() => {
     if (!selectedGame) {
@@ -781,12 +880,12 @@ export function PlayerGamesBrowser() {
   }, [selectedGame, timelineData]);
 
   const frameHeatmap = useMemo(() => {
-    if (!selectedPlayerGroup) {
+    if (!selectedPlayerGroup || mode === 'teams') {
       return null;
     }
 
     return buildPlayerFrameHeatmap(visiblePlayerGames.map((entry) => entry.game));
-  }, [selectedPlayerGroup, visiblePlayerGames]);
+  }, [mode, selectedPlayerGroup, visiblePlayerGames]);
 
   const frameTrendDisplayMode = useMemo<FrameTrendDisplayMode>(() => {
     const showRollingAverage = rollingAverageDisplayMode !== 'hidden';
@@ -808,9 +907,15 @@ export function PlayerGamesBrowser() {
     }
     const params = new URLSearchParams();
     params.set('imageId', selectedGame.image.id);
-    params.set('gameIndex', String(selectedGame.game.gameIndex));
+    if (mode === 'players') {
+      params.set('gameIndex', String(selectedGame.game.gameIndex));
+    }
+    const imageIndex = images.findIndex((image) => image.id === selectedGame.image.id);
+    if (imageIndex >= 0) {
+      params.set('page', String(Math.floor(imageIndex / PLAYER_GAMES_PAGE_SIZE) + 1));
+    }
     router.push(`/library?${params.toString()}`);
-  }, [router, selectedGame]);
+  }, [images, mode, router, selectedGame]);
 
   const stackedLayout = isStackedLayout
     ? {
@@ -823,14 +928,15 @@ export function PlayerGamesBrowser() {
     <section style={pageStyles}>
       <div style={headerStyles}>
         <div>
-          <h2 style={titleStyles}>Games by player</h2>
+          <h2 style={titleStyles}>{copy.title}</h2>
           <p style={{ margin: '4px 0 0', color: '#93c5fd' }}>
-            Browse every stored game grouped by bowler. Pick a player to review their scorecards side by side.
+            {copy.description}
           </p>
         </div>
         <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
           <span style={summaryPillStyles}>
-            {players.length} players · {totalGamesCount} games
+            {players.length} {copy.summaryLabel} · {totalGamesCount}{' '}
+            {totalGamesCount === 1 ? copy.itemSingular : copy.itemPlural}
           </span>
           <button
             type="button"
@@ -861,14 +967,16 @@ export function PlayerGamesBrowser() {
       )}
 
       {isLoading && players.length === 0 && (
-        <p style={{ color: '#7dd3fc', margin: '4px 0 0' }}>Loading player games…</p>
+        <p style={{ color: '#7dd3fc', margin: '4px 0 0' }}>{copy.loadingText}</p>
       )}
 
       {!isLoading && players.length === 0 && (
         <div style={emptyStateStyles}>
-          <p style={{ margin: 0, fontWeight: 700, color: '#f8fafc' }}>No games saved yet</p>
+          <p style={{ margin: 0, fontWeight: 700, color: '#f8fafc' }}>
+            {copy.emptyTitle}
+          </p>
           <p style={{ margin: '6px 0 0' }}>
-            Upload a scorecard to start tracking games per player.
+            {copy.emptyDescription}
           </p>
         </div>
       )}
@@ -877,11 +985,11 @@ export function PlayerGamesBrowser() {
         <div style={stackedLayout}>
           {!isStackedLayout && (
             <div style={panelStyles}>
-              <h3 style={sectionTitleStyles}>Players</h3>
+              <h3 style={sectionTitleStyles}>{copy.listTitle}</h3>
               <div style={playerListStyles}>
                 {players.map((player) => {
                   const isActive = player.playerKey === selectedPlayerKey;
-                  const scores = player.games.map((entry) => entry.game.totalScore || 0);
+                  const scores = player.games.map((entry) => entry.score);
                   const bestScore = scores.length ? Math.max(...scores) : 0;
                   return (
                     <button
@@ -896,7 +1004,8 @@ export function PlayerGamesBrowser() {
                       <div style={playerMetaStyles}>
                         <span style={{ fontWeight: 800, color: '#f8fafc' }}>{player.playerName}</span>
                         <span style={{ color: '#cbd5e1', fontSize: '13px' }}>
-                          {player.games.length} game{player.games.length === 1 ? '' : 's'}
+                          {player.games.length}{' '}
+                          {player.games.length === 1 ? copy.itemSingular : copy.itemPlural}
                         </span>
                       </div>
                       <span style={badgeStyles}>Best: {bestScore}</span>
@@ -922,7 +1031,7 @@ export function PlayerGamesBrowser() {
                   }}
                 >
                   <label htmlFor="game-limit-select" style={hintTextStyles}>
-                    Games shown
+                    {mode === 'teams' ? 'Scorecards shown' : 'Games shown'}
                   </label>
                   <select
                     id="game-limit-select"
@@ -1011,6 +1120,7 @@ export function PlayerGamesBrowser() {
                       rollingAverageWindow={rollingAverageWindow}
                       showScoreLine={showScoreLine}
                       rollingAverageDisplayMode={rollingAverageDisplayMode}
+                      xAxisLabel={mode === 'teams' ? 'Scorecards' : 'Games'}
                       onSelect={(key) => setSelectedGameKey(key)}
                       selectedKey={selectedGame?.key ?? null}
                     />
@@ -1018,14 +1128,14 @@ export function PlayerGamesBrowser() {
                     <p style={hintTextStyles}>No chartable games yet.</p>
                   )}
                   <p style={chartHintStyles}>
-                    Click a point to open the scorecard. Time runs left to right.
+                    Click a point to open the {mode === 'teams' ? 'team scorecard image' : 'scorecard'}. Time runs left to right.
                   </p>
                 </div>
 
                 {isStackedLayout && (
                   <div style={{ marginTop: '12px' }}>
                     <label htmlFor="player-select" style={{ ...hintTextStyles, display: 'block', marginBottom: '6px' }}>
-                      Choose player
+                      {copy.mobileChooseLabel}
                     </label>
                     <select
                       id="player-select"
@@ -1051,59 +1161,78 @@ export function PlayerGamesBrowser() {
                   <div style={{ marginTop: '14px' }}>
                     <div style={selectedGameMetaStyles}>
                       <div style={{ fontWeight: 700, color: '#f8fafc' }}>
-                        Viewing {selectedPlayerGroup.playerName} — score {selectedGame.game.totalScore}
+                        Viewing {selectedPlayerGroup.playerName} — score {selectedGame.score}
                       </div>
                       <div style={hintTextStyles}>
                         Source: {selectedGame.image.originalFileName ?? 'Uploaded image'} ·{' '}
                         {formatDate(selectedGame.image.createdAt)}
                       </div>
                     </div>
-                    <div
-                      style={{ marginTop: '8px', cursor: 'pointer' }}
-                      role="button"
-                      tabIndex={0}
-                      onClick={handleOpenInLibrary}
-                      onKeyDown={(event) => {
-                        if (event.key === 'Enter' || event.key === ' ') {
-                          event.preventDefault();
-                          handleOpenInLibrary();
-                        }
-                      }}
-                      aria-label="Open this game in the library view"
-                    >
-                      <Scorecard
-                        game={selectedGame.game}
-                        frameHeatmap={frameHeatmap ?? undefined}
-                        frameTrendSeries={frameTrendSeries ?? undefined}
-                        showFrameTrendPreview={
-                          isHoverCapable && frameTrendDisplayMode !== 'hidden'
-                        }
-                        frameTrendWindow={rollingAverageWindow}
-                        frameTrendDisplayMode={frameTrendDisplayMode}
-                        selectedTrendIndex={selectedTrendIndex}
-                        disableEditing
-                        compact
-                      />
-                    </div>
-                    <div style={heatmapLegendStyles}>
-                      <span style={hintTextStyles}>Frame heatmap</span>
-                      <div style={heatmapScaleStyles} aria-hidden="true" />
-                      <span style={hintTextStyles}>Lower average gain</span>
-                      <span style={hintTextStyles}>Higher average gain</span>
-                    </div>
-                    <p style={{ ...hintTextStyles, marginTop: '6px' }}>
-                      Click the scorecard to jump to the library with this game selected. Darker red
-                      frames mark where this player averages more points.
-                    </p>
+                    {mode === 'players' ? (
+                      <>
+                        <div
+                          style={{ marginTop: '8px', cursor: 'pointer' }}
+                          role="button"
+                          tabIndex={0}
+                          onClick={handleOpenInLibrary}
+                          onKeyDown={(event) => {
+                            if (event.key === 'Enter' || event.key === ' ') {
+                              event.preventDefault();
+                              handleOpenInLibrary();
+                            }
+                          }}
+                          aria-label="Open this game in the library view"
+                        >
+                          <Scorecard
+                            game={selectedGame.game}
+                            frameHeatmap={frameHeatmap ?? undefined}
+                            frameTrendSeries={frameTrendSeries ?? undefined}
+                            showFrameTrendPreview={
+                              isHoverCapable && frameTrendDisplayMode !== 'hidden'
+                            }
+                            frameTrendWindow={rollingAverageWindow}
+                            frameTrendDisplayMode={frameTrendDisplayMode}
+                            selectedTrendIndex={selectedTrendIndex}
+                            disableEditing
+                            compact
+                          />
+                        </div>
+                        <div style={heatmapLegendStyles}>
+                          <span style={hintTextStyles}>Frame heatmap</span>
+                          <div style={heatmapScaleStyles} aria-hidden="true" />
+                          <span style={hintTextStyles}>Lower average gain</span>
+                          <span style={hintTextStyles}>Higher average gain</span>
+                        </div>
+                        <p style={{ ...hintTextStyles, marginTop: '6px' }}>
+                          Click the scorecard to jump to the library with this game selected. Darker red
+                          frames mark where this player averages more points.
+                        </p>
+                      </>
+                    ) : (
+                      <div style={{ marginTop: '10px' }}>
+                        <button
+                          type="button"
+                          onClick={handleOpenInLibrary}
+                          style={actionButtonStyles}
+                        >
+                          Open team scorecard image
+                        </button>
+                        <p style={{ ...hintTextStyles, marginTop: '8px' }}>
+                          Team scores are tracked as image totals. Frame-by-frame views are hidden for teams.
+                        </p>
+                      </div>
+                    )}
                   </div>
                 ) : (
                   <p style={{ ...hintTextStyles, marginTop: '8px' }}>
-                    Select a game to view the frames.
+                    {mode === 'teams'
+                      ? 'Select a scorecard to view its team total.'
+                      : 'Select a game to view the frames.'}
                   </p>
                 )}
               </>
             ) : (
-              <p style={hintTextStyles}>Select a player to see their games.</p>
+              <p style={hintTextStyles}>{copy.selectPrompt}</p>
             )}
           </div>
         </div>
