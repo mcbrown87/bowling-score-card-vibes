@@ -2,6 +2,7 @@ import { Prisma } from '@prisma/client';
 
 import { prisma } from '@/server/db/client';
 import { copyObject } from '@/server/storage/client';
+import { findOrCreatePlayerForName } from '@/server/services/players';
 
 type CopyStoredImagesInput = {
   fromEmail: string;
@@ -90,22 +91,34 @@ const extensionFromImage = (image: Pick<SourceImage, 'objectKey' | 'contentType'
 const buildDestinationObjectKey = (targetUserId: string, image: SourceImage) =>
   `users/${targetUserId}/copies/${image.id}${extensionFromImage(image)}`;
 
-const cloneScores = (
+const cloneScores = async (
+  tx: Prisma.TransactionClient,
+  destinationUserId: string,
   storedImageId: string,
   scores: SourceImage['scores']
-): Prisma.BowlingScoreCreateManyInput[] =>
-  scores.map((score) => ({
-    storedImageId,
-    gameIndex: score.gameIndex,
-    playerName: score.playerName,
-    totalScore: score.totalScore,
-    frames: score.frames as Prisma.InputJsonValue,
-    tenthFrame:
-      score.tenthFrame === null ? Prisma.JsonNull : (score.tenthFrame as Prisma.InputJsonValue),
-    provider: score.provider,
-    isEstimate: score.isEstimate,
-    rawText: score.rawText
-  }));
+) => {
+  const clonedScores: Prisma.BowlingScoreCreateManyInput[] = [];
+
+  for (const score of scores) {
+    const player = await findOrCreatePlayerForName(tx, destinationUserId, score.playerName);
+
+    clonedScores.push({
+      storedImageId,
+      playerId: player?.id ?? null,
+      gameIndex: score.gameIndex,
+      playerName: player?.name ?? score.playerName,
+      totalScore: score.totalScore,
+      frames: score.frames as Prisma.InputJsonValue,
+      tenthFrame:
+        score.tenthFrame === null ? Prisma.JsonNull : (score.tenthFrame as Prisma.InputJsonValue),
+      provider: score.provider,
+      isEstimate: score.isEstimate,
+      rawText: score.rawText
+    });
+  }
+
+  return clonedScores;
+};
 
 const errorMessage = (error: unknown) =>
   error instanceof Error ? error.message : 'Unknown copy failure';
@@ -209,7 +222,12 @@ export async function copyStoredImagesToAccount({
           }
         });
 
-        const scoreData = cloneScores(createdImage.id, sourceImage.scores);
+        const scoreData = await cloneScores(
+          tx,
+          destinationUser.id,
+          createdImage.id,
+          sourceImage.scores
+        );
         if (scoreData.length > 0) {
           await tx.bowlingScore.createMany({
             data: scoreData

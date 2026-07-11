@@ -19,6 +19,7 @@ type PlayerGameEntry = {
 };
 
 type PlayerGroup = {
+  playerKey: string;
   playerName: string;
   games: PlayerGameEntry[];
 };
@@ -563,7 +564,7 @@ export function PlayerGamesBrowser() {
   const [images, setImages] = useState<StoredImageSummary[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [selectedPlayer, setSelectedPlayer] = useState<string | null>(null);
+  const [selectedPlayerKey, setSelectedPlayerKey] = useState<string | null>(null);
   const [selectedGameKey, setSelectedGameKey] = useState<string | null>(null);
   const [gameLimit, setGameLimit] = useState(0);
   const [rollingAverageWindow, setRollingAverageWindow] = useState(rollingAverageOptions[0]);
@@ -616,10 +617,11 @@ export function PlayerGamesBrowser() {
     images.forEach((image) => {
       image.games.forEach((game) => {
         const playerName = game.playerName || 'Unnamed player';
+        const playerKey = game.player?.id ?? `name:${playerName}`;
         const key = `${image.id}-${game.gameIndex}`;
-        const entry = map.get(playerName) ?? { playerName, games: [] };
+        const entry = map.get(playerKey) ?? { playerKey, playerName, games: [] };
         entry.games.push({ key, game, image });
-        map.set(playerName, entry);
+        map.set(playerKey, entry);
       });
     });
 
@@ -632,24 +634,24 @@ export function PlayerGamesBrowser() {
   }, [images]);
 
   useEffect(() => {
-    if (!selectedPlayer && players.length > 0) {
-      setSelectedPlayer(players[0].playerName);
+    if (!selectedPlayerKey && players.length > 0) {
+      setSelectedPlayerKey(players[0].playerKey);
       setSelectedGameKey(getNewestPlayerGame(players[0].games)?.key ?? null);
     }
-  }, [players, selectedPlayer]);
+  }, [players, selectedPlayerKey]);
 
   useEffect(() => {
-    const activePlayer = players.find((player) => player.playerName === selectedPlayer);
+    const activePlayer = players.find((player) => player.playerKey === selectedPlayerKey);
     if (activePlayer && activePlayer.games.length > 0) {
       if (!selectedGameKey || !activePlayer.games.some((entry) => entry.key === selectedGameKey)) {
         setSelectedGameKey(getNewestPlayerGame(activePlayer.games)?.key ?? null);
       }
     }
-  }, [players, selectedPlayer, selectedGameKey]);
+  }, [players, selectedPlayerKey, selectedGameKey]);
 
   const selectedPlayerGroup = useMemo(
-    () => players.find((player) => player.playerName === selectedPlayer) ?? null,
-    [players, selectedPlayer]
+    () => players.find((player) => player.playerKey === selectedPlayerKey) ?? null,
+    [players, selectedPlayerKey]
   );
 
   const visiblePlayerGames = useMemo(() => {
@@ -878,15 +880,15 @@ export function PlayerGamesBrowser() {
               <h3 style={sectionTitleStyles}>Players</h3>
               <div style={playerListStyles}>
                 {players.map((player) => {
-                  const isActive = player.playerName === selectedPlayer;
+                  const isActive = player.playerKey === selectedPlayerKey;
                   const scores = player.games.map((entry) => entry.game.totalScore || 0);
                   const bestScore = scores.length ? Math.max(...scores) : 0;
                   return (
                     <button
                       type="button"
-                      key={player.playerName}
+                      key={player.playerKey}
                       onClick={() => {
-                        setSelectedPlayer(player.playerName);
+                        setSelectedPlayerKey(player.playerKey);
                         setSelectedGameKey(player.games[0]?.key ?? null);
                       }}
                       style={isActive ? playerButtonActiveStyles : playerButtonStyles}
@@ -1028,16 +1030,16 @@ export function PlayerGamesBrowser() {
                     <select
                       id="player-select"
                       style={dropdownStyles}
-                      value={selectedPlayer ?? ''}
+                      value={selectedPlayerKey ?? ''}
                       onChange={(e) => {
                         const next = e.target.value;
-                        const target = players.find((p) => p.playerName === next);
-                        setSelectedPlayer(next);
+                        const target = players.find((p) => p.playerKey === next);
+                        setSelectedPlayerKey(next);
                         setSelectedGameKey(target ? getNewestPlayerGame(target.games)?.key ?? null : null);
                       }}
                     >
                       {players.map((player) => (
-                        <option key={player.playerName} value={player.playerName}>
+                        <option key={player.playerKey} value={player.playerKey}>
                           {player.playerName} ({player.games.length})
                         </option>
                       ))}

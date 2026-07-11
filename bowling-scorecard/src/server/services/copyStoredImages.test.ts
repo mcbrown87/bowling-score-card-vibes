@@ -2,6 +2,7 @@ const userFindUnique = jest.fn();
 const storedImageFindUnique = jest.fn();
 const storedImageCreate = jest.fn();
 const bowlingScoreCreateMany = jest.fn();
+const playerUpsert = jest.fn();
 const transaction = jest.fn();
 const copyObject = jest.fn();
 
@@ -76,11 +77,15 @@ describe('copyStoredImagesToAccount', () => {
         },
         bowlingScore: {
           createMany: bowlingScoreCreateMany
+        },
+        player: {
+          upsert: playerUpsert
         }
       })
     );
     storedImageCreate.mockResolvedValue({ id: 'copied-image-1' });
     bowlingScoreCreateMany.mockResolvedValue({ count: 2 });
+    playerUpsert.mockResolvedValue({ id: 'target-player-1', name: 'M C Brown' });
   });
 
   it('reports selected images without mutating storage or database during dry runs', async () => {
@@ -137,6 +142,7 @@ describe('copyStoredImagesToAccount', () => {
       data: [
         {
           storedImageId: 'copied-image-1',
+          playerId: 'target-player-1',
           gameIndex: 0,
           playerName: 'M C Brown',
           totalScore: 211,
@@ -148,6 +154,7 @@ describe('copyStoredImagesToAccount', () => {
         },
         {
           storedImageId: 'copied-image-1',
+          playerId: 'target-player-1',
           gameIndex: 0,
           playerName: 'M C Brown',
           totalScore: 214,

@@ -4,6 +4,7 @@ import type { Prisma } from '@prisma/client';
 
 import { auth } from '@/server/auth';
 import { prisma } from '@/server/db/client';
+import { findOrCreatePlayerForName } from '@/server/services/players';
 
 export const dynamic = 'force-dynamic';
 
@@ -56,33 +57,49 @@ export async function PUT(request: Request, context: RouteContext) {
       }
     });
 
-    let correction;
+    const correction = await prisma.$transaction(async (tx) => {
+      const player = await findOrCreatePlayerForName(tx, storedImage.userId, parsed.playerName);
+      const data = {
+        playerId: player?.id ?? null,
+        playerName: player?.name ?? parsed.playerName ?? null,
+        totalScore: parsed.totalScore ?? null,
+        frames: parsed.frames as Prisma.InputJsonValue,
+        tenthFrame: parsed.tenthFrame as Prisma.InputJsonValue,
+        provider: 'manual-correction'
+      };
 
-    if (existing) {
-      correction = await prisma.bowlingScore.update({
-        where: { id: existing.id },
-        data: {
-          playerName: parsed.playerName ?? null,
-          totalScore: parsed.totalScore ?? null,
-          frames: parsed.frames as Prisma.InputJsonValue,
-          tenthFrame: parsed.tenthFrame as Prisma.InputJsonValue,
-          provider: 'manual-correction'
-        }
-      });
-    } else {
-      correction = await prisma.bowlingScore.create({
+      if (existing) {
+        return tx.bowlingScore.update({
+          where: { id: existing.id },
+          data,
+          include: {
+            player: {
+              select: {
+                id: true,
+                name: true
+              }
+            }
+          }
+        });
+      }
+
+      return tx.bowlingScore.create({
         data: {
           storedImageId,
           gameIndex,
-          playerName: parsed.playerName ?? null,
-          totalScore: parsed.totalScore ?? null,
-          frames: parsed.frames as Prisma.InputJsonValue,
-          tenthFrame: parsed.tenthFrame as Prisma.InputJsonValue,
-          provider: 'manual-correction',
+          ...data,
           isEstimate: false
+        },
+        include: {
+          player: {
+            select: {
+              id: true,
+              name: true
+            }
+          }
         }
       });
-    }
+    });
 
     return NextResponse.json({
       success: true,
@@ -90,6 +107,7 @@ export async function PUT(request: Request, context: RouteContext) {
         id: correction.id,
         gameIndex: correction.gameIndex,
         isEstimate: correction.isEstimate,
+        player: correction.player,
         playerName: correction.playerName,
         totalScore: correction.totalScore,
         frames: correction.frames,

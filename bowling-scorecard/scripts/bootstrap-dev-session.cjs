@@ -244,6 +244,14 @@ function buildGamesForImage(imageIndex) {
   );
 }
 
+function normalizePlayerName(name) {
+  return name.trim().replace(/\s+/gu, ' ');
+}
+
+function normalizePlayerLookupName(name) {
+  return normalizePlayerName(name).toLowerCase();
+}
+
 function getStorageClient() {
   if (!storageEndpoint || !storageBucket || !storageAccessKey || !storageSecretKey) {
     throw new Error('Storage is not configured. Check STORAGE_ENDPOINT, STORAGE_BUCKET, STORAGE_ACCESS_KEY, and STORAGE_SECRET_KEY in bowling-scorecard/.env.');
@@ -378,10 +386,37 @@ async function seedBootstrapData() {
     });
 
     const gamesForImage = buildGamesForImage(index);
+    const playersByName = new Map();
+
+    for (const game of gamesForImage) {
+      const normalizedName = normalizePlayerLookupName(game.playerName);
+      if (playersByName.has(normalizedName)) {
+        continue;
+      }
+
+      const player = await prisma.player.upsert({
+        where: {
+          userId_normalizedName: {
+            userId: user.id,
+            normalizedName
+          }
+        },
+        update: {
+          name: normalizePlayerName(game.playerName)
+        },
+        create: {
+          userId: user.id,
+          name: normalizePlayerName(game.playerName),
+          normalizedName
+        }
+      });
+      playersByName.set(normalizedName, player);
+    }
 
     await prisma.bowlingScore.createMany({
       data: gamesForImage.map((game) => ({
         storedImageId: storedImage.id,
+        playerId: playersByName.get(normalizePlayerLookupName(game.playerName))?.id,
         gameIndex: game.gameIndex,
         playerName: game.playerName,
         totalScore: game.totalScore,

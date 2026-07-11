@@ -48,6 +48,7 @@ const normalizeStoredGame = (
     frames,
     tenthFrame,
     totalScore: typeof game.totalScore === 'number' ? game.totalScore : 0,
+    player: (game as StoredGamePayload)?.player ?? null,
     playerName
   };
 };

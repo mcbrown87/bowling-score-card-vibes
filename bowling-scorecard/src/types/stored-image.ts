@@ -4,6 +4,10 @@ export type StoredGamePayload = {
   id?: string;
   gameIndex?: number;
   isEstimate?: boolean;
+  player?: {
+    id: string;
+    name: string;
+  } | null;
   playerName?: string | null;
   totalScore?: number | null;
   frames?: unknown;
@@ -14,6 +18,10 @@ export type StoredGameSummary = Game & {
   id?: string;
   gameIndex: number;
   isEstimate: boolean;
+  player?: {
+    id: string;
+    name: string;
+  } | null;
 };
 
 export type StoredImagePayload = {

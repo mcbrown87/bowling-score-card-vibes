@@ -12,6 +12,12 @@ export const storedImageInclude = {
       gameIndex: true,
       isEstimate: true,
       playerName: true,
+      player: {
+        select: {
+          id: true,
+          name: true
+        }
+      },
       totalScore: true,
       frames: true,
       tenthFrame: true,
@@ -75,6 +81,7 @@ export const serializeStoredImage = (image: StoredImageWithRelations) => {
       id: score.id,
       gameIndex: score.gameIndex,
       isEstimate: score.isEstimate,
+      player: score.player,
       playerName: score.playerName,
       totalScore: score.totalScore,
       frames: score.frames,

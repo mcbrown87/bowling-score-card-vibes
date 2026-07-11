@@ -57,10 +57,20 @@ erDiagram
         datetime updatedAt
     }
 
+    Player {
+        string id PK
+        string userId FK
+        string name
+        string normalizedName UK
+        datetime createdAt
+        datetime updatedAt
+    }
+
     BowlingScore {
         string id PK
         string storedImageId FK
         string llmRequestId FK
+        string playerId FK
         int gameIndex
         string playerName
         int totalScore
@@ -102,7 +112,9 @@ erDiagram
     User ||--o{ Account : has
     User ||--o{ Session : has
     User ||--o{ StoredImage : owns
+    User ||--o{ Player : has
     StoredImage ||--o{ BowlingScore : produces
+    Player ||--o{ BowlingScore : bowls
     StoredImage ||--o{ LLMRequest : triggers
     Prompt ||--o{ LLMRequest : versions
     LLMRequest o|--o{ BowlingScore : generated
@@ -149,7 +161,9 @@ classDiagram
 ## Notes
 
 - `StoredImage` is the root record for one uploaded scorecard image stored in object storage.
+- `Player` is the durable bowler entity owned by a user. `Player.normalizedName` supports one player row per case-insensitive display name per user.
 - `BowlingScore` keeps one row per parsed game variant. The `(storedImageId, gameIndex, isEstimate)` unique key allows both estimated and corrected versions of the same game index.
+- `BowlingScore.playerId` links a score to the durable player entity. `BowlingScore.playerName` remains as a denormalized display snapshot for OCR output, historical exports, and compatibility with existing payloads.
 - `LLMRequest.status` is currently used as a free-form string, but the code path uses `queued`, `pending`, `succeeded`, and `failed`.
 - `BowlingScore.llmRequestId` is nullable because manually corrected scores can outlive or detach from the generating request.
 - `StoredImage` API responses expose derived fields such as `previewUrl`, `isProcessingEstimate`, and `lastEstimateError`; those are serializer outputs, not database columns.

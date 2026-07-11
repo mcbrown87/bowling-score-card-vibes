@@ -9,6 +9,7 @@ import { getObject } from '@/server/storage/client';
 import { normalizeImageDataUrl } from '@/server/utils/image';
 import { logger } from '@/server/utils/logger';
 import { readStorageBodyToBuffer } from '@/server/utils/storageBody';
+import { findOrCreatePlayerForName } from '@/server/services/players';
 
 export const PROVIDER_MODELS: Record<ProviderName, string> = {
   anthropic: process.env.ANTHROPIC_MODEL ?? 'claude-3-7-sonnet-latest',
@@ -121,23 +122,30 @@ export const processScoreEstimatorJob = async ({
       }
     });
 
-    await prisma.bowlingScore.deleteMany({
-      where: { storedImageId: storedImage.id, isEstimate: true }
-    });
+    await prisma.$transaction(async (tx) => {
+      await tx.bowlingScore.deleteMany({
+        where: { storedImageId: storedImage.id, isEstimate: true }
+      });
 
-    await prisma.bowlingScore.createMany({
-      data: result.games.map((game, index) => ({
-        storedImageId: storedImage.id,
-        llmRequestId,
-        gameIndex: index,
-        playerName: game.playerName,
-        totalScore: game.totalScore,
-        frames: game.frames as unknown as Prisma.InputJsonValue,
-        tenthFrame: game.tenthFrame as unknown as Prisma.InputJsonValue,
-        provider,
-        isEstimate: true,
-        rawText: rawTextForStorage
-      }))
+      for (const [index, game] of result.games.entries()) {
+        const player = await findOrCreatePlayerForName(tx, storedImage.userId, game.playerName);
+
+        await tx.bowlingScore.create({
+          data: {
+            storedImageId: storedImage.id,
+            llmRequestId,
+            playerId: player?.id ?? null,
+            gameIndex: index,
+            playerName: player?.name ?? game.playerName,
+            totalScore: game.totalScore,
+            frames: game.frames as unknown as Prisma.InputJsonValue,
+            tenthFrame: game.tenthFrame as unknown as Prisma.InputJsonValue,
+            provider,
+            isEstimate: true,
+            rawText: rawTextForStorage
+          }
+        });
+      }
     });
 
     logger.info('Regenerated bowling scores for stored image', {
