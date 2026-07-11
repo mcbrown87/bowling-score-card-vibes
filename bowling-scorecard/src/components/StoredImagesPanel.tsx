@@ -1,7 +1,7 @@
 /* eslint-disable @next/next/no-img-element */
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { CSSProperties, ReactNode } from 'react';
-import type { StoredImageSummary } from '@/types/stored-image';
+import type { BowlingTeamSummary, StoredImageSummary } from '@/types/stored-image';
 import type { Game } from '@/types/bowling';
 import { Scorecard } from './Scorecard';
 import { FrameCorrectionModal } from './FrameCorrectionModal';
@@ -18,9 +18,14 @@ interface StoredImagesPanelProps {
   onGenerateScores?: (imageId: string) => void;
   onClearScores?: (imageId: string) => void;
   onDeleteImage?: (imageId: string) => void;
+  onUpdateImageTeam?: (
+    imageId: string,
+    assignment: { teamId: string | null } | { teamName: string }
+  ) => Promise<void> | void;
   generatingImageId?: string | null;
   clearingImageId?: string | null;
   deletingImageId?: string | null;
+  teams?: BowlingTeamSummary[];
   onUpdateGame?: (imageId: string, gameIndex: number, updatedGame: Game) => Promise<void> | void;
   initialImageId?: string | null;
   initialGameIndex?: number | null;
@@ -80,6 +85,128 @@ const metaHintStyles: CSSProperties = {
   textAlign: 'center' as const
 };
 
+const imageMetaRowStyles: CSSProperties = {
+  maxWidth: '720px',
+  margin: '12px auto 0',
+  display: 'grid',
+  gridTemplateColumns: 'minmax(0, 1fr) minmax(220px, 280px)',
+  gap: '12px',
+  alignItems: 'end'
+};
+
+const imageFileMetaStyles: CSSProperties = {
+  ...metaStyles,
+  minWidth: 0
+};
+
+const teamControlStyles: CSSProperties = {
+  position: 'relative',
+  minWidth: 0
+};
+
+const teamControlCompactStyles: CSSProperties = {
+  ...teamControlStyles,
+  display: 'flex',
+  justifyContent: 'flex-end'
+};
+
+const teamLabelStyles: CSSProperties = {
+  display: 'block',
+  marginBottom: '6px',
+  fontSize: '11px',
+  fontWeight: 700,
+  color: '#93c5fd',
+  textTransform: 'uppercase',
+  letterSpacing: 0
+};
+
+const teamInputRowStyles: CSSProperties = {
+  display: 'grid',
+  gridTemplateColumns: 'minmax(0, 1fr) auto',
+  gap: '8px'
+};
+
+const teamInputStyles: CSSProperties = {
+  width: '100%',
+  minWidth: 0,
+  borderRadius: '8px',
+  border: '1px solid #475569',
+  backgroundColor: '#0f172a',
+  color: '#f8fafc',
+  padding: '9px 10px',
+  fontSize: '13px'
+};
+
+const teamClearButtonStyles: CSSProperties = {
+  width: '38px',
+  borderRadius: '8px',
+  border: '1px solid #475569',
+  backgroundColor: '#0f172a',
+  color: '#cbd5e1',
+  cursor: 'pointer'
+};
+
+const teamDropdownStyles: CSSProperties = {
+  position: 'absolute',
+  zIndex: 20,
+  top: '100%',
+  left: 0,
+  right: 0,
+  marginTop: '6px',
+  padding: '6px',
+  borderRadius: '8px',
+  border: '1px solid #334155',
+  backgroundColor: '#020617',
+  boxShadow: '0 16px 32px rgba(2, 6, 23, 0.45)'
+};
+
+const teamOptionStyles: CSSProperties = {
+  width: '100%',
+  padding: '8px 10px',
+  borderRadius: '6px',
+  border: 'none',
+  backgroundColor: 'transparent',
+  color: '#e2e8f0',
+  textAlign: 'left',
+  cursor: 'pointer',
+  fontSize: '13px'
+};
+
+const teamErrorStyles: CSSProperties = {
+  marginTop: '6px',
+  color: '#fecaca',
+  fontSize: '12px'
+};
+
+const teamPillButtonStyles: CSSProperties = {
+  maxWidth: '158px',
+  minHeight: '34px',
+  padding: '7px 10px',
+  borderRadius: '999px',
+  border: '1px solid #475569',
+  backgroundColor: '#0f172a',
+  color: '#dbeafe',
+  cursor: 'pointer',
+  fontSize: '12px',
+  fontWeight: 700,
+  overflow: 'hidden',
+  textOverflow: 'ellipsis',
+  whiteSpace: 'nowrap'
+};
+
+const teamCompactEditorStyles: CSSProperties = {
+  position: 'absolute',
+  zIndex: 25,
+  top: 0,
+  right: 0,
+  width: 'min(292px, calc(100vw - 48px))',
+  padding: '8px',
+  borderRadius: '10px',
+  border: '1px solid #334155',
+  backgroundColor: '#020617',
+  boxShadow: '0 18px 36px rgba(2, 6, 23, 0.55)'
+};
+
 const carouselControlsStyles: CSSProperties = {
   display: 'flex',
   alignItems: 'center',
@@ -87,6 +214,13 @@ const carouselControlsStyles: CSSProperties = {
   marginTop: '16px',
   gap: '16px',
   flexWrap: 'wrap'
+};
+
+const compactCarouselControlsStyles: CSSProperties = {
+  ...carouselControlsStyles,
+  marginTop: '10px',
+  gap: '10px',
+  flexWrap: 'nowrap'
 };
 
 const navButtonStyles: CSSProperties = {
@@ -102,6 +236,24 @@ const navButtonStyles: CSSProperties = {
 const navButtonDisabledStyles: CSSProperties = {
   ...navButtonStyles,
   opacity: 0.5,
+  cursor: 'not-allowed'
+};
+
+const compactNavButtonStyles: CSSProperties = {
+  ...navButtonStyles,
+  width: '42px',
+  minWidth: '42px',
+  height: '42px',
+  padding: 0,
+  display: 'inline-flex',
+  alignItems: 'center',
+  justifyContent: 'center',
+  fontSize: '18px'
+};
+
+const compactNavButtonDisabledStyles: CSSProperties = {
+  ...compactNavButtonStyles,
+  opacity: 0.45,
   cursor: 'not-allowed'
 };
 
@@ -130,6 +282,13 @@ const indicatorStyles: CSSProperties = {
   textAlign: 'center' as const,
   fontSize: '14px',
   color: '#cbd5e1'
+};
+
+const compactIndicatorStyles: CSSProperties = {
+  ...indicatorStyles,
+  fontSize: '13px',
+  fontWeight: 700,
+  color: '#e2e8f0'
 };
 
 const errorBoxStyles: CSSProperties = {
@@ -332,6 +491,34 @@ const modalTitleStyles: CSSProperties = {
   color: '#f8fafc'
 };
 
+const compactLayoutQuery = '(max-width: 640px), (pointer: coarse)';
+
+const getCompactLayoutMatches = () => {
+  if (typeof window === 'undefined' || typeof window.matchMedia !== 'function') {
+    return false;
+  }
+  return window.matchMedia(compactLayoutQuery).matches;
+};
+
+const useCompactLibraryLayout = () => {
+  const [isCompact, setIsCompact] = useState(getCompactLayoutMatches);
+
+  useEffect(() => {
+    if (typeof window === 'undefined' || typeof window.matchMedia !== 'function') {
+      return undefined;
+    }
+
+    const mediaQuery = window.matchMedia(compactLayoutQuery);
+    const handleChange = () => setIsCompact(mediaQuery.matches);
+
+    handleChange();
+    mediaQuery.addEventListener('change', handleChange);
+    return () => mediaQuery.removeEventListener('change', handleChange);
+  }, []);
+
+  return isCompact;
+};
+
 const formatFileSize = (size: number | null) => {
   if (!size || size <= 0) {
     return null;
@@ -358,6 +545,201 @@ const formatDate = (isoDate: string) => {
   }
 };
 
+const normalizeLookupName = (name: string) => name.trim().replace(/\s+/gu, ' ').toLowerCase();
+
+type TeamComboboxProps = {
+  teams: BowlingTeamSummary[];
+  value: BowlingTeamSummary | null;
+  disabled: boolean;
+  error: string | null;
+  compact?: boolean;
+  onSelectTeam: (teamId: string) => void;
+  onCreateTeam: (teamName: string) => void;
+  onClearTeam: () => void;
+};
+
+function TeamCombobox({
+  teams,
+  value,
+  disabled,
+  error,
+  compact = false,
+  onSelectTeam,
+  onCreateTeam,
+  onClearTeam
+}: TeamComboboxProps) {
+  const [inputValue, setInputValue] = useState(value?.name ?? '');
+  const [isOpen, setIsOpen] = useState(false);
+  const blurTimerRef = useRef<NodeJS.Timeout | null>(null);
+
+  useEffect(() => {
+    setInputValue(value?.name ?? '');
+  }, [value?.id, value?.name]);
+
+  useEffect(() => {
+    return () => {
+      if (blurTimerRef.current) {
+        clearTimeout(blurTimerRef.current);
+      }
+    };
+  }, []);
+
+  const trimmedInput = inputValue.trim().replace(/\s+/gu, ' ');
+  const inputLookup = normalizeLookupName(inputValue);
+  const exactMatch = teams.find((team) => normalizeLookupName(team.name) === inputLookup);
+  const visibleTeams = teams
+    .filter((team) => !inputLookup || normalizeLookupName(team.name).includes(inputLookup))
+    .slice(0, 6);
+  const canCreate = trimmedInput.length > 0 && !exactMatch;
+
+  const commitInput = () => {
+    if (disabled) {
+      return;
+    }
+    if (exactMatch) {
+      onSelectTeam(exactMatch.id);
+      setIsOpen(false);
+      return;
+    }
+    if (canCreate) {
+      onCreateTeam(trimmedInput);
+      setIsOpen(false);
+    }
+  };
+
+  if (compact && !isOpen) {
+    return (
+      <div style={teamControlCompactStyles}>
+        <button
+          type="button"
+          style={{
+            ...teamPillButtonStyles,
+            opacity: disabled ? 0.6 : 1,
+            cursor: disabled ? 'not-allowed' : 'pointer'
+          }}
+          disabled={disabled}
+          onClick={() => setIsOpen(true)}
+          aria-label={value ? `Team ${value.name}` : 'Add team'}
+          title={value ? `Team: ${value.name}` : 'Add team'}
+        >
+          {value ? `Team: ${value.name}` : 'Add team'}
+        </button>
+        {error && <div style={teamErrorStyles}>{error}</div>}
+      </div>
+    );
+  }
+
+  return (
+    <div style={compact ? teamControlCompactStyles : teamControlStyles}>
+      <div style={compact ? teamCompactEditorStyles : undefined}>
+        <label htmlFor="image-team-combobox" style={teamLabelStyles}>
+          Team
+        </label>
+        <div style={teamInputRowStyles}>
+          <input
+            id="image-team-combobox"
+            type="text"
+            role="combobox"
+            aria-expanded={isOpen}
+            aria-controls="image-team-options"
+            aria-autocomplete="list"
+            placeholder="No team"
+            value={inputValue}
+            disabled={disabled}
+            onFocus={() => setIsOpen(true)}
+            onBlur={() => {
+              blurTimerRef.current = setTimeout(() => setIsOpen(false), 120);
+            }}
+            onChange={(event) => {
+              setInputValue(event.target.value);
+              setIsOpen(true);
+            }}
+            onKeyDown={(event) => {
+              if (event.key === 'Enter') {
+                event.preventDefault();
+                commitInput();
+              } else if (event.key === 'Escape') {
+                setInputValue(value?.name ?? '');
+                setIsOpen(false);
+              }
+            }}
+            style={{
+              ...teamInputStyles,
+              opacity: disabled ? 0.6 : 1
+            }}
+          />
+          {value && (
+            <button
+              type="button"
+              aria-label="Clear team"
+              title="Clear team"
+              style={{
+                ...teamClearButtonStyles,
+                opacity: disabled ? 0.5 : 1,
+                cursor: disabled ? 'not-allowed' : 'pointer'
+              }}
+              disabled={disabled}
+              onClick={onClearTeam}
+            >
+              x
+            </button>
+          )}
+        </div>
+        {isOpen && !disabled && (
+          <div
+            id="image-team-options"
+            role="listbox"
+            style={{
+              ...teamDropdownStyles,
+              ...(compact ? { position: 'static', marginTop: '8px', boxShadow: 'none' } : {})
+            }}
+          >
+            {visibleTeams.map((team) => (
+              <button
+                key={team.id}
+                type="button"
+                role="option"
+                aria-selected={team.id === value?.id}
+                style={teamOptionStyles}
+                onMouseDown={(event) => event.preventDefault()}
+                onClick={() => {
+                  onSelectTeam(team.id);
+                  setIsOpen(false);
+                }}
+              >
+                {team.name}
+              </button>
+            ))}
+            {canCreate && (
+              <button
+                type="button"
+                role="option"
+                aria-selected={false}
+                style={{
+                  ...teamOptionStyles,
+                  color: '#93c5fd',
+                  fontWeight: 700
+                }}
+                onMouseDown={(event) => event.preventDefault()}
+                onClick={() => {
+                  onCreateTeam(trimmedInput);
+                  setIsOpen(false);
+                }}
+              >
+                Create {trimmedInput}
+              </button>
+            )}
+            {visibleTeams.length === 0 && !canCreate && (
+              <div style={{ ...metaStyles, padding: '8px 10px' }}>No teams found</div>
+            )}
+          </div>
+        )}
+        {error && <div style={teamErrorStyles}>{error}</div>}
+      </div>
+    </div>
+  );
+}
+
 export function StoredImagesPanel({
   images,
   isLoading,
@@ -366,9 +748,11 @@ export function StoredImagesPanel({
   onGenerateScores,
   onClearScores,
   onDeleteImage,
+  onUpdateImageTeam,
   generatingImageId,
   clearingImageId,
   deletingImageId,
+  teams = [],
   onUpdateGame,
   initialImageId = null,
   initialGameIndex = null,
@@ -386,7 +770,9 @@ export function StoredImagesPanel({
   const [isRenamingPlayer, setIsRenamingPlayer] = useState(false);
   const [pendingPlayerName, setPendingPlayerName] = useState('');
   const [isSavingCorrection, setIsSavingCorrection] = useState(false);
+  const [isSavingTeam, setIsSavingTeam] = useState(false);
   const [correctionError, setCorrectionError] = useState<string | null>(null);
+  const [teamError, setTeamError] = useState<string | null>(null);
   const [metaModalOpen, setMetaModalOpen] = useState(false);
   const [clearConfirmOpen, setClearConfirmOpen] = useState(false);
   const pressTimerRef = useRef<NodeJS.Timeout | null>(null);
@@ -397,6 +783,7 @@ export function StoredImagesPanel({
   const hasImages = images.length > 0;
   const resetInitialSelectionRef = useRef({ imageId: initialImageId, gameIndex: initialGameIndex });
   const isDesktopKeyboardMode = useDesktopKeyboardMode();
+  const isCompactLayout = useCompactLibraryLayout();
 
   useEffect(() => {
     if (
@@ -487,6 +874,7 @@ export function StoredImagesPanel({
     setIsRenamingPlayer(false);
     setPendingPlayerName('');
     setCorrectionError(null);
+    setTeamError(null);
   }, [activeImage?.id, boundedGameIndex]);
 
   useEffect(() => {
@@ -504,6 +892,25 @@ export function StoredImagesPanel({
     setMetaModalOpen(false);
     setClearConfirmOpen(false);
   }, [activeImage?.id]);
+
+  const handleUpdateTeam = useCallback(
+    async (assignment: { teamId: string | null } | { teamName: string }) => {
+      if (!activeImage || !onUpdateImageTeam || isSavingTeam) {
+        return;
+      }
+
+      setTeamError(null);
+      try {
+        setIsSavingTeam(true);
+        await onUpdateImageTeam(activeImage.id, assignment);
+      } catch (error) {
+        setTeamError(error instanceof Error ? error.message : 'Failed to save team');
+      } finally {
+        setIsSavingTeam(false);
+      }
+    },
+    [activeImage, isSavingTeam, onUpdateImageTeam]
+  );
 
   const isGeneratingActiveImage =
     typeof generatingImageId === 'string' && activeImage?.id === generatingImageId;
@@ -748,8 +1155,24 @@ export function StoredImagesPanel({
   }, [canGoNext, images.length, onRequestNextImagePage]);
 
   return (
-    <section style={sectionStyles} aria-live="polite">
-      <div style={cardStyles}>
+    <section
+      style={{
+        ...sectionStyles,
+        ...(isCompactLayout ? { paddingBottom: '88px' } : {})
+      }}
+      aria-live="polite"
+    >
+      <div
+        style={{
+          ...cardStyles,
+          ...(isCompactLayout
+            ? {
+                padding: '10px 10px 18px',
+                borderRadius: '12px'
+              }
+            : {})
+        }}
+      >
         {error && (
           <div style={errorBoxStyles}>
             <span>{error}</span>
@@ -771,7 +1194,16 @@ export function StoredImagesPanel({
         {hasImages && activeImage && (
           <>
             <div
-              style={thumbWrapperStyles}
+              style={{
+                ...thumbWrapperStyles,
+                ...(isCompactLayout
+                  ? {
+                      aspectRatio: '16 / 9',
+                      minHeight: 0,
+                      borderRadius: '10px'
+                    }
+                  : {})
+              }}
               onMouseDown={handlePressStart}
               onMouseUp={handlePressEnd}
               onMouseLeave={handlePressEnd}
@@ -802,26 +1234,93 @@ export function StoredImagesPanel({
                 <span>{estimateErrorMessage}</span>
               </div>
             )}
+            <div
+              style={{
+                ...imageMetaRowStyles,
+                ...(isCompactLayout
+                  ? {
+                      marginTop: '8px',
+                      gridTemplateColumns: 'minmax(0, 1fr) auto',
+                      gap: '8px',
+                      alignItems: 'center'
+                    }
+                  : {})
+              }}
+            >
+              <div style={imageFileMetaStyles}>
+                <div
+                  style={{
+                    overflow: 'hidden',
+                    textOverflow: 'ellipsis',
+                    whiteSpace: 'nowrap',
+                    color: '#e2e8f0',
+                    fontWeight: 700
+                  }}
+                  title={activeImage.originalFileName ?? 'Uploaded scorecard'}
+                >
+                  {activeImage.originalFileName ?? 'Uploaded scorecard'}
+                </div>
+                <div>Uploaded {formatDate(activeImage.createdAt)}</div>
+              </div>
+              {onUpdateImageTeam && (
+                <TeamCombobox
+                  teams={teams}
+                  value={activeImage.team}
+                  disabled={isSavingTeam || isDeletingActiveImage}
+                  error={teamError}
+                  compact={isCompactLayout}
+                  onSelectTeam={(teamId) => {
+                    void handleUpdateTeam({ teamId });
+                  }}
+                  onCreateTeam={(teamName) => {
+                    void handleUpdateTeam({ teamName });
+                  }}
+                  onClearTeam={() => {
+                    void handleUpdateTeam({ teamId: null });
+                  }}
+                />
+              )}
+            </div>
             {totalImagesForDisplay > 1 && (
-              <div style={carouselControlsStyles}>
+              <div style={isCompactLayout ? compactCarouselControlsStyles : carouselControlsStyles}>
                 <button
                   type="button"
-                  style={canGoPrevAcrossPages ? navButtonStyles : navButtonDisabledStyles}
+                  style={
+                    isCompactLayout
+                      ? canGoPrevAcrossPages
+                        ? compactNavButtonStyles
+                        : compactNavButtonDisabledStyles
+                      : canGoPrevAcrossPages
+                        ? navButtonStyles
+                        : navButtonDisabledStyles
+                  }
                   onClick={handlePreviousImage}
                   disabled={!canGoPrevAcrossPages}
+                  aria-label={isCompactLayout ? 'Show previous image' : undefined}
                 >
-                  ← Previous
+                  {isCompactLayout ? '←' : '← Previous'}
                 </button>
-                <div style={indicatorStyles}>
-                  Image {imageIndexOffset + boundedImageIndex + 1} of {totalImagesForDisplay}
+                <div style={isCompactLayout ? compactIndicatorStyles : indicatorStyles}>
+                  {isCompactLayout
+                    ? `${imageIndexOffset + boundedImageIndex + 1} / ${totalImagesForDisplay}`
+                    : `Image ${imageIndexOffset + boundedImageIndex + 1} of ${totalImagesForDisplay}`}
                 </div>
                 <button
                   type="button"
-                  style={canGoNextAcrossPages ? navButtonStyles : navButtonDisabledStyles}
+                  style={
+                    isCompactLayout
+                      ? canGoNextAcrossPages
+                        ? compactNavButtonStyles
+                        : compactNavButtonDisabledStyles
+                      : canGoNextAcrossPages
+                        ? navButtonStyles
+                        : navButtonDisabledStyles
+                  }
                   onClick={handleNextImage}
                   disabled={!canGoNextAcrossPages}
+                  aria-label={isCompactLayout ? 'Show next image' : undefined}
                 >
-                  Next →
+                  {isCompactLayout ? '→' : 'Next →'}
                 </button>
               </div>
             )}

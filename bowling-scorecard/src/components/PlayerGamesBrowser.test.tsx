@@ -44,6 +44,7 @@ const buildStoredImagesPage = () => ({
     {
       id: 'img-a1',
       previewUrl: '/a1.jpg',
+      team: null,
       originalFileName: 'alice-1.jpg',
       contentType: 'image/jpeg',
       sizeBytes: 1000,
@@ -55,6 +56,7 @@ const buildStoredImagesPage = () => ({
     {
       id: 'img-a2',
       previewUrl: '/a2.jpg',
+      team: null,
       originalFileName: 'alice-2.jpg',
       contentType: 'image/jpeg',
       sizeBytes: 1000,
@@ -66,6 +68,7 @@ const buildStoredImagesPage = () => ({
     {
       id: 'img-b1',
       previewUrl: '/b1.jpg',
+      team: null,
       originalFileName: 'bob-1.jpg',
       contentType: 'image/jpeg',
       sizeBytes: 1000,
@@ -85,6 +88,7 @@ const buildAliceHistoryPage = (scores: number[]) => ({
   images: scores.map((score, index) => ({
     id: `img-history-${index + 1}`,
     previewUrl: `/history-${index + 1}.jpg`,
+    team: null,
     originalFileName: `alice-history-${index + 1}.jpg`,
     contentType: 'image/jpeg',
     sizeBytes: 1000,
@@ -291,6 +295,7 @@ describe('PlayerGamesBrowser', () => {
           {
             id: 'img-a0',
             previewUrl: '/a0.jpg',
+            team: null,
             originalFileName: 'alice-0.jpg',
             contentType: 'image/jpeg',
             sizeBytes: 1000,

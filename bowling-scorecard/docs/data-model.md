@@ -48,6 +48,7 @@ erDiagram
     StoredImage {
         string id PK
         string userId FK
+        string teamId FK
         string bucket
         string objectKey
         string originalFileName
@@ -58,6 +59,15 @@ erDiagram
     }
 
     Player {
+        string id PK
+        string userId FK
+        string name
+        string normalizedName UK
+        datetime createdAt
+        datetime updatedAt
+    }
+
+    BowlingTeam {
         string id PK
         string userId FK
         string name
@@ -113,6 +123,8 @@ erDiagram
     User ||--o{ Session : has
     User ||--o{ StoredImage : owns
     User ||--o{ Player : has
+    User ||--o{ BowlingTeam : has
+    BowlingTeam ||--o{ StoredImage : tags
     StoredImage ||--o{ BowlingScore : produces
     Player ||--o{ BowlingScore : bowls
     StoredImage ||--o{ LLMRequest : triggers
@@ -162,6 +174,7 @@ classDiagram
 
 - `StoredImage` is the root record for one uploaded scorecard image stored in object storage.
 - `Player` is the durable bowler entity owned by a user. `Player.normalizedName` supports one player row per case-insensitive display name per user.
+- `BowlingTeam` is the durable team label owned by a user. A stored image can be assigned to one team, and deleting a team clears that image assignment.
 - `BowlingScore` keeps one row per parsed game variant. The `(storedImageId, gameIndex, isEstimate)` unique key allows both estimated and corrected versions of the same game index.
 - `BowlingScore.playerId` links a score to the durable player entity. `BowlingScore.playerName` remains as a denormalized display snapshot for OCR output, historical exports, and compatibility with existing payloads.
 - `LLMRequest.status` is currently used as a free-form string, but the code path uses `queued`, `pending`, `succeeded`, and `failed`.

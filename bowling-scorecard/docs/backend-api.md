@@ -35,5 +35,7 @@ Copy `.env.example` to `.env.local` (or `.env`) and set:
 - `POST /api/extract-scores` — accepts `{ imageDataUrl, fileName? }`, stores the image, queues LLM extraction, and returns the stored image payload plus queue status.
 - `POST /api/stored-images/[id]/rescore` — re-enqueue extraction for an existing stored image.
 - `GET /api/stored-images` — list stored images for the signed-in user.
+- `GET /api/bowling-teams` — list bowling teams for the signed-in user.
+- `PATCH /api/stored-images/[id]` — assign, create, or clear an image-level bowling team.
 - `POST /api/client-logs` — lightweight client logging for diagnostics.
 - `GET /api/health` — service status and the configured default provider.

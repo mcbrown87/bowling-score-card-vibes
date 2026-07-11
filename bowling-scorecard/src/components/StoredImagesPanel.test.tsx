@@ -9,6 +9,7 @@ const originalMatchMedia = window.matchMedia;
 const buildImageSummary = (): StoredImageSummary => ({
   id: 'image-1',
   previewUrl: '/test-preview.jpg',
+  team: null,
   originalFileName: 'score.jpg',
   contentType: 'image/jpeg',
   sizeBytes: 1024,
@@ -144,5 +145,54 @@ describe('StoredImagesPanel', () => {
     );
     expect(await screen.findByRole('dialog', { name: 'Edit player name' })).toBeVisible();
     expect(screen.getByText('Game 2 of 2')).toBeVisible();
+  });
+
+  it('creates a new team from the image team combobox', async () => {
+    const onUpdateImageTeam = jest.fn();
+
+    render(
+      <StoredImagesPanel
+        images={[buildImageSummary()]}
+        isLoading={false}
+        error={null}
+        onRetry={jest.fn()}
+        onUpdateImageTeam={onUpdateImageTeam}
+        teams={[{ id: 'team-1', name: 'Wednesday League' }]}
+      />
+    );
+
+    const input = screen.getByRole('combobox', { name: 'Team' });
+    fireEvent.change(input, { target: { value: 'Friday Night' } });
+    fireEvent.click(screen.getByRole('option', { name: 'Create Friday Night' }));
+
+    await waitFor(() =>
+      expect(onUpdateImageTeam).toHaveBeenCalledWith('image-1', { teamName: 'Friday Night' })
+    );
+  });
+
+  it('clears the selected image team', async () => {
+    const onUpdateImageTeam = jest.fn();
+
+    render(
+      <StoredImagesPanel
+        images={[
+          {
+            ...buildImageSummary(),
+            team: { id: 'team-1', name: 'Wednesday League' }
+          }
+        ]}
+        isLoading={false}
+        error={null}
+        onRetry={jest.fn()}
+        onUpdateImageTeam={onUpdateImageTeam}
+        teams={[{ id: 'team-1', name: 'Wednesday League' }]}
+      />
+    );
+
+    fireEvent.click(screen.getByRole('button', { name: 'Clear team' }));
+
+    await waitFor(() =>
+      expect(onUpdateImageTeam).toHaveBeenCalledWith('image-1', { teamId: null })
+    );
   });
 });

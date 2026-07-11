@@ -25,6 +25,12 @@ export const storedImageInclude = {
       updatedAt: true
     }
   },
+  team: {
+    select: {
+      id: true,
+      name: true
+    }
+  },
   llmRequests: {
     orderBy: { createdAt: 'desc' as const },
     take: 5,
@@ -72,6 +78,7 @@ export const serializeStoredImage = (image: StoredImageWithRelations) => {
     id: image.id,
     bucket: image.bucket,
     objectKey: image.objectKey,
+    team: image.team,
     originalFileName: image.originalFileName,
     contentType: image.contentType,
     sizeBytes: image.sizeBytes,

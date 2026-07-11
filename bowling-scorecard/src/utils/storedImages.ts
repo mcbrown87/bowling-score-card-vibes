@@ -1,4 +1,5 @@
 import type {
+  BowlingTeamSummary,
   StoredGamePayload,
   StoredImagePayload,
   StoredImageSummary,
@@ -15,6 +16,15 @@ const isValidFrameArray = (value: unknown): value is Game['frames'] =>
 
 const isValidTenthFrame = (value: unknown): value is Game['tenthFrame'] =>
   isRecord(value) && Array.isArray((value as { rolls?: unknown }).rolls);
+
+const normalizeTeam = (value: unknown): BowlingTeamSummary | null => {
+  if (!isRecord(value)) {
+    return null;
+  }
+  const id = typeof value.id === 'string' ? value.id : null;
+  const name = typeof value.name === 'string' ? value.name : null;
+  return id && name ? { id, name } : null;
+};
 
 const normalizeStoredGame = (
   game: StoredGamePayload | Game | undefined,
@@ -78,6 +88,7 @@ export const normalizeStoredImage = (
   return {
     id: image.id,
     previewUrl: image.previewUrl ?? `/api/stored-images/${image.id}/content`,
+    team: normalizeTeam(image.team ?? null),
     originalFileName: image.originalFileName ?? null,
     contentType: image.contentType ?? null,
     sizeBytes:
@@ -135,6 +146,47 @@ export async function loadStoredImages(page = 1, pageSize?: number): Promise<Sto
     totalImages,
     totalPages
   };
+}
+
+export async function loadBowlingTeams(): Promise<BowlingTeamSummary[]> {
+  const response = await fetch('/api/bowling-teams');
+  const data = await response.json();
+
+  if (!response.ok || !data?.success) {
+    throw new Error(typeof data?.error === 'string' ? data.error : 'Unable to load teams');
+  }
+
+  return Array.isArray(data.teams)
+    ? (data.teams as unknown[])
+        .map((team) => normalizeTeam(team))
+        .filter((team): team is BowlingTeamSummary => Boolean(team))
+    : [];
+}
+
+export async function saveStoredImageTeam(
+  storedImageId: string,
+  assignment: { teamId: string | null } | { teamName: string }
+): Promise<StoredImageSummary> {
+  const response = await fetch(`/api/stored-images/${storedImageId}`, {
+    method: 'PATCH',
+    headers: {
+      'Content-Type': 'application/json'
+    },
+    body: JSON.stringify(assignment)
+  });
+
+  const data = await response.json();
+
+  if (!response.ok || !data?.success) {
+    throw new Error(typeof data?.error === 'string' ? data.error : 'Failed to save team');
+  }
+
+  const normalized = normalizeStoredImage(data.storedImage as StoredImagePayload);
+  if (!normalized) {
+    throw new Error('Received invalid stored image data from server');
+  }
+
+  return normalized;
 }
 
 export async function saveStoredGameCorrection(

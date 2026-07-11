@@ -1,23 +1,35 @@
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { StoredImagesLibrary } from './StoredImagesLibrary';
-import { loadStoredImages, saveStoredGameCorrection } from '@/utils/storedImages';
+import {
+  loadBowlingTeams,
+  loadStoredImages,
+  saveStoredGameCorrection,
+  saveStoredImageTeam
+} from '@/utils/storedImages';
 import { createEmptyGame } from '@/utils/gameCreation';
 
 jest.mock('@/utils/storedImages', () => ({
+  loadBowlingTeams: jest.fn(),
   loadStoredImages: jest.fn(),
   normalizeStoredImage: jest.fn(),
-  saveStoredGameCorrection: jest.fn()
+  saveStoredGameCorrection: jest.fn(),
+  saveStoredImageTeam: jest.fn()
 }));
 
+const mockedLoadBowlingTeams = loadBowlingTeams as jest.MockedFunction<typeof loadBowlingTeams>;
 const mockedLoadStoredImages = loadStoredImages as jest.MockedFunction<typeof loadStoredImages>;
 const mockedSaveStoredGameCorrection = saveStoredGameCorrection as jest.MockedFunction<
   typeof saveStoredGameCorrection
+>;
+const mockedSaveStoredImageTeam = saveStoredImageTeam as jest.MockedFunction<
+  typeof saveStoredImageTeam
 >;
 
 const originalMatchMedia = window.matchMedia;
 const buildImage = (page: number, index: number) => ({
   id: `image-page-${page}-${index + 1}`,
   previewUrl: '/test-preview.jpg',
+  team: null,
   originalFileName: `score-page-${page}-${index + 1}.jpg`,
   contentType: 'image/jpeg',
   sizeBytes: 1024,
@@ -56,12 +68,23 @@ const buildPage = (page: number, imageCount = 50, totalPages = 2) => ({
 });
 
 beforeEach(() => {
+  mockedLoadBowlingTeams.mockResolvedValue([{ id: 'team-1', name: 'Wednesday League' }]);
   mockedLoadStoredImages.mockResolvedValue(buildPage(1));
   mockedSaveStoredGameCorrection.mockImplementation(async (_imageId, gameIndex, game) => ({
     ...game,
     id: `saved-${gameIndex}`,
     gameIndex,
     isEstimate: false
+  }));
+  mockedSaveStoredImageTeam.mockImplementation(async (imageId, assignment) => ({
+    ...buildImage(1, 0),
+    id: imageId,
+    team:
+      'teamName' in assignment
+        ? { id: 'created-team', name: assignment.teamName }
+        : assignment.teamId
+          ? { id: assignment.teamId, name: 'Wednesday League' }
+          : null
   }));
 
   window.matchMedia = jest.fn().mockImplementation((query: string) => ({
@@ -160,5 +183,25 @@ describe('StoredImagesLibrary', () => {
     );
     expect(await screen.findByRole('dialog', { name: 'Edit player name' })).toBeVisible();
     expect(screen.getByText('Game 3 of 3')).toBeVisible();
+  });
+
+  it('saves an image team and updates the selected image', async () => {
+    mockedLoadStoredImages.mockResolvedValueOnce({
+      ...buildPage(1, 1, 1),
+      totalImages: 1
+    });
+
+    render(<StoredImagesLibrary />);
+
+    const input = await screen.findByRole('combobox', { name: 'Team' });
+    fireEvent.change(input, { target: { value: 'Wednesday' } });
+    fireEvent.click(await screen.findByRole('option', { name: 'Wednesday League' }));
+
+    await waitFor(() =>
+      expect(mockedSaveStoredImageTeam).toHaveBeenCalledWith('image-page-1-1', {
+        teamId: 'team-1'
+      })
+    );
+    expect(await screen.findByDisplayValue('Wednesday League')).toBeVisible();
   });
 });

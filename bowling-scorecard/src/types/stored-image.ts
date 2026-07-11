@@ -1,5 +1,10 @@
 import type { Game } from './bowling';
 
+export type BowlingTeamSummary = {
+  id: string;
+  name: string;
+};
+
 export type StoredGamePayload = {
   id?: string;
   gameIndex?: number;
@@ -28,6 +33,7 @@ export type StoredImagePayload = {
   id: string;
   bucket?: string;
   objectKey?: string;
+  team?: BowlingTeamSummary | null;
   originalFileName?: string | null;
   contentType?: string | null;
   sizeBytes?: number | null;
@@ -41,6 +47,7 @@ export type StoredImagePayload = {
 export type StoredImageSummary = {
   id: string;
   previewUrl: string;
+  team: BowlingTeamSummary | null;
   originalFileName: string | null;
   contentType: string | null;
   sizeBytes: number | null;

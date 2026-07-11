@@ -28,8 +28,25 @@ model User {
   sessions Session[]
   storedImages StoredImage[]
   players Player[]
+  bowlingTeams BowlingTeam[]
 
   @@map("users")
+}
+
+model BowlingTeam {
+  id             String   @id @default(cuid())
+  userId         String
+  name           String
+  normalizedName String
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  storedImages StoredImage[]
+
+  @@unique([userId, normalizedName])
+  @@index([userId])
+  @@map("bowling_teams")
 }
 
 model Player {
@@ -93,6 +110,7 @@ model VerificationToken {
 model StoredImage {
   id               String   @id @default(cuid())
   userId           String
+  teamId           String?
   bucket           String
   objectKey        String
   originalFileName String?
@@ -102,11 +120,13 @@ model StoredImage {
   updatedAt        DateTime @updatedAt
 
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  team BowlingTeam? @relation(fields: [teamId], references: [id], onDelete: SetNull)
   scores BowlingScore[]
   llmRequests LLMRequest[]
 
   @@unique([bucket, objectKey])
   @@index([userId])
+  @@index([teamId])
   @@map("stored_images")
 }
 

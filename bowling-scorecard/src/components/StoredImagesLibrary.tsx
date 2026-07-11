@@ -2,11 +2,18 @@
 
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { StoredImagesPanel } from './StoredImagesPanel';
-import type { StoredImagePayload, StoredImageSummary, StoredImagesPage } from '@/types/stored-image';
+import type {
+  BowlingTeamSummary,
+  StoredImagePayload,
+  StoredImageSummary,
+  StoredImagesPage
+} from '@/types/stored-image';
 import type { Game } from '@/types/bowling';
 import {
+  loadBowlingTeams,
   loadStoredImages,
   normalizeStoredImage,
+  saveStoredImageTeam,
   saveStoredGameCorrection
 } from '@/utils/storedImages';
 import { upsertStoredGameByIndex } from '@/utils/gameCreation';
@@ -29,6 +36,7 @@ export function StoredImagesLibrary({ initialImageId, initialGameIndex }: Stored
   const [totalImages, setTotalImages] = useState(0);
   const [totalPages, setTotalPages] = useState(1);
   const [activeImageIndexOnPage, setActiveImageIndexOnPage] = useState(0);
+  const [teams, setTeams] = useState<BowlingTeamSummary[]>([]);
   const pollAbortRef = useRef(false);
   const pendingPageTargetRef = useRef<'start' | 'end' | null>(null);
 
@@ -68,6 +76,26 @@ export function StoredImagesLibrary({ initialImageId, initialGameIndex }: Stored
   useEffect(() => {
     void fetchImages(currentPage);
   }, [currentPage, fetchImages]);
+
+  useEffect(() => {
+    let isMounted = true;
+
+    loadBowlingTeams()
+      .then((loadedTeams) => {
+        if (isMounted) {
+          setTeams(loadedTeams);
+        }
+      })
+      .catch((err) => {
+        if (isMounted) {
+          setError(err instanceof Error ? err.message : 'Failed to load teams');
+        }
+      });
+
+    return () => {
+      isMounted = false;
+    };
+  }, []);
 
   const refreshImagesSilently = useCallback(async () => {
     try {
@@ -193,6 +221,30 @@ export function StoredImagesLibrary({ initialImageId, initialGameIndex }: Stored
     }
   }, []);
 
+  const handleUpdateImageTeam = useCallback(
+    async (imageId: string, assignment: { teamId: string | null } | { teamName: string }) => {
+      try {
+        const updatedImage = await saveStoredImageTeam(imageId, assignment);
+        setImages((prev) =>
+          prev.map((image) => (image.id === imageId ? updatedImage : image))
+        );
+        if (updatedImage.team) {
+          setTeams((prev) => {
+            const exists = prev.some((team) => team.id === updatedImage.team?.id);
+            const next = exists ? prev : [...prev, updatedImage.team as BowlingTeamSummary];
+            return [...next].sort((a, b) => a.name.localeCompare(b.name));
+          });
+        }
+        setError(null);
+      } catch (err) {
+        const message = err instanceof Error ? err.message : 'Failed to save team';
+        setError(message);
+        throw err;
+      }
+    },
+    []
+  );
+
   const handleUpdateGame = useCallback(
     async (imageId: string, gameIndex: number, updatedGame: Game) => {
       try {
@@ -226,9 +278,11 @@ export function StoredImagesLibrary({ initialImageId, initialGameIndex }: Stored
       onGenerateScores={handleGenerateScores}
       onClearScores={handleClearScores}
       onDeleteImage={handleDeleteImage}
+      onUpdateImageTeam={handleUpdateImageTeam}
       generatingImageId={generatingImageId}
       clearingImageId={clearingImageId}
       deletingImageId={deletingImageId}
+      teams={teams}
       onUpdateGame={handleUpdateGame}
       initialImageId={initialImageId ?? null}
       initialGameIndex={initialGameIndex ?? null}
