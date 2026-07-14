@@ -1,6 +1,10 @@
 import { fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { PlayerGamesBrowser } from './PlayerGamesBrowser';
-import { loadStoredImages } from '@/utils/storedImages';
+import {
+  loadStoredImages,
+  loadTeamRosterStatus,
+  saveTeamRosterPlayerStatus
+} from '@/utils/storedImages';
 
 const mockRouterPush = jest.fn();
 
@@ -11,10 +15,18 @@ jest.mock('next/navigation', () => ({
 }));
 
 jest.mock('@/utils/storedImages', () => ({
-  loadStoredImages: jest.fn()
+  loadStoredImages: jest.fn(),
+  loadTeamRosterStatus: jest.fn(),
+  saveTeamRosterPlayerStatus: jest.fn()
 }));
 
 const mockedLoadStoredImages = loadStoredImages as jest.MockedFunction<typeof loadStoredImages>;
+const mockedLoadTeamRosterStatus = loadTeamRosterStatus as jest.MockedFunction<
+  typeof loadTeamRosterStatus
+>;
+const mockedSaveTeamRosterPlayerStatus = saveTeamRosterPlayerStatus as jest.MockedFunction<
+  typeof saveTeamRosterPlayerStatus
+>;
 const originalInnerWidth = window.innerWidth;
 const originalMatchMedia = window.matchMedia;
 
@@ -129,7 +141,8 @@ const buildTeamHistoryPage = () => ({
         }),
         {
           ...buildGame('Bob', [20, 40, 49, 69, 78, 98, 107, 127, 136, 156], 156, {
-            gameIndex: 1
+            gameIndex: 1,
+            player: { id: 'player-bob', name: 'Bob' }
           }),
           totalScore: 0
         }
@@ -150,7 +163,8 @@ const buildTeamHistoryPage = () => ({
           player: { id: 'player-alice', name: 'Alice' }
         }),
         buildGame('Charlie', [6, 16, 26, 36, 46, 56, 66, 76, 86, 120], 120, {
-          gameIndex: 1
+          gameIndex: 1,
+          player: { id: 'player-charlie', name: 'Charlie' }
         })
       ]
     },
@@ -183,6 +197,11 @@ const buildTeamHistoryPage = () => ({
 
 beforeEach(() => {
   mockedLoadStoredImages.mockResolvedValue(buildStoredImagesPage());
+  mockedLoadTeamRosterStatus.mockResolvedValue({});
+  mockedSaveTeamRosterPlayerStatus.mockImplementation(async (_teamId, playerId, isDisabled) =>
+    isDisabled ? { [playerId]: true } : {}
+  );
+  window.localStorage.clear();
   window.innerWidth = 1200;
   window.matchMedia = jest.fn().mockImplementation(() => ({
     matches: true,
@@ -259,6 +278,33 @@ describe('PlayerGamesBrowser', () => {
     expect(screen.queryByText('Alicia')).not.toBeInTheDocument();
   });
 
+  it('can disable and re-enable players from the team roster', async () => {
+    mockedLoadStoredImages.mockResolvedValue(buildTeamHistoryPage());
+    jest.spyOn(window, 'confirm').mockReturnValue(true);
+
+    render(<PlayerGamesBrowser mode="teams" />);
+
+    const roster = await screen.findByRole('table', { name: 'Team roster' });
+    expect(within(roster).getByText('Bob')).toBeVisible();
+
+    fireEvent.contextMenu(within(roster).getByRole('row', { name: /Bob 1 156 156/i }));
+
+    expect(mockedSaveTeamRosterPlayerStatus).toHaveBeenCalledWith('team-1', 'player-bob', true);
+    await waitFor(() => expect(within(roster).queryByText('Bob')).not.toBeInTheDocument());
+    expect(screen.getByLabelText(/Show all/)).toBeVisible();
+    expect(screen.getByText('Show all (1 disabled)')).toBeVisible();
+
+    fireEvent.click(screen.getByLabelText(/Show all/));
+
+    const inactiveBobRow = within(roster).getByRole('row', { name: /Bob 1 156 156 .*Disabled/i });
+    expect(inactiveBobRow).toBeVisible();
+    fireEvent.click(within(inactiveBobRow).getByRole('button', { name: 'Enable' }));
+
+    expect(mockedSaveTeamRosterPlayerStatus).toHaveBeenCalledWith('team-1', 'player-bob', false);
+    await waitFor(() => expect(screen.queryByText('Show all (1 disabled)')).not.toBeInTheDocument());
+    expect(within(roster).getByRole('row', { name: /Bob 1 156 156/i })).toBeVisible();
+  });
+
   it('updates the latest lineup when a different team scorecard is selected', async () => {
     mockedLoadStoredImages.mockResolvedValue(buildTeamHistoryPage());
 
@@ -293,6 +339,24 @@ describe('PlayerGamesBrowser', () => {
     const strengthTable = screen.getByRole('table', { name: 'Slot strength' });
     expect(within(strengthTable).getByRole('row', { name: /Slot 1 160 2 Alice Alice/i })).toBeVisible();
     expect(within(strengthTable).getByRole('row', { name: /Slot 2 138 2 Bob Bob/i })).toBeVisible();
+  });
+
+  it('excludes disabled players from lineup spot and slot strength analytics', async () => {
+    mockedLoadStoredImages.mockResolvedValue(buildTeamHistoryPage());
+    mockedLoadTeamRosterStatus.mockResolvedValue({ 'player-bob': true });
+
+    render(<PlayerGamesBrowser mode="teams" />);
+
+    expect(await screen.findByText('Lineup spot performance')).toBeVisible();
+    await waitFor(() => expect(screen.getByText('Show all (1 disabled)')).toBeVisible());
+
+    const spotTable = screen.getByRole('table', { name: 'Lineup spot performance' });
+    expect(within(spotTable).queryByRole('row', { name: /Bob/i })).not.toBeInTheDocument();
+    expect(within(spotTable).getByRole('row', { name: /Charlie — 120 \(1\) Slot 2/i })).toBeVisible();
+
+    const strengthTable = screen.getByRole('table', { name: 'Slot strength' });
+    expect(within(strengthTable).getByRole('row', { name: /Slot 2 120 1 Charlie Charlie/i })).toBeVisible();
+    expect(within(strengthTable).queryByRole('row', { name: /Bob/i })).not.toBeInTheDocument();
   });
 
   it('recomputes the heatmap when a different player is selected', async () => {

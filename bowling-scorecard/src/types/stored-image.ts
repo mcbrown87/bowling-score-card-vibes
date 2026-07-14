@@ -5,6 +5,8 @@ export type BowlingTeamSummary = {
   name: string;
 };
 
+export type TeamRosterStatusMap = Record<string, Record<string, boolean>>;
+
 export type StoredGamePayload = {
   id?: string;
   gameIndex?: number;

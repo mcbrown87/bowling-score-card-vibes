@@ -27,6 +27,9 @@ Both packages are TypeScript-first; keep 2-space indentation and single quotes a
 ## Testing Guidelines
 Frontend tests use CRA's Jest + React Testing Library stack (see `bowling-scorecard/src/App.test.tsx` and `setupTests.ts`). Name files `*.test.tsx` alongside the component, focus on user flows (image upload, score correction), and run `npm test -- --watch` while developing. Exercise UI changes through the Chrome DevTools MCP server so you can verify the app in-browser, collect console/network logs, and attach screenshots alongside PRs. Backend currently lacks automated tests; add Vitest/Jest suites under `backend/src/__tests__` whenever you ship logic-heavy modules.
 
+## Database & Bootstrap Fixtures
+When adding or changing Prisma schema models, relations, or persisted UI state, update both the Prisma migration history and `bowling-scorecard/scripts/bootstrap-dev-session.cjs` when the new state should exist in local seeded data. Keep bootstrap seeding deterministic and idempotent: clear or upsert bootstrap-owned rows before inserting replacements, expose useful env/CLI overrides for seeded counts, and update `.codex/skills/bowling-bootstrap-50-devtools/SKILL.md` if expected bootstrap output or coverage changes. For team/player state, seed enough data to exercise the Teams and Players tabs after `BOOTSTRAP_RANDOM_GAMES=true npm run bootstrap:session -- --headless`.
+
 ## Commit & Pull Request Guidelines
 Existing history follows `type(scope): description` (e.g., `feat(frontend): show uploaded image beside paginated scorecards`). Keep the imperative mood, mention the touched area, and include issue IDs when available. PRs should outline intent, list test evidence (CLI output or screenshots for UI), mention any schema/API changes, and link relevant tickets. Include before/after captures from `TestImages/` whenever the UI shifts.
 

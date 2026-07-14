@@ -99,6 +99,7 @@ const randomTeamNames = (
   .map((name) => name.trim())
   .filter(Boolean);
 const defaultRandomImageCount = 60;
+const defaultDisabledRosterPlayerCount = 1;
 
 function hasFlag(flag) {
   return process.argv.includes(flag);
@@ -130,6 +131,12 @@ const bootstrapImageCount = parsePositiveInteger(
     process.env.BOOTSTRAP_IMAGE_COUNT ??
     (useRandomGames ? String(defaultRandomImageCount) : '1'),
   useRandomGames ? defaultRandomImageCount : 1
+);
+const disabledRosterPlayerCount = parsePositiveInteger(
+  getFlagValue('--disabled-roster-player-count') ??
+    process.env.BOOTSTRAP_DISABLED_ROSTER_PLAYER_COUNT ??
+    String(defaultDisabledRosterPlayerCount),
+  defaultDisabledRosterPlayerCount
 );
 
 function normalizeServiceUrl(rawUrl, hostMap) {
@@ -376,6 +383,23 @@ async function seedBootstrapData() {
       }
     }
   });
+  const existingBootstrapTeams = await prisma.bowlingTeam.findMany({
+    where: {
+      userId: user.id
+    },
+    select: {
+      id: true
+    }
+  });
+  if (existingBootstrapTeams.length > 0) {
+    await prisma.teamRosterPlayerStatus.deleteMany({
+      where: {
+        teamId: {
+          in: existingBootstrapTeams.map((team) => team.id)
+        }
+      }
+    });
+  }
 
   const teams =
     useRandomGames && randomTeamNames.length > 0
@@ -401,6 +425,7 @@ async function seedBootstrapData() {
           })
         )
       : [];
+  const playersByName = new Map();
 
   for (let index = 0; index < bootstrapImageCount; index += 1) {
     const sequence = String(index + 1).padStart(3, '0');
@@ -432,7 +457,6 @@ async function seedBootstrapData() {
     });
 
     const gamesForImage = buildGamesForImage(index);
-    const playersByName = new Map();
 
     for (const game of gamesForImage) {
       const normalizedName = normalizePlayerLookupName(game.playerName);
@@ -474,6 +498,44 @@ async function seedBootstrapData() {
     });
   }
 
+  const seededRosterStatuses = [];
+  if (useRandomGames && teams.length > 0 && playersByName.size > 0 && disabledRosterPlayerCount > 0) {
+    const seededPlayers = Array.from(playersByName.values()).sort((a, b) =>
+      a.name.localeCompare(b.name)
+    );
+
+    for (const [teamIndex, team] of teams.entries()) {
+      for (
+        let offset = 0;
+        offset < Math.min(disabledRosterPlayerCount, seededPlayers.length);
+        offset += 1
+      ) {
+        const player = seededPlayers[(teamIndex + offset) % seededPlayers.length];
+        const status = await prisma.teamRosterPlayerStatus.upsert({
+          where: {
+            teamId_playerId: {
+              teamId: team.id,
+              playerId: player.id
+            }
+          },
+          update: {
+            isDisabled: true
+          },
+          create: {
+            teamId: team.id,
+            playerId: player.id,
+            isDisabled: true
+          }
+        });
+        seededRosterStatuses.push({
+          ...status,
+          teamName: team.name,
+          playerName: player.name
+        });
+      }
+    }
+  }
+
   console.log(`Seeded ${bootstrapImageCount} bootstrap image${bootstrapImageCount === 1 ? '' : 's'} for ${bootstrapUser.email}.`);
   if (useRandomGames) {
     const seededGameCount = bootstrapImageCount * effectiveRandomGamePlayerNames.length;
@@ -484,6 +546,11 @@ async function seedBootstrapData() {
       console.log(
         `Team mode enabled: assigned bootstrap images across ${teams.length} team${teams.length === 1 ? '' : 's'} (${teams.map((team) => team.name).join(', ')}).`
       );
+      if (seededRosterStatuses.length > 0) {
+        console.log(
+          `Roster status enabled: seeded ${seededRosterStatuses.length} disabled player status${seededRosterStatuses.length === 1 ? '' : 'es'} (${seededRosterStatuses.map((status) => `${status.playerName} on ${status.teamName}`).join(', ')}).`
+        );
+      }
     }
   }
 }

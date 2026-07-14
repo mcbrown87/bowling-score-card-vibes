@@ -43,6 +43,7 @@ model BowlingTeam {
 
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
   storedImages StoredImage[]
+  rosterPlayerStatuses TeamRosterPlayerStatus[]
 
   @@unique([userId, normalizedName])
   @@index([userId])
@@ -59,10 +60,27 @@ model Player {
 
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
   scores BowlingScore[]
+  teamRosterStatuses TeamRosterPlayerStatus[]
 
   @@unique([userId, normalizedName])
   @@index([userId])
   @@map("players")
+}
+
+model TeamRosterPlayerStatus {
+  id         String   @id @default(cuid())
+  teamId     String
+  playerId   String
+  isDisabled Boolean  @default(false)
+  createdAt  DateTime @default(now()) @db.Timestamptz(3)
+  updatedAt  DateTime @updatedAt @db.Timestamptz(3)
+
+  team BowlingTeam @relation(fields: [teamId], references: [id], onDelete: Cascade)
+  player Player @relation(fields: [playerId], references: [id], onDelete: Cascade)
+
+  @@unique([teamId, playerId])
+  @@index([playerId])
+  @@map("team_roster_player_statuses")
 }
 
 model Account {

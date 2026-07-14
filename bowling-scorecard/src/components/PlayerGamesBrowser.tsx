@@ -1,14 +1,22 @@
 'use client';
 
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { CSSProperties } from 'react';
 import { useRouter } from 'next/navigation';
-import type { StoredGameSummary, StoredImageSummary } from '@/types/stored-image';
+import type {
+  StoredGameSummary,
+  StoredImageSummary,
+  TeamRosterStatusMap
+} from '@/types/stored-image';
 import {
   buildFrameTrendSeries,
   buildPlayerFrameHeatmap
 } from '@/utils/playerFrameHeatmap';
-import { loadStoredImages } from '@/utils/storedImages';
+import {
+  loadStoredImages,
+  loadTeamRosterStatus,
+  saveTeamRosterPlayerStatus
+} from '@/utils/storedImages';
 import { useDesktopKeyboardMode } from '@/utils/useDesktopKeyboardMode';
 import { Scorecard } from './Scorecard';
 
@@ -28,11 +36,13 @@ type PlayerGroup = {
 
 type TeamRosterEntry = {
   playerKey: string;
+  playerId: string | null;
   playerName: string;
   games: number;
   best: number;
   average: number;
   lastPlayed: string;
+  isDisabled: boolean;
 };
 
 type TeamLineupEntry = {
@@ -498,6 +508,47 @@ const compactDropdownStyles: CSSProperties = {
   minWidth: '150px'
 };
 
+const rosterHeaderStyles: CSSProperties = {
+  display: 'flex',
+  justifyContent: 'space-between',
+  alignItems: 'center',
+  gap: '10px',
+  flexWrap: 'wrap'
+};
+
+const rosterToggleLabelStyles: CSSProperties = {
+  display: 'inline-flex',
+  alignItems: 'center',
+  gap: '8px',
+  color: '#dbeafe',
+  fontSize: '12px',
+  fontWeight: 700,
+  cursor: 'pointer'
+};
+
+const rosterRowActionStyles: CSSProperties = {
+  border: '1px solid #475569',
+  borderRadius: '8px',
+  backgroundColor: '#0f172a',
+  color: '#dbeafe',
+  fontSize: '12px',
+  fontWeight: 700,
+  padding: '4px 8px',
+  cursor: 'pointer',
+  whiteSpace: 'nowrap'
+};
+
+const inactiveRosterRowStyles: CSSProperties = {
+  opacity: 0.54,
+  backgroundColor: 'rgba(15, 23, 42, 0.42)'
+};
+
+const inactiveBadgeStyles: CSSProperties = {
+  ...badgeStyles,
+  border: '1px solid #475569',
+  color: '#cbd5e1'
+};
+
 type ScoreTimelinePoint = {
   index: number;
   key: string;
@@ -750,6 +801,9 @@ export function PlayerGamesBrowser({ mode = 'players' }: PlayerGamesBrowserProps
   const [rollingAverageDisplayMode, setRollingAverageDisplayMode] =
     useState<RollingAverageDisplayMode>('averageAndStdDev');
   const [isStackedLayout, setIsStackedLayout] = useState(false);
+  const [showAllRosterPlayers, setShowAllRosterPlayers] = useState(false);
+  const [teamRosterStatus, setTeamRosterStatus] = useState<TeamRosterStatusMap>({});
+  const rosterLongPressTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const router = useRouter();
   const isHoverCapable = useDesktopKeyboardMode();
   const copy = gamesBrowserCopy[mode];
@@ -790,6 +844,15 @@ export function PlayerGamesBrowser({ mode = 'players' }: PlayerGamesBrowserProps
   useEffect(() => {
     void fetchImages();
   }, [fetchImages]);
+
+  useEffect(
+    () => () => {
+      if (rosterLongPressTimerRef.current) {
+        clearTimeout(rosterLongPressTimerRef.current);
+      }
+    },
+    []
+  );
 
   const players = useMemo<PlayerGroup[]>(() => {
     const map = new Map<string, PlayerGroup>();
@@ -857,6 +920,108 @@ export function PlayerGamesBrowser({ mode = 'players' }: PlayerGamesBrowserProps
     () => players.find((player) => player.playerKey === selectedPlayerKey) ?? null,
     [players, selectedPlayerKey]
   );
+
+  useEffect(() => {
+    if (mode !== 'teams' || !selectedPlayerGroup) {
+      return;
+    }
+
+    let isCurrent = true;
+    loadTeamRosterStatus(selectedPlayerGroup.playerKey)
+      .then((status) => {
+        if (!isCurrent) {
+          return;
+        }
+        setTeamRosterStatus((current) => ({
+          ...current,
+          [selectedPlayerGroup.playerKey]: status
+        }));
+      })
+      .catch((err) => {
+        if (!isCurrent) {
+          return;
+        }
+        setError(err instanceof Error ? err.message : 'Failed to load team roster status');
+      });
+
+    return () => {
+      isCurrent = false;
+    };
+  }, [mode, selectedPlayerGroup]);
+
+  const toggleTeamRosterPlayer = useCallback(
+    (player: Pick<TeamRosterEntry, 'playerId' | 'playerName' | 'isDisabled'>) => {
+      if (mode !== 'teams' || !selectedPlayerGroup) {
+        return;
+      }
+
+      if (!player.playerId) {
+        setError('This roster player needs a saved player profile before status can be changed.');
+        return;
+      }
+      const playerId = player.playerId;
+
+      const nextDisabled = !player.isDisabled;
+      const confirmed = window.confirm(
+        `${nextDisabled ? 'Disable' : 'Enable'} ${player.playerName} on the ${selectedPlayerGroup.playerName} roster?`
+      );
+      if (!confirmed) {
+        return;
+      }
+
+      setTeamRosterStatus((current) => {
+        const next = { ...current };
+        const teamStatus = { ...(next[selectedPlayerGroup.playerKey] ?? {}) };
+        if (nextDisabled) {
+          teamStatus[playerId] = true;
+        } else {
+          delete teamStatus[playerId];
+        }
+
+        if (Object.keys(teamStatus).length > 0) {
+          next[selectedPlayerGroup.playerKey] = teamStatus;
+        } else {
+          delete next[selectedPlayerGroup.playerKey];
+        }
+        return next;
+      });
+
+      saveTeamRosterPlayerStatus(selectedPlayerGroup.playerKey, playerId, nextDisabled)
+        .then((status) => {
+          setTeamRosterStatus((current) => ({
+            ...current,
+            [selectedPlayerGroup.playerKey]: status
+          }));
+        })
+        .catch((err) => {
+          setError(err instanceof Error ? err.message : 'Failed to save team roster status');
+          setTeamRosterStatus((current) => {
+            const next = { ...current };
+            const teamStatus = { ...(next[selectedPlayerGroup.playerKey] ?? {}) };
+            if (nextDisabled) {
+              delete teamStatus[playerId];
+            } else {
+              teamStatus[playerId] = true;
+            }
+
+            if (Object.keys(teamStatus).length > 0) {
+              next[selectedPlayerGroup.playerKey] = teamStatus;
+            } else {
+              delete next[selectedPlayerGroup.playerKey];
+            }
+            return next;
+          });
+        });
+    },
+    [mode, selectedPlayerGroup]
+  );
+
+  const clearRosterLongPressTimer = useCallback(() => {
+    if (rosterLongPressTimerRef.current) {
+      clearTimeout(rosterLongPressTimerRef.current);
+      rosterLongPressTimerRef.current = null;
+    }
+  }, []);
 
   const visiblePlayerGames = useMemo(() => {
     if (!selectedPlayerGroup) {
@@ -936,6 +1101,7 @@ export function PlayerGamesBrowser({ mode = 'players' }: PlayerGamesBrowserProps
         playerScores: Map<string, { playerName: string; scores: number[] }>;
       }
     >();
+    const selectedTeamRosterStatus = teamRosterStatus[selectedPlayerGroup.playerKey] ?? {};
 
     selectedPlayerGroup.games.forEach((entry) => {
       entry.games.forEach((game) => {
@@ -955,6 +1121,10 @@ export function PlayerGamesBrowser({ mode = 'players' }: PlayerGamesBrowserProps
           existing.lastPlayed = entry.image.createdAt;
         }
         rosterMap.set(playerKey, existing);
+
+        if (selectedTeamRosterStatus[playerKey]) {
+          return;
+        }
 
         const playerSlots =
           playerSlotMap.get(playerKey) ?? {
@@ -990,14 +1160,19 @@ export function PlayerGamesBrowser({ mode = 'players' }: PlayerGamesBrowserProps
           : 0;
         return {
           playerKey: entry.playerKey,
+          playerId: entry.playerKey.startsWith('name:') ? null : entry.playerKey,
           playerName: entry.playerName,
           games: entry.scores.length,
           best,
           average: Math.round(average),
-          lastPlayed: entry.lastPlayed
+          lastPlayed: entry.lastPlayed,
+          isDisabled: Boolean(selectedTeamRosterStatus[entry.playerKey])
         };
       })
       .sort((a, b) => {
+        if (a.isDisabled !== b.isDisabled) {
+          return a.isDisabled ? 1 : -1;
+        }
         if (b.games !== a.games) {
           return b.games - a.games;
         }
@@ -1115,7 +1290,7 @@ export function PlayerGamesBrowser({ mode = 'players' }: PlayerGamesBrowserProps
       lineupSpotRows,
       slotStrengthRows
     };
-  }, [mode, playerStats, selectedPlayerGroup, visiblePlayerGames]);
+  }, [mode, playerStats, selectedPlayerGroup, teamRosterStatus, visiblePlayerGames]);
 
   const selectedTeamLineup = useMemo<TeamLineupEntry[]>(() => {
     if (mode !== 'teams' || !selectedGame) {
@@ -1136,6 +1311,19 @@ export function PlayerGamesBrowser({ mode = 'players' }: PlayerGamesBrowserProps
         return a.gameIndex - b.gameIndex;
       });
   }, [mode, selectedGame]);
+
+  const visibleTeamRoster = useMemo(() => {
+    if (!selectedTeamInsights) {
+      return [];
+    }
+    return showAllRosterPlayers
+      ? selectedTeamInsights.roster
+      : selectedTeamInsights.roster.filter((player) => !player.isDisabled);
+  }, [selectedTeamInsights, showAllRosterPlayers]);
+
+  const disabledTeamRosterCount = selectedTeamInsights
+    ? selectedTeamInsights.roster.filter((player) => player.isDisabled).length
+    : 0;
 
   const totalGamesCount = useMemo(
     () =>
@@ -1428,7 +1616,18 @@ export function PlayerGamesBrowser({ mode = 'players' }: PlayerGamesBrowserProps
                     </div>
 
                     <div style={subsectionStyles}>
-                      <h4 style={sectionTitleStyles}>Team roster</h4>
+                      <div style={rosterHeaderStyles}>
+                        <h4 style={sectionTitleStyles}>Team roster</h4>
+                        <label style={rosterToggleLabelStyles}>
+                          <input
+                            type="checkbox"
+                            checked={showAllRosterPlayers}
+                            onChange={(event) => setShowAllRosterPlayers(event.target.checked)}
+                          />
+                          Show all
+                          {disabledTeamRosterCount > 0 ? ` (${disabledTeamRosterCount} disabled)` : ''}
+                        </label>
+                      </div>
                       {selectedTeamInsights.roster.length > 0 ? (
                         <table style={dataTableStyles} aria-label="Team roster">
                           <thead>
@@ -1448,11 +1647,37 @@ export function PlayerGamesBrowser({ mode = 'players' }: PlayerGamesBrowserProps
                               <th scope="col" style={dataTableHeaderStyles}>
                                 Last played
                               </th>
+                              <th scope="col" style={dataTableHeaderStyles}>
+                                Status
+                              </th>
                             </tr>
                           </thead>
                           <tbody>
-                            {selectedTeamInsights.roster.map((player) => (
-                              <tr key={player.playerKey}>
+                            {visibleTeamRoster.map((player) => (
+                              <tr
+                                key={player.playerKey}
+                                style={player.isDisabled ? inactiveRosterRowStyles : undefined}
+                                tabIndex={0}
+                                onContextMenu={(event) => {
+                                  event.preventDefault();
+                                  toggleTeamRosterPlayer(player);
+                                }}
+                                onKeyDown={(event) => {
+                                  if (event.key === 'Enter' || event.key === ' ') {
+                                    event.preventDefault();
+                                    toggleTeamRosterPlayer(player);
+                                  }
+                                }}
+                                onTouchStart={() => {
+                                  clearRosterLongPressTimer();
+                                  rosterLongPressTimerRef.current = setTimeout(() => {
+                                    rosterLongPressTimerRef.current = null;
+                                    toggleTeamRosterPlayer(player);
+                                  }, 650);
+                                }}
+                                onTouchEnd={clearRosterLongPressTimer}
+                                onTouchCancel={clearRosterLongPressTimer}
+                              >
                                 <td style={{ ...dataTableCellStyles, fontWeight: 800 }}>
                                   {player.playerName}
                                 </td>
@@ -1460,12 +1685,29 @@ export function PlayerGamesBrowser({ mode = 'players' }: PlayerGamesBrowserProps
                                 <td style={dataTableNumberCellStyles}>{player.average}</td>
                                 <td style={dataTableNumberCellStyles}>{player.best}</td>
                                 <td style={dataTableCellStyles}>{formatShortDate(player.lastPlayed)}</td>
+                                <td style={dataTableCellStyles}>
+                                  <button
+                                    type="button"
+                                    style={rosterRowActionStyles}
+                                    onClick={() => toggleTeamRosterPlayer(player)}
+                                  >
+                                    {player.isDisabled ? 'Enable' : 'Disable'}
+                                  </button>
+                                  {player.isDisabled && (
+                                    <span style={{ ...inactiveBadgeStyles, marginLeft: '8px' }}>
+                                      Disabled
+                                    </span>
+                                  )}
+                                </td>
                               </tr>
                             ))}
                           </tbody>
                         </table>
                       ) : (
                         <p style={hintTextStyles}>No players found for this team yet.</p>
+                      )}
+                      {selectedTeamInsights.roster.length > 0 && visibleTeamRoster.length === 0 && (
+                        <p style={hintTextStyles}>All roster players are disabled.</p>
                       )}
                     </div>
 

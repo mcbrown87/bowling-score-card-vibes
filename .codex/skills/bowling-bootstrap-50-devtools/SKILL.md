@@ -37,6 +37,7 @@ Use this workdir:
 Seeded 60 bootstrap images for dev+bootstrap@example.com.
 Random mode enabled: seeded 240 varied games across 4 players.
 Team mode enabled: assigned bootstrap images across 4 teams (...).
+Roster status enabled: seeded 4 disabled player statuses (...).
 Logged in as dev+bootstrap@example.com.
 ```
 
@@ -73,6 +74,7 @@ Password: devpassword123
 - The bootstrap script deletes and replaces prior bootstrap fixture images for the bootstrap user before seeding.
 - `BOOTSTRAP_RANDOM_GAMES=true` defaults to 60 images so pagination is exercised; override with `BOOTSTRAP_IMAGE_COUNT` or `--image-count`.
 - Random mode creates one varied random game per configured player per seeded image and assigns images round-robin across teams. Override players with `BOOTSTRAP_RANDOM_PLAYER_NAMES` and teams with `BOOTSTRAP_RANDOM_TEAM_NAMES` or `--random-team-names`.
+- Random team mode seeds one disabled roster-player status per team by default so the Teams tab can exercise persisted roster status. Override the count with `BOOTSTRAP_DISABLED_ROSTER_PLAYER_COUNT` or `--disabled-roster-player-count`.
 - The bootstrap user is expected to be an admin. If `/admin` is forbidden, run this from `bowling-scorecard`:
 
 ```bash

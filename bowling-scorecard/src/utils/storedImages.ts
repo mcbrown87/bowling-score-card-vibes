@@ -4,7 +4,8 @@ import type {
   StoredImagePayload,
   StoredImageSummary,
   StoredGameSummary,
-  StoredImagesPage
+  StoredImagesPage,
+  TeamRosterStatusMap
 } from '@/types/stored-image';
 import type { Game } from '@/types/bowling';
 
@@ -167,6 +168,50 @@ export async function loadBowlingTeams(): Promise<BowlingTeamSummary[]> {
         .map((team) => normalizeTeam(team))
         .filter((team): team is BowlingTeamSummary => Boolean(team))
     : [];
+}
+
+export async function loadTeamRosterStatus(teamId: string): Promise<Record<string, boolean>> {
+  const response = await fetch(`/api/bowling-teams/${teamId}/roster-status`);
+  const data = await response.json();
+
+  if (!response.ok || !data?.success) {
+    throw new Error(
+      typeof data?.error === 'string' ? data.error : 'Unable to load team roster status'
+    );
+  }
+
+  return Array.isArray(data.disabledPlayerIds)
+    ? (data.disabledPlayerIds as unknown[]).reduce<Record<string, boolean>>((acc, playerId) => {
+        if (typeof playerId === 'string') {
+          acc[playerId] = true;
+        }
+        return acc;
+      }, {})
+    : {};
+}
+
+export async function saveTeamRosterPlayerStatus(
+  teamId: string,
+  playerId: string,
+  isDisabled: boolean
+): Promise<TeamRosterStatusMap[string]> {
+  const response = await fetch(`/api/bowling-teams/${teamId}/roster-status/${playerId}`, {
+    method: 'PATCH',
+    headers: {
+      'Content-Type': 'application/json'
+    },
+    body: JSON.stringify({ isDisabled })
+  });
+
+  const data = await response.json();
+
+  if (!response.ok || !data?.success) {
+    throw new Error(
+      typeof data?.error === 'string' ? data.error : 'Failed to save team roster status'
+    );
+  }
+
+  return loadTeamRosterStatus(teamId);
 }
 
 export async function saveStoredImageTeam(
