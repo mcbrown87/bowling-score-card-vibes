@@ -89,6 +89,8 @@ const mobileBottomNavStyles: CSSProperties = {
   left: 0,
   right: 0,
   bottom: 0,
+  width: '100%',
+  maxWidth: '100vw',
   zIndex: 30,
   padding: '8px 12px calc(8px + env(safe-area-inset-bottom))',
   background: 'rgba(8, 16, 42, 0.94)',
@@ -101,6 +103,7 @@ const mobileNavInnerStyles: CSSProperties = {
   display: 'grid',
   gridTemplateColumns: 'repeat(5, minmax(0, 1fr))',
   gap: '6px',
+  width: '100%',
   maxWidth: '520px',
   margin: '0 auto'
 };
@@ -121,7 +124,9 @@ const mobileNavItemStyles: CSSProperties = {
   fontSize: '11px',
   fontWeight: 800,
   cursor: 'pointer',
-  padding: '6px 4px'
+  padding: '6px 4px',
+  minWidth: 0,
+  overflow: 'hidden'
 };
 
 const mobileNavItemActiveStyles: CSSProperties = {

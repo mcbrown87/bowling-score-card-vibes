@@ -192,6 +192,7 @@ const getGamePlayerKey = (game: StoredGameSummary) => {
 
 const pageStyles: CSSProperties = {
   width: '100%',
+  minWidth: 0,
   marginTop: '12px',
   display: 'flex',
   flexDirection: 'column',
@@ -229,7 +230,8 @@ const layoutStyles: CSSProperties = {
   display: 'grid',
   gridTemplateColumns: 'minmax(240px, 320px) 1fr',
   gap: '16px',
-  alignItems: 'start'
+  alignItems: 'start',
+  minWidth: 0
 };
 
 const panelStyles: CSSProperties = {
@@ -237,7 +239,9 @@ const panelStyles: CSSProperties = {
   borderRadius: '14px',
   border: '1px solid #334155',
   boxShadow: '0 12px 30px rgba(2, 6, 23, 0.4)',
-  padding: '16px'
+  padding: '16px',
+  minWidth: 0,
+  maxWidth: '100%'
 };
 
 const sectionTitleStyles: CSSProperties = {
@@ -322,6 +326,17 @@ const dataTableStyles: CSSProperties = {
   borderCollapse: 'collapse',
   color: '#e2e8f0',
   fontSize: '13px'
+};
+
+const scrollableTableStyles: CSSProperties = {
+  maxWidth: '100%',
+  overflowX: 'auto',
+  WebkitOverflowScrolling: 'touch'
+};
+
+const compactTeamTableStyles: CSSProperties = {
+  ...dataTableStyles,
+  minWidth: '520px'
 };
 
 const dataTableHeaderStyles: CSSProperties = {
@@ -524,6 +539,42 @@ const rosterToggleLabelStyles: CSSProperties = {
   fontSize: '12px',
   fontWeight: 700,
   cursor: 'pointer'
+};
+
+const mobileRosterListStyles: CSSProperties = {
+  display: 'flex',
+  flexDirection: 'column',
+  gap: '10px'
+};
+
+const mobileRosterCardStyles: CSSProperties = {
+  border: '1px solid #334155',
+  borderRadius: '10px',
+  backgroundColor: '#0f172a',
+  padding: '10px',
+  display: 'flex',
+  flexDirection: 'column',
+  gap: '8px'
+};
+
+const mobileRosterCardHeaderStyles: CSSProperties = {
+  display: 'flex',
+  alignItems: 'center',
+  justifyContent: 'space-between',
+  gap: '10px'
+};
+
+const mobileRosterStatsStyles: CSSProperties = {
+  display: 'grid',
+  gridTemplateColumns: 'repeat(2, minmax(0, 1fr))',
+  gap: '8px'
+};
+
+const mobileRosterStatStyles: CSSProperties = {
+  display: 'flex',
+  flexDirection: 'column',
+  gap: '2px',
+  minWidth: 0
 };
 
 const rosterRowActionStyles: CSSProperties = {
@@ -1450,6 +1501,31 @@ export function PlayerGamesBrowser({ mode = 'players' }: PlayerGamesBrowserProps
       }
     : layoutStyles;
 
+  const mobileGroupSelect = isStackedLayout ? (
+    <div style={{ marginBottom: '12px' }}>
+      <label htmlFor="player-select" style={{ ...hintTextStyles, display: 'block', marginBottom: '6px' }}>
+        {copy.mobileChooseLabel}
+      </label>
+      <select
+        id="player-select"
+        style={dropdownStyles}
+        value={selectedPlayerKey ?? ''}
+        onChange={(e) => {
+          const next = e.target.value;
+          const target = players.find((p) => p.playerKey === next);
+          setSelectedPlayerKey(next);
+          setSelectedGameKey(target ? getNewestPlayerGame(target.games)?.key ?? null : null);
+        }}
+      >
+        {players.map((player) => (
+          <option key={player.playerKey} value={player.playerKey}>
+            {player.playerName} ({player.games.length})
+          </option>
+        ))}
+      </select>
+    </div>
+  ) : null;
+
   return (
     <section style={pageStyles}>
       <div style={headerStyles}>
@@ -1544,6 +1620,7 @@ export function PlayerGamesBrowser({ mode = 'players' }: PlayerGamesBrowserProps
 
           <div style={panelStyles}>
             <h3 style={sectionTitleStyles}>Games</h3>
+            {mobileGroupSelect}
             {selectedPlayerGroup && playerStats ? (
               <>
                 <div
@@ -1629,63 +1706,20 @@ export function PlayerGamesBrowser({ mode = 'players' }: PlayerGamesBrowserProps
                         </label>
                       </div>
                       {selectedTeamInsights.roster.length > 0 ? (
-                        <table style={dataTableStyles} aria-label="Team roster">
-                          <thead>
-                            <tr>
-                              <th scope="col" style={dataTableHeaderStyles}>
-                                Player
-                              </th>
-                              <th scope="col" style={{ ...dataTableHeaderStyles, textAlign: 'right' }}>
-                                Games
-                              </th>
-                              <th scope="col" style={{ ...dataTableHeaderStyles, textAlign: 'right' }}>
-                                Average
-                              </th>
-                              <th scope="col" style={{ ...dataTableHeaderStyles, textAlign: 'right' }}>
-                                Best
-                              </th>
-                              <th scope="col" style={dataTableHeaderStyles}>
-                                Last played
-                              </th>
-                              <th scope="col" style={dataTableHeaderStyles}>
-                                Status
-                              </th>
-                            </tr>
-                          </thead>
-                          <tbody>
+                        isStackedLayout ? (
+                          <div style={mobileRosterListStyles} aria-label="Team roster">
                             {visibleTeamRoster.map((player) => (
-                              <tr
+                              <div
                                 key={player.playerKey}
-                                style={player.isDisabled ? inactiveRosterRowStyles : undefined}
-                                tabIndex={0}
-                                onContextMenu={(event) => {
-                                  event.preventDefault();
-                                  toggleTeamRosterPlayer(player);
+                                style={{
+                                  ...mobileRosterCardStyles,
+                                  ...(player.isDisabled ? inactiveRosterRowStyles : {})
                                 }}
-                                onKeyDown={(event) => {
-                                  if (event.key === 'Enter' || event.key === ' ') {
-                                    event.preventDefault();
-                                    toggleTeamRosterPlayer(player);
-                                  }
-                                }}
-                                onTouchStart={() => {
-                                  clearRosterLongPressTimer();
-                                  rosterLongPressTimerRef.current = setTimeout(() => {
-                                    rosterLongPressTimerRef.current = null;
-                                    toggleTeamRosterPlayer(player);
-                                  }, 650);
-                                }}
-                                onTouchEnd={clearRosterLongPressTimer}
-                                onTouchCancel={clearRosterLongPressTimer}
                               >
-                                <td style={{ ...dataTableCellStyles, fontWeight: 800 }}>
-                                  {player.playerName}
-                                </td>
-                                <td style={dataTableNumberCellStyles}>{player.games}</td>
-                                <td style={dataTableNumberCellStyles}>{player.average}</td>
-                                <td style={dataTableNumberCellStyles}>{player.best}</td>
-                                <td style={dataTableCellStyles}>{formatShortDate(player.lastPlayed)}</td>
-                                <td style={dataTableCellStyles}>
+                                <div style={mobileRosterCardHeaderStyles}>
+                                  <span style={{ fontWeight: 800, color: '#f8fafc' }}>
+                                    {player.playerName}
+                                  </span>
                                   <button
                                     type="button"
                                     style={rosterRowActionStyles}
@@ -1693,16 +1727,115 @@ export function PlayerGamesBrowser({ mode = 'players' }: PlayerGamesBrowserProps
                                   >
                                     {player.isDisabled ? 'Enable' : 'Disable'}
                                   </button>
-                                  {player.isDisabled && (
-                                    <span style={{ ...inactiveBadgeStyles, marginLeft: '8px' }}>
-                                      Disabled
+                                </div>
+                                <div style={mobileRosterStatsStyles}>
+                                  <span style={mobileRosterStatStyles}>
+                                    <span style={statLabelStyles}>Games</span>
+                                    <span style={{ color: '#f8fafc', fontWeight: 800 }}>
+                                      {player.games}
                                     </span>
-                                  )}
-                                </td>
-                              </tr>
+                                  </span>
+                                  <span style={mobileRosterStatStyles}>
+                                    <span style={statLabelStyles}>Average</span>
+                                    <span style={{ color: '#f8fafc', fontWeight: 800 }}>
+                                      {player.average}
+                                    </span>
+                                  </span>
+                                  <span style={mobileRosterStatStyles}>
+                                    <span style={statLabelStyles}>Best</span>
+                                    <span style={{ color: '#f8fafc', fontWeight: 800 }}>
+                                      {player.best}
+                                    </span>
+                                  </span>
+                                  <span style={mobileRosterStatStyles}>
+                                    <span style={statLabelStyles}>Last played</span>
+                                    <span style={{ color: '#f8fafc', fontWeight: 800 }}>
+                                      {formatShortDate(player.lastPlayed)}
+                                    </span>
+                                  </span>
+                                </div>
+                                {player.isDisabled && <span style={inactiveBadgeStyles}>Disabled</span>}
+                              </div>
                             ))}
-                          </tbody>
-                        </table>
+                          </div>
+                        ) : (
+                          <div style={scrollableTableStyles}>
+                            <table style={dataTableStyles} aria-label="Team roster">
+                              <thead>
+                                <tr>
+                                  <th scope="col" style={dataTableHeaderStyles}>
+                                    Player
+                                  </th>
+                                  <th scope="col" style={{ ...dataTableHeaderStyles, textAlign: 'right' }}>
+                                    Games
+                                  </th>
+                                  <th scope="col" style={{ ...dataTableHeaderStyles, textAlign: 'right' }}>
+                                    Average
+                                  </th>
+                                  <th scope="col" style={{ ...dataTableHeaderStyles, textAlign: 'right' }}>
+                                    Best
+                                  </th>
+                                  <th scope="col" style={dataTableHeaderStyles}>
+                                    Last played
+                                  </th>
+                                  <th scope="col" style={dataTableHeaderStyles}>
+                                    Status
+                                  </th>
+                                </tr>
+                              </thead>
+                              <tbody>
+                                {visibleTeamRoster.map((player) => (
+                                  <tr
+                                    key={player.playerKey}
+                                    style={player.isDisabled ? inactiveRosterRowStyles : undefined}
+                                    tabIndex={0}
+                                    onContextMenu={(event) => {
+                                      event.preventDefault();
+                                      toggleTeamRosterPlayer(player);
+                                    }}
+                                    onKeyDown={(event) => {
+                                      if (event.key === 'Enter' || event.key === ' ') {
+                                        event.preventDefault();
+                                        toggleTeamRosterPlayer(player);
+                                      }
+                                    }}
+                                    onTouchStart={() => {
+                                      clearRosterLongPressTimer();
+                                      rosterLongPressTimerRef.current = setTimeout(() => {
+                                        rosterLongPressTimerRef.current = null;
+                                        toggleTeamRosterPlayer(player);
+                                      }, 650);
+                                    }}
+                                    onTouchEnd={clearRosterLongPressTimer}
+                                    onTouchCancel={clearRosterLongPressTimer}
+                                  >
+                                    <td style={{ ...dataTableCellStyles, fontWeight: 800 }}>
+                                      {player.playerName}
+                                    </td>
+                                    <td style={dataTableNumberCellStyles}>{player.games}</td>
+                                    <td style={dataTableNumberCellStyles}>{player.average}</td>
+                                    <td style={dataTableNumberCellStyles}>{player.best}</td>
+                                    <td style={dataTableCellStyles}>{formatShortDate(player.lastPlayed)}</td>
+                                    <td style={dataTableCellStyles}>
+                                      <button
+                                        type="button"
+                                        style={rosterRowActionStyles}
+                                        onClick={() => toggleTeamRosterPlayer(player)}
+                                      >
+                                        {player.isDisabled ? 'Enable' : 'Disable'}
+                                      </button>
+                                      {player.isDisabled && (
+                                        <span style={{ ...inactiveBadgeStyles, marginLeft: '8px' }}>
+                                          Disabled
+                                        </span>
+                                      )}
+                                    </td>
+                                  </tr>
+                                ))}
+                              </tbody>
+                            </table>
+                          </div>
+                        )
                       ) : (
                         <p style={hintTextStyles}>No players found for this team yet.</p>
                       )}
@@ -1715,57 +1848,59 @@ export function PlayerGamesBrowser({ mode = 'players' }: PlayerGamesBrowserProps
                       <>
                         <div style={subsectionStyles}>
                           <h4 style={sectionTitleStyles}>Lineup spot performance</h4>
-                          <table style={dataTableStyles} aria-label="Lineup spot performance">
-                            <thead>
-                              <tr>
-                                <th scope="col" style={dataTableHeaderStyles}>
-                                  Player
-                                </th>
-                                {selectedTeamInsights.lineupSlots.map((slot) => (
-                                  <th
-                                    key={slot}
-                                    scope="col"
-                                    style={{ ...dataTableHeaderStyles, textAlign: 'right' }}
-                                  >
-                                    Slot {slot}
+                          <div style={scrollableTableStyles}>
+                            <table style={compactTeamTableStyles} aria-label="Lineup spot performance">
+                              <thead>
+                                <tr>
+                                  <th scope="col" style={dataTableHeaderStyles}>
+                                    Player
                                   </th>
-                                ))}
-                                <th scope="col" style={{ ...dataTableHeaderStyles, textAlign: 'right' }}>
-                                  Best slot
-                                </th>
-                              </tr>
-                            </thead>
-                            <tbody>
-                              {selectedTeamInsights.lineupSpotRows.map((player) => (
-                                <tr key={player.playerKey}>
-                                  <td style={{ ...dataTableCellStyles, fontWeight: 800 }}>
-                                    {player.playerName}
-                                  </td>
-                                  {selectedTeamInsights.lineupSlots.map((slot) => {
-                                    const cell = player.slots.get(slot);
-                                    return (
-                                      <td
-                                        key={slot}
-                                        style={{
-                                          ...dataTableNumberCellStyles,
-                                          color: cell?.isBest ? '#f8fafc' : '#e2e8f0',
-                                          fontWeight: cell?.isBest ? 800 : 500,
-                                          backgroundColor: cell?.isBest
-                                            ? 'rgba(37, 99, 235, 0.18)'
-                                            : 'transparent'
-                                        }}
-                                      >
-                                        {cell ? `${cell.average} (${cell.games})` : '—'}
-                                      </td>
-                                    );
-                                  })}
-                                  <td style={dataTableNumberCellStyles}>
-                                    {player.bestSlot ? `Slot ${player.bestSlot}` : '—'}
-                                  </td>
+                                  {selectedTeamInsights.lineupSlots.map((slot) => (
+                                    <th
+                                      key={slot}
+                                      scope="col"
+                                      style={{ ...dataTableHeaderStyles, textAlign: 'right' }}
+                                    >
+                                      Slot {slot}
+                                    </th>
+                                  ))}
+                                  <th scope="col" style={{ ...dataTableHeaderStyles, textAlign: 'right' }}>
+                                    Best slot
+                                  </th>
                                 </tr>
-                              ))}
-                            </tbody>
-                          </table>
+                              </thead>
+                              <tbody>
+                                {selectedTeamInsights.lineupSpotRows.map((player) => (
+                                  <tr key={player.playerKey}>
+                                    <td style={{ ...dataTableCellStyles, fontWeight: 800 }}>
+                                      {player.playerName}
+                                    </td>
+                                    {selectedTeamInsights.lineupSlots.map((slot) => {
+                                      const cell = player.slots.get(slot);
+                                      return (
+                                        <td
+                                          key={slot}
+                                          style={{
+                                            ...dataTableNumberCellStyles,
+                                            color: cell?.isBest ? '#f8fafc' : '#e2e8f0',
+                                            fontWeight: cell?.isBest ? 800 : 500,
+                                            backgroundColor: cell?.isBest
+                                              ? 'rgba(37, 99, 235, 0.18)'
+                                              : 'transparent'
+                                          }}
+                                        >
+                                          {cell ? `${cell.average} (${cell.games})` : '—'}
+                                        </td>
+                                      );
+                                    })}
+                                    <td style={dataTableNumberCellStyles}>
+                                      {player.bestSlot ? `Slot ${player.bestSlot}` : '—'}
+                                    </td>
+                                  </tr>
+                                ))}
+                              </tbody>
+                            </table>
+                          </div>
                           <p style={{ ...hintTextStyles, marginTop: '6px' }}>
                             Values show average score with games in parentheses.
                           </p>
@@ -1773,40 +1908,42 @@ export function PlayerGamesBrowser({ mode = 'players' }: PlayerGamesBrowserProps
 
                         <div style={subsectionStyles}>
                           <h4 style={sectionTitleStyles}>Slot strength</h4>
-                          <table style={dataTableStyles} aria-label="Slot strength">
-                            <thead>
-                              <tr>
-                                <th scope="col" style={dataTableHeaderStyles}>
-                                  Slot
-                                </th>
-                                <th scope="col" style={{ ...dataTableHeaderStyles, textAlign: 'right' }}>
-                                  Average
-                                </th>
-                                <th scope="col" style={{ ...dataTableHeaderStyles, textAlign: 'right' }}>
-                                  Games
-                                </th>
-                                <th scope="col" style={dataTableHeaderStyles}>
-                                  Best player
-                                </th>
-                                <th scope="col" style={dataTableHeaderStyles}>
-                                  Most frequent
-                                </th>
-                              </tr>
-                            </thead>
-                            <tbody>
-                              {selectedTeamInsights.slotStrengthRows.map((slot) => (
-                                <tr key={slot.slot}>
-                                  <td style={{ ...dataTableCellStyles, fontWeight: 800 }}>
-                                    Slot {slot.slot}
-                                  </td>
-                                  <td style={dataTableNumberCellStyles}>{slot.average}</td>
-                                  <td style={dataTableNumberCellStyles}>{slot.games}</td>
-                                  <td style={dataTableCellStyles}>{slot.bestPlayerName}</td>
-                                  <td style={dataTableCellStyles}>{slot.mostFrequentPlayerName}</td>
+                          <div style={scrollableTableStyles}>
+                            <table style={compactTeamTableStyles} aria-label="Slot strength">
+                              <thead>
+                                <tr>
+                                  <th scope="col" style={dataTableHeaderStyles}>
+                                    Slot
+                                  </th>
+                                  <th scope="col" style={{ ...dataTableHeaderStyles, textAlign: 'right' }}>
+                                    Average
+                                  </th>
+                                  <th scope="col" style={{ ...dataTableHeaderStyles, textAlign: 'right' }}>
+                                    Games
+                                  </th>
+                                  <th scope="col" style={dataTableHeaderStyles}>
+                                    Best player
+                                  </th>
+                                  <th scope="col" style={dataTableHeaderStyles}>
+                                    Most frequent
+                                  </th>
                                 </tr>
-                              ))}
-                            </tbody>
-                          </table>
+                              </thead>
+                              <tbody>
+                                {selectedTeamInsights.slotStrengthRows.map((slot) => (
+                                  <tr key={slot.slot}>
+                                    <td style={{ ...dataTableCellStyles, fontWeight: 800 }}>
+                                      Slot {slot.slot}
+                                    </td>
+                                    <td style={dataTableNumberCellStyles}>{slot.average}</td>
+                                    <td style={dataTableNumberCellStyles}>{slot.games}</td>
+                                    <td style={dataTableCellStyles}>{slot.bestPlayerName}</td>
+                                    <td style={dataTableCellStyles}>{slot.mostFrequentPlayerName}</td>
+                                  </tr>
+                                ))}
+                              </tbody>
+                            </table>
+                          </div>
                         </div>
                       </>
                     )}
@@ -1886,31 +2023,6 @@ export function PlayerGamesBrowser({ mode = 'players' }: PlayerGamesBrowserProps
                   </p>
                 </div>
 
-                {isStackedLayout && (
-                  <div style={{ marginTop: '12px' }}>
-                    <label htmlFor="player-select" style={{ ...hintTextStyles, display: 'block', marginBottom: '6px' }}>
-                      {copy.mobileChooseLabel}
-                    </label>
-                    <select
-                      id="player-select"
-                      style={dropdownStyles}
-                      value={selectedPlayerKey ?? ''}
-                      onChange={(e) => {
-                        const next = e.target.value;
-                        const target = players.find((p) => p.playerKey === next);
-                        setSelectedPlayerKey(next);
-                        setSelectedGameKey(target ? getNewestPlayerGame(target.games)?.key ?? null : null);
-                      }}
-                    >
-                      {players.map((player) => (
-                        <option key={player.playerKey} value={player.playerKey}>
-                          {player.playerName} ({player.games.length})
-                        </option>
-                      ))}
-                    </select>
-                  </div>
-                )}
-
                 {selectedGame ? (
                   <div style={{ marginTop: '14px' }}>
                     <div style={selectedGameMetaStyles}>
@@ -1977,31 +2089,33 @@ export function PlayerGamesBrowser({ mode = 'players' }: PlayerGamesBrowserProps
                         {selectedTeamLineup.length > 0 && (
                           <div style={subsectionStyles}>
                             <h4 style={sectionTitleStyles}>Selected lineup</h4>
-                            <table style={dataTableStyles} aria-label="Selected lineup">
-                              <thead>
-                                <tr>
-                                  <th scope="col" style={dataTableHeaderStyles}>
-                                    Player
-                                  </th>
-                                  <th
-                                    scope="col"
-                                    style={{ ...dataTableHeaderStyles, textAlign: 'right' }}
-                                  >
-                                    Score
-                                  </th>
-                                </tr>
-                              </thead>
-                              <tbody>
-                                {selectedTeamLineup.map((player) => (
-                                  <tr key={player.key}>
-                                    <td style={{ ...dataTableCellStyles, fontWeight: 800 }}>
-                                      {player.playerName}
-                                    </td>
-                                    <td style={dataTableNumberCellStyles}>{player.score}</td>
+                            <div style={scrollableTableStyles}>
+                              <table style={dataTableStyles} aria-label="Selected lineup">
+                                <thead>
+                                  <tr>
+                                    <th scope="col" style={dataTableHeaderStyles}>
+                                      Player
+                                    </th>
+                                    <th
+                                      scope="col"
+                                      style={{ ...dataTableHeaderStyles, textAlign: 'right' }}
+                                    >
+                                      Score
+                                    </th>
                                   </tr>
-                                ))}
-                              </tbody>
-                            </table>
+                                </thead>
+                                <tbody>
+                                  {selectedTeamLineup.map((player) => (
+                                    <tr key={player.key}>
+                                      <td style={{ ...dataTableCellStyles, fontWeight: 800 }}>
+                                        {player.playerName}
+                                      </td>
+                                      <td style={dataTableNumberCellStyles}>{player.score}</td>
+                                    </tr>
+                                  ))}
+                                </tbody>
+                              </table>
+                            </div>
                           </div>
                         )}
                       </div>
