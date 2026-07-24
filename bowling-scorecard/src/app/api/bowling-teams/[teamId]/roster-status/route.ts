@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 
 import { auth } from '@/server/auth';
+import { getTenantAccessForSession } from '@/server/auth/tenant';
 import { prisma } from '@/server/db/client';
 
 export const dynamic = 'force-dynamic';
@@ -19,12 +20,18 @@ export async function GET(_request: Request, context: RouteContext) {
   }
 
   try {
+    const tenantAccess = await getTenantAccessForSession(session);
+
+    if (!tenantAccess) {
+      return NextResponse.json({ success: false, error: 'Unauthorized' }, { status: 401 });
+    }
+
     const team = await prisma.bowlingTeam.findUnique({
       where: { id: context.params.teamId },
-      select: { id: true, userId: true }
+      select: { id: true, tenantId: true }
     });
 
-    if (!team || team.userId !== session.user.id) {
+    if (!team || team.tenantId !== tenantAccess.tenantId) {
       return NextResponse.json({ success: false, error: 'Team not found' }, { status: 404 });
     }
 

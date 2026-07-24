@@ -60,6 +60,7 @@ const buildStoredImagesPage = () => ({
   pageSize: 50,
   totalImages: 3,
   totalPages: 1,
+  canEdit: true,
   images: [
     {
       id: 'img-a1',
@@ -105,6 +106,7 @@ const buildAliceHistoryPage = (scores: number[]) => ({
   pageSize: 50,
   totalImages: scores.length,
   totalPages: 1,
+  canEdit: true,
   images: scores.map((score, index) => ({
     id: `img-history-${index + 1}`,
     previewUrl: `/history-${index + 1}.jpg`,
@@ -124,6 +126,7 @@ const buildTeamHistoryPage = () => ({
   pageSize: 50,
   totalImages: 4,
   totalPages: 1,
+  canEdit: true,
   images: [
     {
       id: 'img-wednesday',

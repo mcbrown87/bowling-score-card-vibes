@@ -12,7 +12,24 @@ erDiagram
         string passwordHash
         string name
         string image
+        string activeTenantId FK
         datetime emailVerified
+        datetime createdAt
+        datetime updatedAt
+    }
+
+    Tenant {
+        string id PK
+        string name
+        datetime createdAt
+        datetime updatedAt
+    }
+
+    TenantMembership {
+        string id PK
+        string tenantId FK
+        string userId FK
+        string role
         datetime createdAt
         datetime updatedAt
     }
@@ -48,6 +65,7 @@ erDiagram
     StoredImage {
         string id PK
         string userId FK
+        string tenantId FK
         string teamId FK
         string bucket
         string objectKey
@@ -61,6 +79,7 @@ erDiagram
     Player {
         string id PK
         string userId FK
+        string tenantId FK
         string name
         string normalizedName UK
         datetime createdAt
@@ -70,6 +89,7 @@ erDiagram
     BowlingTeam {
         string id PK
         string userId FK
+        string tenantId FK
         string name
         string normalizedName UK
         datetime createdAt
@@ -121,9 +141,14 @@ erDiagram
 
     User ||--o{ Account : has
     User ||--o{ Session : has
-    User ||--o{ StoredImage : owns
-    User ||--o{ Player : has
-    User ||--o{ BowlingTeam : has
+    User ||--o{ TenantMembership : joins
+    Tenant ||--o{ TenantMembership : grants
+    Tenant ||--o{ StoredImage : owns
+    Tenant ||--o{ Player : has
+    Tenant ||--o{ BowlingTeam : has
+    User ||--o{ StoredImage : uploaded
+    User ||--o{ Player : created
+    User ||--o{ BowlingTeam : created
     BowlingTeam ||--o{ StoredImage : tags
     StoredImage ||--o{ BowlingScore : produces
     Player ||--o{ BowlingScore : bowls
@@ -172,9 +197,10 @@ classDiagram
 
 ## Notes
 
-- `StoredImage` is the root record for one uploaded scorecard image stored in object storage.
-- `Player` is the durable bowler entity owned by a user. `Player.normalizedName` supports one player row per case-insensitive display name per user.
-- `BowlingTeam` is the durable team label owned by a user. A stored image can be assigned to one team, and deleting a team clears that image assignment.
+- `Tenant` is the shared dataset boundary. Users gain dataset access through `TenantMembership`; `User.activeTenantId` selects the one active dataset used by v1. `OWNER` members can edit and `MEMBER` members are read-only.
+- `StoredImage` is the root record for one uploaded scorecard image stored in object storage. `StoredImage.tenantId` controls dataset visibility, while `StoredImage.userId` records the uploader.
+- `Player` is the durable bowler entity owned by a tenant. `Player.normalizedName` supports one player row per case-insensitive display name per tenant.
+- `BowlingTeam` is the durable team label owned by a tenant. A stored image can be assigned to one team, and deleting a team clears that image assignment.
 - `BowlingScore` keeps one row per parsed game variant. The `(storedImageId, gameIndex, isEstimate)` unique key allows both estimated and corrected versions of the same game index.
 - `BowlingScore.playerId` links a score to the durable player entity. `BowlingScore.playerName` remains as a denormalized display snapshot for OCR output, historical exports, and compatibility with existing payloads.
 - `LLMRequest.status` is currently used as a free-form string, but the code path uses `queued`, `pending`, `succeeded`, and `failed`.

@@ -8,6 +8,7 @@ export const normalizeTeamLookupName = (name: string) => normalizeTeamName(name)
 
 export async function findOrCreateTeamForName(
   client: PrismaExecutor,
+  tenantId: string,
   userId: string,
   teamName?: string | null
 ): Promise<BowlingTeam | null> {
@@ -23,8 +24,8 @@ export async function findOrCreateTeamForName(
 
   return client.bowlingTeam.upsert({
     where: {
-      userId_normalizedName: {
-        userId,
+      tenantId_normalizedName: {
+        tenantId,
         normalizedName: normalizeTeamLookupName(name)
       }
     },
@@ -33,6 +34,7 @@ export async function findOrCreateTeamForName(
     },
     create: {
       userId,
+      tenantId,
       name,
       normalizedName: normalizeTeamLookupName(name)
     }

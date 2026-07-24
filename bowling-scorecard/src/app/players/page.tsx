@@ -3,9 +3,11 @@ import Link from 'next/link';
 import { AppHeader } from '@/components/AppHeader';
 import { PlayerGamesBrowser } from '@/components/PlayerGamesBrowser';
 import { auth } from '@/server/auth';
+import { getTenantAccessForSession } from '@/server/auth/tenant';
 
 export default async function PlayersPage() {
   const session = await auth();
+  const tenantAccess = session?.user ? await getTenantAccessForSession(session) : null;
 
   if (!session?.user) {
     return (
@@ -26,6 +28,7 @@ export default async function PlayersPage() {
       <AppHeader
         userLabel={`Signed in as ${session.user.name ?? session.user.email}`}
         isAdmin={session.user.role === 'ADMIN'}
+        canUpload={tenantAccess?.canEdit ?? false}
       />
       <div style={{ padding: '0 16px 16px', maxWidth: '1200px', margin: '0 auto' }}>
         <PlayerGamesBrowser />

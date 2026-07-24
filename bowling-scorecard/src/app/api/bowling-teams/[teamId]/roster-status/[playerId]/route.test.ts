@@ -1,4 +1,5 @@
 const auth = jest.fn();
+const getTenantAccessForSession = jest.fn();
 const bowlingTeamFindUnique = jest.fn();
 const playerFindUnique = jest.fn();
 const teamRosterPlayerStatusUpsert = jest.fn();
@@ -51,6 +52,10 @@ jest.mock('@/server/auth', () => ({
   auth
 }));
 
+jest.mock('@/server/auth/tenant', () => ({
+  getTenantAccessForSession
+}));
+
 jest.mock('@/server/db/client', () => ({
   prisma: {
     bowlingTeam: {
@@ -76,8 +81,13 @@ describe('/api/bowling-teams/[teamId]/roster-status/[playerId]', () => {
   beforeEach(() => {
     jest.clearAllMocks();
     auth.mockResolvedValue({ user: { id: 'user-1' } });
-    bowlingTeamFindUnique.mockResolvedValue({ id: 'team-1', userId: 'user-1' });
-    playerFindUnique.mockResolvedValue({ id: 'player-bob', userId: 'user-1' });
+    getTenantAccessForSession.mockResolvedValue({
+      tenantId: 'tenant-1',
+      userId: 'user-1',
+      canEdit: true
+    });
+    bowlingTeamFindUnique.mockResolvedValue({ id: 'team-1', tenantId: 'tenant-1' });
+    playerFindUnique.mockResolvedValue({ id: 'player-bob', tenantId: 'tenant-1' });
     teamRosterPlayerStatusUpsert.mockResolvedValue({
       teamId: 'team-1',
       playerId: 'player-bob',
@@ -106,8 +116,8 @@ describe('/api/bowling-teams/[teamId]/roster-status/[playerId]', () => {
     expect(teamRosterPlayerStatusUpsert).not.toHaveBeenCalled();
   });
 
-  it('hides players outside the current user account', async () => {
-    playerFindUnique.mockResolvedValue({ id: 'player-bob', userId: 'other-user' });
+  it('hides players outside the current tenant', async () => {
+    playerFindUnique.mockResolvedValue({ id: 'player-bob', tenantId: 'tenant-2' });
 
     const { PATCH } = await import('./route');
     const response = await PATCH(buildRequest({ isDisabled: true }), context);

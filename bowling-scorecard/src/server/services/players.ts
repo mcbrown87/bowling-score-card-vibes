@@ -8,6 +8,7 @@ export const normalizePlayerLookupName = (name: string) => normalizePlayerName(n
 
 export async function findOrCreatePlayerForName(
   client: PrismaExecutor,
+  tenantId: string,
   userId: string,
   playerName?: string | null
 ): Promise<Player | null> {
@@ -23,8 +24,8 @@ export async function findOrCreatePlayerForName(
 
   return client.player.upsert({
     where: {
-      userId_normalizedName: {
-        userId,
+      tenantId_normalizedName: {
+        tenantId,
         normalizedName: normalizePlayerLookupName(name)
       }
     },
@@ -33,6 +34,7 @@ export async function findOrCreatePlayerForName(
     },
     create: {
       userId,
+      tenantId,
       name,
       normalizedName: normalizePlayerLookupName(name)
     }

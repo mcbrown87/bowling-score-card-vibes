@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 
 import { BOWLING_EXTRACTION_PROMPT } from '@/server/prompts/bowling';
 import { auth } from '@/server/auth';
+import { getTenantAccessForSession } from '@/server/auth/tenant';
 import { prisma } from '@/server/db/client';
 import { getProviderModel, getRuntimeSettings } from '@/server/config/appConfig';
 import { enqueueScoreEstimatorJob } from '@/server/queues/scoreEstimatorQueue';
@@ -35,12 +36,22 @@ export async function POST(_request: Request, context: RouteContext) {
   const storedImageId = context.params.id;
 
   try {
+    const tenantAccess = await getTenantAccessForSession(session);
+
+    if (!tenantAccess) {
+      return NextResponse.json({ success: false, error: 'Unauthorized' }, { status: 401 });
+    }
+
+    if (!tenantAccess.canEdit) {
+      return NextResponse.json({ success: false, error: 'Forbidden' }, { status: 403 });
+    }
+
     const storedImage = await prisma.storedImage.findUnique({
       where: { id: storedImageId },
       include: storedImageInclude
     });
 
-    if (!storedImage || storedImage.userId !== session.user.id) {
+    if (!storedImage || storedImage.tenantId !== tenantAccess.tenantId) {
       return NextResponse.json({ success: false, error: 'Not found' }, { status: 404 });
     }
 

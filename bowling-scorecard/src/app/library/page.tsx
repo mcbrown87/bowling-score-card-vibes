@@ -2,6 +2,7 @@ import Link from 'next/link';
 
 import { AppHeader } from '@/components/AppHeader';
 import { auth } from '@/server/auth';
+import { getTenantAccessForSession } from '@/server/auth/tenant';
 import { StoredImagesLibrary } from '@/components/StoredImagesLibrary';
 
 type LibraryPageProps = {
@@ -10,6 +11,7 @@ type LibraryPageProps = {
 
 export default async function LibraryPage({ searchParams }: LibraryPageProps) {
   const session = await auth();
+  const tenantAccess = session?.user ? await getTenantAccessForSession(session) : null;
   const e2eBypassEnabled =
     process.env.NODE_ENV !== 'production' && searchParams?.e2e === '1';
   const initialImageId =
@@ -51,6 +53,7 @@ export default async function LibraryPage({ searchParams }: LibraryPageProps) {
           session?.user?.name ?? session?.user?.email ?? 'E2E Test User'
         }`}
         isAdmin={session?.user?.role === 'ADMIN'}
+        canUpload={tenantAccess?.canEdit ?? false}
       />
       <div style={{ padding: '0 16px 16px', maxWidth: '1200px', margin: '0 auto' }}>
         <StoredImagesLibrary

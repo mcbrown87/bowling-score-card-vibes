@@ -4,6 +4,7 @@ import type { Prisma } from '@prisma/client';
 import { z } from 'zod';
 import { BOWLING_EXTRACTION_PROMPT } from '@/server/prompts/bowling';
 import { auth } from '@/server/auth';
+import { getTenantAccessForSession } from '@/server/auth/tenant';
 import { prisma } from '@/server/db/client';
 import { uploadObject, getStorageBucket } from '@/server/storage/client';
 import { logger } from '@/server/utils/logger';
@@ -40,6 +41,21 @@ export async function POST(request: Request) {
           status: 401
         }
       );
+    }
+
+    const tenantAccess = await getTenantAccessForSession(session);
+
+    if (!tenantAccess) {
+      return NextResponse.json(
+        { success: false, error: 'Unauthorized' },
+        {
+          status: 401
+        }
+      );
+    }
+
+    if (!tenantAccess.canEdit) {
+      return NextResponse.json({ success: false, error: 'Forbidden' }, { status: 403 });
     }
 
     const user = await prisma.user.findUnique({
@@ -95,6 +111,7 @@ export async function POST(request: Request) {
     const storedImage = await prisma.storedImage.create({
       data: {
         userId: user.id,
+        tenantId: tenantAccess.tenantId,
         bucket: getStorageBucket(),
         objectKey,
         originalFileName: parsed.fileName ?? null,

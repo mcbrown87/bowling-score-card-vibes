@@ -46,6 +46,7 @@ test('library can add a missing player score and persist it after refresh', asyn
         pageSize: 50,
         totalImages: 1,
         totalPages: 1,
+        canEdit: true,
         images: [imagePayload]
       })
     });

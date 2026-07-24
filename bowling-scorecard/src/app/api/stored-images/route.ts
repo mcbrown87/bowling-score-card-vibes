@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 
 import { auth } from '@/server/auth';
+import { getTenantAccessForSession } from '@/server/auth/tenant';
 import { prisma } from '@/server/db/client';
 import { serializeStoredImage, storedImageInclude } from '@/server/serializers/storedImage';
 
@@ -22,6 +23,12 @@ export async function GET(request: Request) {
   }
 
   try {
+    const tenantAccess = await getTenantAccessForSession(session);
+
+    if (!tenantAccess) {
+      return NextResponse.json({ success: false, error: 'Unauthorized' }, { status: 401 });
+    }
+
     const { searchParams } = new URL(request.url);
     const requestedPage = Number.parseInt(searchParams.get('page') ?? '1', 10);
     const requestedPageSize = Number.parseInt(
@@ -36,11 +43,11 @@ export async function GET(request: Request) {
     const skip = (page - 1) * pageSize;
 
     const totalImages = await prisma.storedImage.count({
-      where: { userId: session.user.id }
+      where: { tenantId: tenantAccess.tenantId }
     });
 
     const images = await prisma.storedImage.findMany({
-      where: { userId: session.user.id },
+      where: { tenantId: tenantAccess.tenantId },
       orderBy: { createdAt: 'desc' },
       skip,
       take: pageSize,
@@ -53,6 +60,7 @@ export async function GET(request: Request) {
       pageSize,
       totalImages,
       totalPages: Math.max(1, Math.ceil(totalImages / pageSize)),
+      canEdit: tenantAccess.canEdit,
       images: images.map((image) => serializeStoredImage(image))
     });
   } catch (error) {

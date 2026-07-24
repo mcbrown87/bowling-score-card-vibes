@@ -261,7 +261,11 @@ const recentMetaStyles: CSSProperties = {
   lineHeight: 1.4
 };
 
-function BowlingApp() {
+type BowlingAppProps = {
+  initialCanEditTenant?: boolean;
+};
+
+function BowlingApp({ initialCanEditTenant = true }: BowlingAppProps) {
   const [games, setGames] = useState<Game[]>([]);
   const [currentGameIndex, setCurrentGameIndex] = useState(0);
   const [uploadedImage, setUploadedImage] = useState<string | null>(null);
@@ -284,6 +288,7 @@ function BowlingApp() {
   const [storedImagesError, setStoredImagesError] = useState<string | null>(null);
   const [activeStoredImageId, setActiveStoredImageId] = useState<string | null>(null);
   const [correctionError, setCorrectionError] = useState<string | null>(null);
+  const [canEditTenant, setCanEditTenant] = useState(initialCanEditTenant);
   const isDesktopKeyboardMode = useDesktopKeyboardMode();
 
   const tagGamesAsEstimates = useCallback((items: Game[]) => {
@@ -357,6 +362,7 @@ function BowlingApp() {
     try {
       const parsed = await loadStoredImages();
       setStoredImages(parsed.images ?? []);
+      setCanEditTenant(parsed.canEdit);
     } catch (error) {
       setStoredImagesError(
         error instanceof Error ? error.message : 'Failed to load your uploaded images'
@@ -446,6 +452,11 @@ function BowlingApp() {
 
   const handleImageUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
     const inputEl = event.target;
+    if (!canEditTenant) {
+      inputEl.value = '';
+      return;
+    }
+
     const file = inputEl.files?.[0];
     if (file) {
       const shouldDelayPreview = isHeicFile(file);
@@ -676,6 +687,7 @@ function BowlingApp() {
   };
 
   const controlsLocked = isProcessing || editingFrameIndex !== null || isRenamingPlayer;
+  const uploadControlsLocked = controlsLocked || !canEditTenant;
   const handleAddPlayerScore = useCallback(() => {
     if (controlsLocked) {
       return;
@@ -855,7 +867,7 @@ function BowlingApp() {
           accept="image/*"
           onChange={handleImageUpload}
           style={responsiveFileInputStyles}
-          disabled={controlsLocked}
+          disabled={uploadControlsLocked}
           aria-label="Upload scorecard"
         />
         <button
@@ -863,17 +875,17 @@ function BowlingApp() {
           style={{
             ...buttonStyles,
             width: isMobile ? '100%' : 'auto',
-            opacity: controlsLocked ? 0.6 : 1,
-            cursor: controlsLocked ? 'not-allowed' : 'pointer',
+            opacity: uploadControlsLocked ? 0.6 : 1,
+            cursor: uploadControlsLocked ? 'not-allowed' : 'pointer',
             backgroundColor: '#0f172a'
           }}
           onClick={() => {
-            if (controlsLocked) {
+            if (uploadControlsLocked) {
               return;
             }
             cameraInputRef.current?.click();
           }}
-          disabled={controlsLocked}
+          disabled={uploadControlsLocked}
         >
           Capture Photo
         </button>
@@ -884,8 +896,19 @@ function BowlingApp() {
           capture="environment"
           style={{ display: 'none' }}
           onChange={handleImageUpload}
+          disabled={uploadControlsLocked}
         />
       </div>
+
+      {!canEditTenant && (
+        <div style={{ ...warningBoxStyles, margin: '16px auto 0', maxWidth: '760px' }}>
+          <div style={warningTitleStyles}>Read-only tenant access</div>
+          <p style={{ margin: 0 }}>
+            You can browse this tenant&apos;s scorecards, players, and teams, but only tenant owners
+            can upload new scorecard images.
+          </p>
+        </div>
+      )}
 
       {displayedGame ? (
         <div style={uploadContainerStyles}>

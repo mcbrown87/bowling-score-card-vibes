@@ -854,6 +854,7 @@ export function PlayerGamesBrowser({ mode = 'players' }: PlayerGamesBrowserProps
   const [isStackedLayout, setIsStackedLayout] = useState(false);
   const [showAllRosterPlayers, setShowAllRosterPlayers] = useState(false);
   const [teamRosterStatus, setTeamRosterStatus] = useState<TeamRosterStatusMap>({});
+  const [canEditTenant, setCanEditTenant] = useState(true);
   const rosterLongPressTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const router = useRouter();
   const isHoverCapable = useDesktopKeyboardMode();
@@ -876,6 +877,7 @@ export function PlayerGamesBrowser({ mode = 'players' }: PlayerGamesBrowserProps
     setError(null);
     try {
       const firstPage = await loadStoredImages(1, PLAYER_GAMES_PAGE_SIZE);
+      setCanEditTenant(firstPage.canEdit);
       const remainingPages =
         firstPage.totalPages > 1
           ? await Promise.all(
@@ -1006,6 +1008,10 @@ export function PlayerGamesBrowser({ mode = 'players' }: PlayerGamesBrowserProps
         return;
       }
 
+      if (!canEditTenant) {
+        return;
+      }
+
       if (!player.playerId) {
         setError('This roster player needs a saved player profile before status can be changed.');
         return;
@@ -1064,7 +1070,7 @@ export function PlayerGamesBrowser({ mode = 'players' }: PlayerGamesBrowserProps
           });
         });
     },
-    [mode, selectedPlayerGroup]
+    [canEditTenant, mode, selectedPlayerGroup]
   );
 
   const clearRosterLongPressTimer = useCallback(() => {
@@ -1720,13 +1726,15 @@ export function PlayerGamesBrowser({ mode = 'players' }: PlayerGamesBrowserProps
                                   <span style={{ fontWeight: 800, color: '#f8fafc' }}>
                                     {player.playerName}
                                   </span>
-                                  <button
-                                    type="button"
-                                    style={rosterRowActionStyles}
-                                    onClick={() => toggleTeamRosterPlayer(player)}
-                                  >
-                                    {player.isDisabled ? 'Enable' : 'Disable'}
-                                  </button>
+                                  {canEditTenant && (
+                                    <button
+                                      type="button"
+                                      style={rosterRowActionStyles}
+                                      onClick={() => toggleTeamRosterPlayer(player)}
+                                    >
+                                      {player.isDisabled ? 'Enable' : 'Disable'}
+                                    </button>
+                                  )}
                                 </div>
                                 <div style={mobileRosterStatsStyles}>
                                   <span style={mobileRosterStatStyles}>
@@ -1778,9 +1786,11 @@ export function PlayerGamesBrowser({ mode = 'players' }: PlayerGamesBrowserProps
                                   <th scope="col" style={dataTableHeaderStyles}>
                                     Last played
                                   </th>
-                                  <th scope="col" style={dataTableHeaderStyles}>
-                                    Status
-                                  </th>
+                                  {canEditTenant && (
+                                    <th scope="col" style={dataTableHeaderStyles}>
+                                      Status
+                                    </th>
+                                  )}
                                 </tr>
                               </thead>
                               <tbody>
@@ -1790,16 +1800,25 @@ export function PlayerGamesBrowser({ mode = 'players' }: PlayerGamesBrowserProps
                                     style={player.isDisabled ? inactiveRosterRowStyles : undefined}
                                     tabIndex={0}
                                     onContextMenu={(event) => {
+                                      if (!canEditTenant) {
+                                        return;
+                                      }
                                       event.preventDefault();
                                       toggleTeamRosterPlayer(player);
                                     }}
                                     onKeyDown={(event) => {
+                                      if (!canEditTenant) {
+                                        return;
+                                      }
                                       if (event.key === 'Enter' || event.key === ' ') {
                                         event.preventDefault();
                                         toggleTeamRosterPlayer(player);
                                       }
                                     }}
                                     onTouchStart={() => {
+                                      if (!canEditTenant) {
+                                        return;
+                                      }
                                       clearRosterLongPressTimer();
                                       rosterLongPressTimerRef.current = setTimeout(() => {
                                         rosterLongPressTimerRef.current = null;
@@ -1816,20 +1835,22 @@ export function PlayerGamesBrowser({ mode = 'players' }: PlayerGamesBrowserProps
                                     <td style={dataTableNumberCellStyles}>{player.average}</td>
                                     <td style={dataTableNumberCellStyles}>{player.best}</td>
                                     <td style={dataTableCellStyles}>{formatShortDate(player.lastPlayed)}</td>
-                                    <td style={dataTableCellStyles}>
-                                      <button
-                                        type="button"
-                                        style={rosterRowActionStyles}
-                                        onClick={() => toggleTeamRosterPlayer(player)}
-                                      >
-                                        {player.isDisabled ? 'Enable' : 'Disable'}
-                                      </button>
-                                      {player.isDisabled && (
-                                        <span style={{ ...inactiveBadgeStyles, marginLeft: '8px' }}>
-                                          Disabled
-                                        </span>
-                                      )}
-                                    </td>
+                                    {canEditTenant && (
+                                      <td style={dataTableCellStyles}>
+                                        <button
+                                          type="button"
+                                          style={rosterRowActionStyles}
+                                          onClick={() => toggleTeamRosterPlayer(player)}
+                                        >
+                                          {player.isDisabled ? 'Enable' : 'Disable'}
+                                        </button>
+                                        {player.isDisabled && (
+                                          <span style={{ ...inactiveBadgeStyles, marginLeft: '8px' }}>
+                                            Disabled
+                                          </span>
+                                        )}
+                                      </td>
+                                    )}
                                   </tr>
                                 ))}
                               </tbody>

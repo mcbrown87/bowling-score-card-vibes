@@ -8,6 +8,7 @@ import { compare } from 'bcryptjs';
 import { z } from 'zod';
 
 import { prisma } from '../db/client';
+import { ensurePersonalTenantForUser } from './tenant';
 
 const credentialsSchema = z.object({
   email: z.string().email(),
@@ -39,6 +40,8 @@ export const authConfig: NextAuthOptions = {
         });
 
         if (existingUser) {
+          await ensurePersonalTenantForUser(prisma, existingUser);
+
           await prisma.account.upsert({
             where: {
               provider_providerAccountId: {
@@ -103,6 +106,17 @@ export const authConfig: NextAuthOptions = {
         session.user.role = (token.role as UserRole) ?? UserRole.USER;
       }
       return session;
+    }
+  },
+  events: {
+    async createUser({ user }) {
+      if (user.email) {
+        await ensurePersonalTenantForUser(prisma, {
+          id: user.id,
+          email: user.email,
+          name: user.name
+        });
+      }
     }
   },
   secret: process.env.NEXTAUTH_SECRET,

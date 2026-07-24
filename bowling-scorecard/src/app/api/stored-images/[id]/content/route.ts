@@ -2,6 +2,7 @@ import { Readable } from 'node:stream';
 import { NextResponse } from 'next/server';
 
 import { auth } from '@/server/auth';
+import { getTenantAccessForSession } from '@/server/auth/tenant';
 import { prisma } from '@/server/db/client';
 import { getObject } from '@/server/storage/client';
 
@@ -36,17 +37,23 @@ export async function GET(_request: Request, context: RouteContext) {
   const imageId = context.params.id;
 
   try {
+    const tenantAccess = await getTenantAccessForSession(session);
+
+    if (!tenantAccess) {
+      return NextResponse.json({ success: false, error: 'Unauthorized' }, { status: 401 });
+    }
+
     const storedImage = await prisma.storedImage.findUnique({
       where: { id: imageId },
       select: {
         id: true,
-        userId: true,
+        tenantId: true,
         objectKey: true,
         contentType: true
       }
     });
 
-    if (!storedImage || storedImage.userId !== session.user.id) {
+    if (!storedImage || storedImage.tenantId !== tenantAccess.tenantId) {
       return NextResponse.json({ success: false, error: 'Not found' }, { status: 404 });
     }
 

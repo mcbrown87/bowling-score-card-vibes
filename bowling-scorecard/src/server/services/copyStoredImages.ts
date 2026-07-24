@@ -3,6 +3,7 @@ import { Prisma } from '@prisma/client';
 import { prisma } from '@/server/db/client';
 import { copyObject } from '@/server/storage/client';
 import { findOrCreatePlayerForName } from '@/server/services/players';
+import { ensurePersonalTenantForUser } from '@/server/auth/tenant';
 
 type CopyStoredImagesInput = {
   fromEmail: string;
@@ -93,6 +94,7 @@ const buildDestinationObjectKey = (targetUserId: string, image: SourceImage) =>
 
 const cloneScores = async (
   tx: Prisma.TransactionClient,
+  destinationTenantId: string,
   destinationUserId: string,
   storedImageId: string,
   scores: SourceImage['scores']
@@ -100,7 +102,12 @@ const cloneScores = async (
   const clonedScores: Prisma.BowlingScoreCreateManyInput[] = [];
 
   for (const score of scores) {
-    const player = await findOrCreatePlayerForName(tx, destinationUserId, score.playerName);
+    const player = await findOrCreatePlayerForName(
+      tx,
+      destinationTenantId,
+      destinationUserId,
+      score.playerName
+    );
 
     clonedScores.push({
       storedImageId,
@@ -142,7 +149,7 @@ export async function copyStoredImagesToAccount({
     }),
     prisma.user.findUnique({
       where: { email: toEmail },
-      select: { id: true, email: true }
+      select: { id: true, email: true, name: true }
     })
   ]);
 
@@ -153,6 +160,8 @@ export async function copyStoredImagesToAccount({
   if (!destinationUser) {
     throw new Error(`Destination user not found: ${toEmail}`);
   }
+
+  const destinationTenantId = await ensurePersonalTenantForUser(prisma, destinationUser);
 
   const results: CopyStoredImageResult[] = [];
 
@@ -214,6 +223,7 @@ export async function copyStoredImagesToAccount({
         const createdImage = await tx.storedImage.create({
           data: {
             userId: destinationUser.id,
+            tenantId: destinationTenantId,
             bucket: sourceImage.bucket,
             objectKey: destinationObjectKey,
             originalFileName: sourceImage.originalFileName,
@@ -224,6 +234,7 @@ export async function copyStoredImagesToAccount({
 
         const scoreData = await cloneScores(
           tx,
+          destinationTenantId,
           destinationUser.id,
           createdImage.id,
           sourceImage.scores

@@ -14,6 +14,7 @@ interface StoredImagesPanelProps {
   images: StoredImageSummary[];
   isLoading: boolean;
   error: string | null;
+  canEdit?: boolean;
   onRetry: () => void;
   onGenerateScores?: (imageId: string) => void;
   onClearScores?: (imageId: string) => void;
@@ -744,6 +745,7 @@ export function StoredImagesPanel({
   images,
   isLoading,
   error,
+  canEdit = true,
   onRetry,
   onGenerateScores,
   onClearScores,
@@ -931,12 +933,14 @@ export function StoredImagesPanel({
   const canGoPrevGame = boundedGameIndex > 0;
   const canGoNextGame = hasScoreEstimates && boundedGameIndex < gamesForImage.length - 1;
   const canEditScores =
+    canEdit &&
     Boolean(onUpdateGame) &&
     hasScoreEstimates &&
     !isGeneratingActiveImage &&
     !isClearingActiveImage &&
     !isDeletingActiveImage;
   const canLongPressClear =
+    canEdit &&
     Boolean(onClearScores) &&
     hasScoreEstimates &&
     !isGeneratingActiveImage &&
@@ -1262,7 +1266,7 @@ export function StoredImagesPanel({
                 </div>
                 <div>Uploaded {formatDate(activeImage.createdAt)}</div>
               </div>
-              {onUpdateImageTeam && (
+              {canEdit && onUpdateImageTeam && (
                 <TeamCombobox
                   teams={teams}
                   value={activeImage.team}
@@ -1455,7 +1459,7 @@ export function StoredImagesPanel({
                       ? 'We could not generate a score estimate for this upload. You can try again below.'
                       : 'No score estimate yet. Submit this image to generate scores.'}
                 </p>
-                {onGenerateScores && (
+                {canEdit && onGenerateScores && (
                   <button
                     type="button"
                     style={
@@ -1520,7 +1524,7 @@ export function StoredImagesPanel({
               {activeImageFileSize && <div>{activeImageFileSize}</div>}
               {activeImage.contentType && <div>{activeImage.contentType}</div>}
             </div>
-            {onDeleteImage && (
+            {canEdit && onDeleteImage && (
               <div style={{ marginBottom: '12px' }}>
                 <button
                   type="button"

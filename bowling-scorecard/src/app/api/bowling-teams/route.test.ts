@@ -1,4 +1,5 @@
 const auth = jest.fn();
+const getTenantAccessForSession = jest.fn();
 const bowlingTeamFindMany = jest.fn();
 
 class TestHeaders {
@@ -49,6 +50,10 @@ jest.mock('@/server/auth', () => ({
   auth
 }));
 
+jest.mock('@/server/auth/tenant', () => ({
+  getTenantAccessForSession
+}));
+
 jest.mock('@/server/db/client', () => ({
   prisma: {
     bowlingTeam: {
@@ -60,6 +65,11 @@ jest.mock('@/server/db/client', () => ({
 describe('/api/bowling-teams', () => {
   beforeEach(() => {
     jest.clearAllMocks();
+    getTenantAccessForSession.mockResolvedValue({
+      tenantId: 'tenant-1',
+      userId: 'user-1',
+      canEdit: true
+    });
   });
 
   it('requires authentication', async () => {
@@ -75,7 +85,7 @@ describe('/api/bowling-teams', () => {
     });
   });
 
-  it('returns teams for the signed-in user', async () => {
+  it('returns teams for the signed-in tenant', async () => {
     auth.mockResolvedValue({ user: { id: 'user-1' } });
     bowlingTeamFindMany.mockResolvedValue([{ id: 'team-1', name: 'Wednesday League' }]);
 
@@ -83,7 +93,7 @@ describe('/api/bowling-teams', () => {
     const response = await GET();
 
     expect(bowlingTeamFindMany).toHaveBeenCalledWith({
-      where: { userId: 'user-1' },
+      where: { tenantId: 'tenant-1' },
       orderBy: [{ name: 'asc' }],
       select: {
         id: true,

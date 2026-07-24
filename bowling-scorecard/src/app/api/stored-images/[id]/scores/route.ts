@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 
 import { auth } from '@/server/auth';
+import { getTenantAccessForSession } from '@/server/auth/tenant';
 import { prisma } from '@/server/db/client';
 
 export const dynamic = 'force-dynamic';
@@ -22,12 +23,22 @@ export async function DELETE(_request: Request, context: RouteContext) {
   const storedImageId = context.params.id;
 
   try {
+    const tenantAccess = await getTenantAccessForSession(session);
+
+    if (!tenantAccess) {
+      return NextResponse.json({ success: false, error: 'Unauthorized' }, { status: 401 });
+    }
+
+    if (!tenantAccess.canEdit) {
+      return NextResponse.json({ success: false, error: 'Forbidden' }, { status: 403 });
+    }
+
     const storedImage = await prisma.storedImage.findUnique({
       where: { id: storedImageId },
-      select: { id: true, userId: true }
+      select: { id: true, tenantId: true }
     });
 
-    if (!storedImage || storedImage.userId !== session.user.id) {
+    if (!storedImage || storedImage.tenantId !== tenantAccess.tenantId) {
       return NextResponse.json({ success: false, error: 'Not found' }, { status: 404 });
     }
 

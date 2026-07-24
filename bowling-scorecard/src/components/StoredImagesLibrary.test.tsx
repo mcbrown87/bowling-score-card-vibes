@@ -64,7 +64,8 @@ const buildPage = (page: number, imageCount = 50, totalPages = 2) => ({
   page,
   pageSize: 50,
   totalImages: 75,
-  totalPages
+  totalPages,
+  canEdit: true
 });
 
 beforeEach(() => {

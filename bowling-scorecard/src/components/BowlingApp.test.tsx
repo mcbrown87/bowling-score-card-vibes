@@ -76,6 +76,7 @@ beforeEach(() => {
       json: () =>
         Promise.resolve({
           success: true,
+          canEdit: true,
           images: []
         })
     })
@@ -114,6 +115,36 @@ test('renders scorecards after OCR extraction completes', async () => {
 
   expect(playerOneBadges.length).toBeGreaterThan(0);
   expect(playerTwoBadges.length).toBeGreaterThan(0);
+});
+
+test('disables image upload for read-only tenant access', async () => {
+  // @ts-expect-error override for testing
+  global.fetch = jest.fn(() =>
+    Promise.resolve({
+      ok: true,
+      json: () =>
+        Promise.resolve({
+          success: true,
+          canEdit: false,
+          images: []
+        })
+    })
+  );
+
+  render(<BowlingApp initialCanEditTenant={false} />);
+
+  await waitFor(() => expect(global.fetch).toHaveBeenCalled());
+
+  const input = screen.getByLabelText('Upload scorecard');
+  const fakeFile = new File(['fake-bowling'], 'score.jpg', { type: 'image/jpeg' });
+
+  expect(input).toBeDisabled();
+  expect(screen.getByRole('button', { name: 'Capture Photo' })).toBeDisabled();
+  expect(screen.getByText('Read-only tenant access')).toBeVisible();
+
+  fireEvent.change(input, { target: { files: [fakeFile] } });
+
+  expect(mockedExtractScores).not.toHaveBeenCalled();
 });
 
 test('keeps the modal correction flow on mobile', async () => {

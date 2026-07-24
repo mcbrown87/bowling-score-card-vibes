@@ -15,6 +15,7 @@ test('library mobile navigation uses bottom tabs and a more drawer without page 
         pageSize: 50,
         totalImages: 0,
         totalPages: 1,
+        canEdit: false,
         images: []
       })
     });
@@ -39,7 +40,7 @@ test('library mobile navigation uses bottom tabs and a more drawer without page 
 
   const drawer = page.getByRole('dialog', { name: 'Navigation menu' });
   await expect(drawer).toBeVisible();
-  await expect(drawer.getByRole('link', { name: 'Upload' })).toBeVisible();
+  await expect(drawer.getByRole('link', { name: 'Upload' })).toHaveCount(0);
   await expect(page.getByRole('button', { name: 'Close navigation menu' })).toBeVisible();
 
   await page.getByRole('button', { name: 'Close navigation menu' }).click();

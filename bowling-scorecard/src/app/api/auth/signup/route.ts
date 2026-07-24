@@ -3,6 +3,7 @@ import { hash } from 'bcryptjs';
 import { z } from 'zod';
 
 import { prisma } from '@/server/db/client';
+import { ensurePersonalTenantForUser } from '@/server/auth/tenant';
 
 const signupSchema = z.object({
   name: z.string().min(1).max(100),
@@ -23,12 +24,21 @@ export async function POST(request: Request) {
 
     const passwordHash = await hash(password, 12);
 
-    await prisma.user.create({
-      data: {
-        email,
-        name,
-        passwordHash
-      }
+    await prisma.$transaction(async (tx) => {
+      const user = await tx.user.create({
+        data: {
+          email,
+          name,
+          passwordHash
+        },
+        select: {
+          id: true,
+          email: true,
+          name: true
+        }
+      });
+
+      await ensurePersonalTenantForUser(tx, user);
     });
 
     return NextResponse.json({ success: true });

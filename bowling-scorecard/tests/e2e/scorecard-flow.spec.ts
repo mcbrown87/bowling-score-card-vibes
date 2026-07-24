@@ -50,6 +50,7 @@ test.beforeEach(async ({ page }) => {
         pageSize: 50,
         totalImages: 0,
         totalPages: 1,
+        canEdit: true,
         images: []
       })
     });

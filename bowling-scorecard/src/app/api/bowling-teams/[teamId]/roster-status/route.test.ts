@@ -1,4 +1,5 @@
 const auth = jest.fn();
+const getTenantAccessForSession = jest.fn();
 const bowlingTeamFindUnique = jest.fn();
 const teamRosterPlayerStatusFindMany = jest.fn();
 
@@ -50,6 +51,10 @@ jest.mock('@/server/auth', () => ({
   auth
 }));
 
+jest.mock('@/server/auth/tenant', () => ({
+  getTenantAccessForSession
+}));
+
 jest.mock('@/server/db/client', () => ({
   prisma: {
     bowlingTeam: {
@@ -67,7 +72,12 @@ describe('/api/bowling-teams/[teamId]/roster-status', () => {
   beforeEach(() => {
     jest.clearAllMocks();
     auth.mockResolvedValue({ user: { id: 'user-1' } });
-    bowlingTeamFindUnique.mockResolvedValue({ id: 'team-1', userId: 'user-1' });
+    getTenantAccessForSession.mockResolvedValue({
+      tenantId: 'tenant-1',
+      userId: 'user-1',
+      canEdit: true
+    });
+    bowlingTeamFindUnique.mockResolvedValue({ id: 'team-1', tenantId: 'tenant-1' });
     teamRosterPlayerStatusFindMany.mockResolvedValue([{ playerId: 'player-bob' }]);
   });
 
@@ -84,8 +94,8 @@ describe('/api/bowling-teams/[teamId]/roster-status', () => {
     });
   });
 
-  it('hides teams outside the current user account', async () => {
-    bowlingTeamFindUnique.mockResolvedValue({ id: 'team-1', userId: 'other-user' });
+  it('hides teams outside the current tenant', async () => {
+    bowlingTeamFindUnique.mockResolvedValue({ id: 'team-1', tenantId: 'tenant-2' });
 
     const { GET } = await import('./route');
     const response = await GET({} as Request, context);

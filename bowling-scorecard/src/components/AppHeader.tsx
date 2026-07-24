@@ -11,6 +11,7 @@ import { SignOutButton } from './auth/SignOutButton';
 type AppHeaderProps = {
   userLabel: string;
   isAdmin?: boolean;
+  canUpload?: boolean;
 };
 
 const headerStyles: CSSProperties = {
@@ -231,7 +232,7 @@ type NavItem = {
   active: boolean;
 };
 
-export function AppHeader({ userLabel, isAdmin = false }: AppHeaderProps) {
+export function AppHeader({ userLabel, isAdmin = false, canUpload = true }: AppHeaderProps) {
   const pathname = usePathname();
   const [isMobile, setIsMobile] = useState(false);
   const [drawerOpen, setDrawerOpen] = useState(false);
@@ -280,11 +281,12 @@ export function AppHeader({ userLabel, isAdmin = false }: AppHeaderProps) {
   const isAdminRoute = pathname?.startsWith('/admin');
 
   const primaryNavItems: NavItem[] = [
-    { href: '/', label: 'Upload', Icon: Home, active: isHome },
+    ...(canUpload ? [{ href: '/', label: 'Upload', Icon: Home, active: isHome }] : []),
     { href: '/library', label: 'Library', Icon: Images, active: Boolean(isLibrary) },
     { href: '/players', label: 'Players', Icon: Users, active: Boolean(isPlayers) },
     { href: '/teams', label: 'Teams', Icon: Trophy, active: Boolean(isTeams) }
   ];
+  const mobileNavColumnCount = primaryNavItems.length + 1;
 
   if (isMobile) {
     return (
@@ -316,7 +318,12 @@ export function AppHeader({ userLabel, isAdmin = false }: AppHeaderProps) {
         </header>
 
         <nav style={mobileBottomNavStyles} aria-label="Primary navigation">
-          <div style={mobileNavInnerStyles}>
+          <div
+            style={{
+              ...mobileNavInnerStyles,
+              gridTemplateColumns: `repeat(${mobileNavColumnCount}, minmax(0, 1fr))`
+            }}
+          >
             {primaryNavItems.map(({ href, label, Icon, active }) => (
               <Link
                 key={href}
@@ -423,9 +430,11 @@ export function AppHeader({ userLabel, isAdmin = false }: AppHeaderProps) {
         </div>
       </div>
       <div style={navGroupStyles}>
-        <Link href="/" style={isHome ? activeLinkStyles : linkStyles}>
-          Upload
-        </Link>
+        {canUpload && (
+          <Link href="/" style={isHome ? activeLinkStyles : linkStyles}>
+            Upload
+          </Link>
+        )}
         <Link href="/library" style={isLibrary ? activeLinkStyles : linkStyles}>
           Library
         </Link>

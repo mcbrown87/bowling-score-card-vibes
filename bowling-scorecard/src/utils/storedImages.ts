@@ -151,7 +151,8 @@ export async function loadStoredImages(page = 1, pageSize?: number): Promise<Sto
     page: parsedPage,
     pageSize: parsedPageSize,
     totalImages,
-    totalPages
+    totalPages,
+    canEdit: Boolean(data?.canEdit)
   };
 }
 

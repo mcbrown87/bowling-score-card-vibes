@@ -13,6 +13,11 @@ enum UserRole {
   ADMIN
 }
 
+enum TenantMembershipRole {
+  OWNER
+  MEMBER
+}
+
 model User {
   id           String   @id @default(cuid())
   email        String   @unique
@@ -20,6 +25,7 @@ model User {
   name         String?
   image        String?
   role         UserRole @default(USER)
+  activeTenantId String?
   emailVerified DateTime? @db.Timestamptz(3)
   createdAt    DateTime @default(now()) @db.Timestamptz(3)
   updatedAt    DateTime @default(now()) @updatedAt @db.Timestamptz(3)
@@ -29,41 +35,81 @@ model User {
   storedImages StoredImage[]
   players Player[]
   bowlingTeams BowlingTeam[]
+  tenantMemberships TenantMembership[]
+  activeTenant Tenant? @relation("ActiveTenant", fields: [activeTenantId], references: [id], onDelete: SetNull)
 
+  @@index([activeTenantId])
   @@map("users")
+}
+
+model Tenant {
+  id          String   @id @default(cuid())
+  name        String
+  createdAt   DateTime @default(now()) @db.Timestamptz(3)
+  updatedAt   DateTime @default(now()) @updatedAt @db.Timestamptz(3)
+
+  memberships TenantMembership[]
+  storedImages StoredImage[]
+  players Player[]
+  bowlingTeams BowlingTeam[]
+  activeUsers User[] @relation("ActiveTenant")
+
+  @@map("tenants")
+}
+
+model TenantMembership {
+  id        String               @id @default(cuid())
+  tenantId  String
+  userId    String
+  role      TenantMembershipRole @default(MEMBER)
+  createdAt DateTime             @default(now()) @db.Timestamptz(3)
+  updatedAt DateTime             @default(now()) @updatedAt @db.Timestamptz(3)
+
+  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([tenantId, userId])
+  @@index([userId])
+  @@map("tenant_memberships")
 }
 
 model BowlingTeam {
   id             String   @id @default(cuid())
   userId         String
+  tenantId       String
   name           String
   normalizedName String
   createdAt      DateTime @default(now())
   updatedAt      DateTime @updatedAt
 
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
   storedImages StoredImage[]
   rosterPlayerStatuses TeamRosterPlayerStatus[]
 
-  @@unique([userId, normalizedName])
+  @@unique([tenantId, normalizedName])
   @@index([userId])
+  @@index([tenantId])
   @@map("bowling_teams")
 }
 
 model Player {
   id             String   @id @default(cuid())
   userId         String
+  tenantId       String
   name           String
   normalizedName String
   createdAt      DateTime @default(now())
   updatedAt      DateTime @updatedAt
 
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
   scores BowlingScore[]
   teamRosterStatuses TeamRosterPlayerStatus[]
 
-  @@unique([userId, normalizedName])
+  @@unique([tenantId, normalizedName])
   @@index([userId])
+  @@index([tenantId])
   @@map("players")
 }
 
@@ -128,6 +174,7 @@ model VerificationToken {
 model StoredImage {
   id               String   @id @default(cuid())
   userId           String
+  tenantId         String
   teamId           String?
   bucket           String
   objectKey        String
@@ -138,12 +185,14 @@ model StoredImage {
   updatedAt        DateTime @updatedAt
 
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
   team BowlingTeam? @relation(fields: [teamId], references: [id], onDelete: SetNull)
   scores BowlingScore[]
   llmRequests LLMRequest[]
 
   @@unique([bucket, objectKey])
   @@index([userId])
+  @@index([tenantId])
   @@index([teamId])
   @@map("stored_images")
 }

@@ -3,6 +3,7 @@ import { z } from 'zod';
 import type { Prisma } from '@prisma/client';
 
 import { auth } from '@/server/auth';
+import { getTenantAccessForSession } from '@/server/auth/tenant';
 import { prisma } from '@/server/db/client';
 import { findOrCreatePlayerForName } from '@/server/services/players';
 
@@ -37,12 +38,22 @@ export async function PUT(request: Request, context: RouteContext) {
   }
 
   try {
+    const tenantAccess = await getTenantAccessForSession(session);
+
+    if (!tenantAccess) {
+      return NextResponse.json({ success: false, error: 'Unauthorized' }, { status: 401 });
+    }
+
+    if (!tenantAccess.canEdit) {
+      return NextResponse.json({ success: false, error: 'Forbidden' }, { status: 403 });
+    }
+
     const storedImage = await prisma.storedImage.findUnique({
       where: { id: storedImageId },
-      select: { id: true, userId: true }
+      select: { id: true, tenantId: true }
     });
 
-    if (!storedImage || storedImage.userId !== session.user.id) {
+    if (!storedImage || storedImage.tenantId !== tenantAccess.tenantId) {
       return NextResponse.json({ success: false, error: 'Not found' }, { status: 404 });
     }
 
@@ -58,7 +69,12 @@ export async function PUT(request: Request, context: RouteContext) {
     });
 
     const correction = await prisma.$transaction(async (tx) => {
-      const player = await findOrCreatePlayerForName(tx, storedImage.userId, parsed.playerName);
+      const player = await findOrCreatePlayerForName(
+        tx,
+        tenantAccess.tenantId,
+        tenantAccess.userId,
+        parsed.playerName
+      );
       const data = {
         playerId: player?.id ?? null,
         playerName: player?.name ?? parsed.playerName ?? null,

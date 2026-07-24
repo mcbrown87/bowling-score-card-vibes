@@ -1,11 +1,14 @@
 import Link from 'next/link';
+import { redirect } from 'next/navigation';
 
 import BowlingApp from '@/components/BowlingApp';
 import { AppHeader } from '@/components/AppHeader';
 import { auth } from '@/server/auth';
+import { getTenantAccessForSession } from '@/server/auth/tenant';
 
 export default async function HomePage() {
   const session = await auth();
+  const tenantAccess = session?.user ? await getTenantAccessForSession(session) : null;
 
   if (!session?.user) {
     return (
@@ -21,13 +24,18 @@ export default async function HomePage() {
     );
   }
 
+  if (tenantAccess && !tenantAccess.canEdit) {
+    redirect('/library');
+  }
+
   return (
     <main>
       <AppHeader
         userLabel={`Signed in as ${session.user.name ?? session.user.email}`}
         isAdmin={session.user.role === 'ADMIN'}
+        canUpload={tenantAccess?.canEdit ?? false}
       />
-      <BowlingApp />
+      <BowlingApp initialCanEditTenant={tenantAccess?.canEdit ?? false} />
     </main>
   );
 }

@@ -1,4 +1,5 @@
 const auth = jest.fn();
+const getTenantAccessForSession = jest.fn();
 const storedImageFindUnique = jest.fn();
 const storedImageUpdate = jest.fn();
 const bowlingTeamFindUnique = jest.fn();
@@ -54,6 +55,10 @@ jest.mock('@/server/auth', () => ({
   auth
 }));
 
+jest.mock('@/server/auth/tenant', () => ({
+  getTenantAccessForSession
+}));
+
 jest.mock('@/server/db/client', () => ({
   prisma: {
     storedImage: {
@@ -91,7 +96,12 @@ describe('/api/stored-images/[id] team assignment', () => {
   beforeEach(() => {
     jest.clearAllMocks();
     auth.mockResolvedValue({ user: { id: 'user-1' } });
-    storedImageFindUnique.mockResolvedValue({ id: 'image-1', userId: 'user-1' });
+    getTenantAccessForSession.mockResolvedValue({
+      tenantId: 'tenant-1',
+      userId: 'user-1',
+      canEdit: true
+    });
+    storedImageFindUnique.mockResolvedValue({ id: 'image-1', tenantId: 'tenant-1' });
     storedImageUpdate.mockResolvedValue({ id: 'image-1' });
     serializeStoredImage.mockReturnValue({ id: 'image-1', team: null });
   });
@@ -109,8 +119,8 @@ describe('/api/stored-images/[id] team assignment', () => {
     });
   });
 
-  it('hides images outside the current user account', async () => {
-    storedImageFindUnique.mockResolvedValue({ id: 'image-1', userId: 'other-user' });
+  it('hides images outside the current tenant', async () => {
+    storedImageFindUnique.mockResolvedValue({ id: 'image-1', tenantId: 'tenant-2' });
 
     const { PATCH } = await import('./route');
     const response = await PATCH(buildRequest({ teamId: null }), context);
@@ -119,8 +129,8 @@ describe('/api/stored-images/[id] team assignment', () => {
     expect(storedImageUpdate).not.toHaveBeenCalled();
   });
 
-  it('attaches an existing team owned by the current user', async () => {
-    bowlingTeamFindUnique.mockResolvedValue({ id: 'team-1', userId: 'user-1' });
+  it('attaches an existing team in the current tenant', async () => {
+    bowlingTeamFindUnique.mockResolvedValue({ id: 'team-1', tenantId: 'tenant-1' });
     serializeStoredImage.mockReturnValue({
       id: 'image-1',
       team: { id: 'team-1', name: 'Wednesday League' }
@@ -151,6 +161,7 @@ describe('/api/stored-images/[id] team assignment', () => {
 
     expect(findOrCreateTeamForName).toHaveBeenCalledWith(
       expect.anything(),
+      'tenant-1',
       'user-1',
       ' Friday   Night '
     );

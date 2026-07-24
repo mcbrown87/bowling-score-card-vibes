@@ -3,12 +3,14 @@ import Link from 'next/link';
 import { AdminConsole } from '@/components/AdminConsole';
 import { AppHeader } from '@/components/AppHeader';
 import { auth } from '@/server/auth';
+import { getTenantAccessForSession } from '@/server/auth/tenant';
 import { getRuntimeSettings } from '@/server/config/appConfig';
 import { prisma } from '@/server/db/client';
 import { getTrainingDatasetCounts } from '@/server/services/localModelArtifacts';
 
 export default async function AdminPage() {
   const session = await auth();
+  const tenantAccess = session?.user ? await getTenantAccessForSession(session) : null;
 
   if (!session?.user) {
     return (
@@ -30,6 +32,7 @@ export default async function AdminPage() {
         <AppHeader
           userLabel={`Signed in as ${session.user.name ?? session.user.email}`}
           isAdmin={false}
+          canUpload={tenantAccess?.canEdit ?? false}
         />
         <div style={{ maxWidth: '880px', margin: '0 auto', padding: '40px 16px' }}>
           <div
@@ -51,12 +54,49 @@ export default async function AdminPage() {
     );
   }
 
-  const [settings, artifacts, datasetCounts] = await Promise.all([
+  const [settings, artifacts, datasetCounts, tenants, users] = await Promise.all([
     getRuntimeSettings(),
     prisma.modelArtifact.findMany({
       orderBy: [{ isActive: 'desc' }, { createdAt: 'desc' }]
     }),
-    getTrainingDatasetCounts()
+    getTrainingDatasetCounts(),
+    prisma.tenant.findMany({
+      orderBy: [{ createdAt: 'asc' }],
+      select: {
+        id: true,
+        name: true,
+        createdAt: true,
+        memberships: {
+          orderBy: [{ role: 'asc' }, { createdAt: 'asc' }],
+          select: {
+            role: true,
+            user: {
+              select: {
+                id: true,
+                email: true,
+                name: true,
+                activeTenantId: true
+              }
+            }
+          }
+        },
+        _count: {
+          select: {
+            storedImages: true,
+            players: true,
+            bowlingTeams: true
+          }
+        }
+      }
+    }),
+    prisma.user.findMany({
+      orderBy: [{ email: 'asc' }],
+      select: {
+        id: true,
+        email: true,
+        name: true
+      }
+    })
   ]);
 
   return (
@@ -68,6 +108,7 @@ export default async function AdminPage() {
       <AppHeader
         userLabel={`Signed in as ${session.user.name ?? session.user.email}`}
         isAdmin
+        canUpload={tenantAccess?.canEdit ?? false}
       />
       <AdminConsole
         initialSettings={settings}
@@ -79,6 +120,22 @@ export default async function AdminPage() {
               : null
         }))}
         datasetCounts={datasetCounts}
+        initialUsers={users}
+        initialTenants={tenants.map((tenant) => ({
+          id: tenant.id,
+          name: tenant.name,
+          createdAt: tenant.createdAt.toISOString(),
+          imageCount: tenant._count.storedImages,
+          playerCount: tenant._count.players,
+          teamCount: tenant._count.bowlingTeams,
+          members: tenant.memberships.map((membership) => ({
+            userId: membership.user.id,
+            email: membership.user.email,
+            name: membership.user.name,
+            role: membership.role,
+            isActiveTenant: membership.user.activeTenantId === tenant.id
+          }))
+        }))}
       />
     </main>
   );

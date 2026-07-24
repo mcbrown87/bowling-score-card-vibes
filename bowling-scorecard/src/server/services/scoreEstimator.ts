@@ -37,6 +37,7 @@ export const processScoreEstimatorJob = async ({
       select: {
         id: true,
         userId: true,
+        tenantId: true,
         bucket: true,
         objectKey: true,
         originalFileName: true,
@@ -128,7 +129,12 @@ export const processScoreEstimatorJob = async ({
       });
 
       for (const [index, game] of result.games.entries()) {
-        const player = await findOrCreatePlayerForName(tx, storedImage.userId, game.playerName);
+        const player = await findOrCreatePlayerForName(
+          tx,
+          storedImage.tenantId,
+          storedImage.userId,
+          game.playerName
+        );
 
         await tx.bowlingScore.create({
           data: {

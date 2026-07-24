@@ -65,4 +65,5 @@ export type StoredImagesPage = {
   pageSize: number;
   totalImages: number;
   totalPages: number;
+  canEdit: boolean;
 };

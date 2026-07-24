@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 
 import { auth } from '@/server/auth';
+import { getTenantAccessForSession } from '@/server/auth/tenant';
 import { prisma } from '@/server/db/client';
 
 export const dynamic = 'force-dynamic';
@@ -13,8 +14,14 @@ export async function GET() {
   }
 
   try {
+    const tenantAccess = await getTenantAccessForSession(session);
+
+    if (!tenantAccess) {
+      return NextResponse.json({ success: false, error: 'Unauthorized' }, { status: 401 });
+    }
+
     const teams = await prisma.bowlingTeam.findMany({
-      where: { userId: session.user.id },
+      where: { tenantId: tenantAccess.tenantId },
       orderBy: [{ name: 'asc' }],
       select: {
         id: true,

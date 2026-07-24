@@ -41,6 +41,12 @@ const bootstrapUser = {
   password: process.env.BOOTSTRAP_USER_PASSWORD || 'devpassword123',
   name: process.env.BOOTSTRAP_USER_NAME || 'Bootstrap User'
 };
+const bootstrapExtraUserCount = parseNonNegativeInteger(process.env.BOOTSTRAP_EXTRA_USER_COUNT, 9);
+const bootstrapExtraUserPassword = process.env.BOOTSTRAP_EXTRA_USER_PASSWORD || bootstrapUser.password;
+const bootstrapExtraUserEmailPrefix =
+  process.env.BOOTSTRAP_EXTRA_USER_EMAIL_PREFIX || 'dev+user';
+const bootstrapExtraUserEmailDomain =
+  process.env.BOOTSTRAP_EXTRA_USER_EMAIL_DOMAIN || 'example.com';
 
 const sampleGames = [
   {
@@ -123,6 +129,54 @@ function parsePositiveInteger(value, fallback) {
     return fallback;
   }
   return parsed;
+}
+
+function parseNonNegativeInteger(value, fallback) {
+  const parsed = Number.parseInt(String(value ?? ''), 10);
+  if (!Number.isFinite(parsed) || parsed < 0) {
+    return fallback;
+  }
+  return parsed;
+}
+
+async function ensurePersonalTenantForUser(user) {
+  const existingMembership = await prisma.tenantMembership.findFirst({
+    where: { userId: user.id },
+    select: { tenantId: true }
+  });
+
+  if (existingMembership) {
+    await prisma.user.updateMany({
+      where: {
+        id: user.id,
+        activeTenantId: null
+      },
+      data: {
+        activeTenantId: existingMembership.tenantId
+      }
+    });
+    return existingMembership.tenantId;
+  }
+
+  const tenant = await prisma.tenant.create({
+    data: {
+      name: user.name || user.email,
+      memberships: {
+        create: {
+          userId: user.id,
+          role: 'OWNER'
+        }
+      }
+    },
+    select: { id: true }
+  });
+
+  await prisma.user.update({
+    where: { id: user.id },
+    data: { activeTenantId: tenant.id }
+  });
+
+  return tenant.id;
 }
 
 const useRandomGames = hasFlag('--random-games') || process.env.BOOTSTRAP_RANDOM_GAMES === 'true';
@@ -354,6 +408,10 @@ async function ensureAppIsRunning() {
 
 async function seedBootstrapData() {
   const passwordHash = await hash(bootstrapUser.password, 12);
+  const extraUserPasswordHash =
+    bootstrapExtraUserPassword === bootstrapUser.password
+      ? passwordHash
+      : await hash(bootstrapExtraUserPassword, 12);
 
   const user = await prisma.user.upsert({
     where: { email: bootstrapUser.email },
@@ -369,6 +427,29 @@ async function seedBootstrapData() {
       role: 'ADMIN'
     }
   });
+  const tenantId = await ensurePersonalTenantForUser(user);
+  const extraUsers = [];
+
+  for (let index = 1; index <= bootstrapExtraUserCount; index += 1) {
+    const sequence = String(index).padStart(2, '0');
+    const extraUser = await prisma.user.upsert({
+      where: { email: `${bootstrapExtraUserEmailPrefix}${sequence}@${bootstrapExtraUserEmailDomain}` },
+      update: {
+        name: `Bootstrap User ${sequence}`,
+        passwordHash: extraUserPasswordHash,
+        role: 'USER'
+      },
+      create: {
+        email: `${bootstrapExtraUserEmailPrefix}${sequence}@${bootstrapExtraUserEmailDomain}`,
+        name: `Bootstrap User ${sequence}`,
+        passwordHash: extraUserPasswordHash,
+        role: 'USER'
+      }
+    });
+
+    await ensurePersonalTenantForUser(extraUser);
+    extraUsers.push(extraUser);
+  }
 
   const fixtureBuffer = await fs.readFile(fixtureImagePath);
   const storageClient = getStorageClient();
@@ -377,7 +458,7 @@ async function seedBootstrapData() {
 
   await prisma.storedImage.deleteMany({
     where: {
-      userId: user.id,
+      tenantId,
       objectKey: {
         startsWith: bootstrapPrefix
       }
@@ -385,7 +466,7 @@ async function seedBootstrapData() {
   });
   const existingBootstrapTeams = await prisma.bowlingTeam.findMany({
     where: {
-      userId: user.id
+      tenantId
     },
     select: {
       id: true
@@ -408,8 +489,8 @@ async function seedBootstrapData() {
             const name = normalizeTeamName(teamName);
             return prisma.bowlingTeam.upsert({
               where: {
-                userId_normalizedName: {
-                  userId: user.id,
+                tenantId_normalizedName: {
+                  tenantId,
                   normalizedName: normalizeTeamLookupName(name)
                 }
               },
@@ -418,6 +499,7 @@ async function seedBootstrapData() {
               },
               create: {
                 userId: user.id,
+                tenantId,
                 name,
                 normalizedName: normalizeTeamLookupName(name)
               }
@@ -446,6 +528,7 @@ async function seedBootstrapData() {
     const storedImage = await prisma.storedImage.create({
       data: {
         userId: user.id,
+        tenantId,
         teamId: team?.id,
         bucket: storageBucket,
         objectKey,
@@ -466,8 +549,8 @@ async function seedBootstrapData() {
 
       const player = await prisma.player.upsert({
         where: {
-          userId_normalizedName: {
-            userId: user.id,
+          tenantId_normalizedName: {
+            tenantId,
             normalizedName
           }
         },
@@ -476,6 +559,7 @@ async function seedBootstrapData() {
         },
         create: {
           userId: user.id,
+          tenantId,
           name: normalizePlayerName(game.playerName),
           normalizedName
         }
@@ -537,6 +621,9 @@ async function seedBootstrapData() {
   }
 
   console.log(`Seeded ${bootstrapImageCount} bootstrap image${bootstrapImageCount === 1 ? '' : 's'} for ${bootstrapUser.email}.`);
+  console.log(
+    `Seeded ${extraUsers.length} additional bootstrap user${extraUsers.length === 1 ? '' : 's'} (${extraUsers.map((extraUser) => extraUser.email).join(', ') || 'none'}).`
+  );
   if (useRandomGames) {
     const seededGameCount = bootstrapImageCount * effectiveRandomGamePlayerNames.length;
     console.log(

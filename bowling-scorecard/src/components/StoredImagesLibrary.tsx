@@ -42,6 +42,7 @@ export function StoredImagesLibrary({
   );
   const [totalImages, setTotalImages] = useState(0);
   const [totalPages, setTotalPages] = useState(1);
+  const [canEdit, setCanEdit] = useState(true);
   const [activeImageIndexOnPage, setActiveImageIndexOnPage] = useState(0);
   const [teams, setTeams] = useState<BowlingTeamSummary[]>([]);
   const pollAbortRef = useRef(false);
@@ -59,6 +60,7 @@ export function StoredImagesLibrary({
     setCurrentPage(data.page);
     setTotalImages(data.totalImages);
     setTotalPages(data.totalPages);
+    setCanEdit(data.canEdit);
     if (pendingPageTargetRef.current === 'end') {
       setActiveImageIndexOnPage(Math.max(0, data.images.length - 1));
     } else {
@@ -279,18 +281,19 @@ export function StoredImagesLibrary({
       images={images}
       isLoading={isLoading}
       error={error}
+      canEdit={canEdit}
       onRetry={() => {
         void fetchImages(currentPage);
       }}
-      onGenerateScores={handleGenerateScores}
-      onClearScores={handleClearScores}
-      onDeleteImage={handleDeleteImage}
-      onUpdateImageTeam={handleUpdateImageTeam}
+      onGenerateScores={canEdit ? handleGenerateScores : undefined}
+      onClearScores={canEdit ? handleClearScores : undefined}
+      onDeleteImage={canEdit ? handleDeleteImage : undefined}
+      onUpdateImageTeam={canEdit ? handleUpdateImageTeam : undefined}
       generatingImageId={generatingImageId}
       clearingImageId={clearingImageId}
       deletingImageId={deletingImageId}
       teams={teams}
-      onUpdateGame={handleUpdateGame}
+      onUpdateGame={canEdit ? handleUpdateGame : undefined}
       initialImageId={initialImageId ?? null}
       initialGameIndex={initialGameIndex ?? null}
       totalImageCount={totalImages}

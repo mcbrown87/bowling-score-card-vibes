@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import { z } from 'zod';
 
 import { auth } from '@/server/auth';
+import { getTenantAccessForSession } from '@/server/auth/tenant';
 import { prisma } from '@/server/db/client';
 import { deleteObject } from '@/server/storage/client';
 import { findOrCreateTeamForName } from '@/server/services/bowlingTeams';
@@ -34,15 +35,25 @@ export async function PATCH(request: Request, context: RouteContext) {
   const storedImageId = context.params.id;
 
   try {
+    const tenantAccess = await getTenantAccessForSession(session);
+
+    if (!tenantAccess) {
+      return NextResponse.json({ success: false, error: 'Unauthorized' }, { status: 401 });
+    }
+
+    if (!tenantAccess.canEdit) {
+      return NextResponse.json({ success: false, error: 'Forbidden' }, { status: 403 });
+    }
+
     const storedImage = await prisma.storedImage.findUnique({
       where: { id: storedImageId },
       select: {
         id: true,
-        userId: true
+        tenantId: true
       }
     });
 
-    if (!storedImage || storedImage.userId !== session.user.id) {
+    if (!storedImage || storedImage.tenantId !== tenantAccess.tenantId) {
       return NextResponse.json({ success: false, error: 'Not found' }, { status: 404 });
     }
 
@@ -53,16 +64,21 @@ export async function PATCH(request: Request, context: RouteContext) {
     if (typeof parsed.teamId === 'string') {
       const team = await prisma.bowlingTeam.findUnique({
         where: { id: parsed.teamId },
-        select: { id: true, userId: true }
+        select: { id: true, tenantId: true }
       });
 
-      if (!team || team.userId !== session.user.id) {
+      if (!team || team.tenantId !== tenantAccess.tenantId) {
         return NextResponse.json({ success: false, error: 'Team not found' }, { status: 404 });
       }
 
       teamId = team.id;
     } else if (typeof parsed.teamName === 'string') {
-      const team = await findOrCreateTeamForName(prisma, session.user.id, parsed.teamName);
+      const team = await findOrCreateTeamForName(
+        prisma,
+        tenantAccess.tenantId,
+        tenantAccess.userId,
+        parsed.teamName
+      );
       teamId = team?.id ?? null;
     }
 
@@ -104,17 +120,27 @@ export async function DELETE(_request: Request, context: RouteContext) {
   const storedImageId = context.params.id;
 
   try {
+    const tenantAccess = await getTenantAccessForSession(session);
+
+    if (!tenantAccess) {
+      return NextResponse.json({ success: false, error: 'Unauthorized' }, { status: 401 });
+    }
+
+    if (!tenantAccess.canEdit) {
+      return NextResponse.json({ success: false, error: 'Forbidden' }, { status: 403 });
+    }
+
     const storedImage = await prisma.storedImage.findUnique({
       where: { id: storedImageId },
       select: {
         id: true,
-        userId: true,
+        tenantId: true,
         bucket: true,
         objectKey: true
       }
     });
 
-    if (!storedImage || storedImage.userId !== session.user.id) {
+    if (!storedImage || storedImage.tenantId !== tenantAccess.tenantId) {
       return NextResponse.json({ success: false, error: 'Not found' }, { status: 404 });
     }
 
