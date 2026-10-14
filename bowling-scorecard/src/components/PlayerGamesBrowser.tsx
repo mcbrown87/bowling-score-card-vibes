@@ -12,6 +12,7 @@ import {
   buildFrameTrendSeries,
   buildPlayerFrameHeatmap
 } from '@/utils/playerFrameHeatmap';
+import { calculatePlayerBowlingStats } from '@/utils/playerBowlingStats';
 import {
   loadStoredImages,
   loadTeamRosterStatus,
@@ -132,6 +133,80 @@ const PLAYER_GAMES_PAGE_SIZE = 50;
 const rollingAverageOptions = [3, 6, 9];
 type RollingAverageDisplayMode = 'averageAndStdDev' | 'averageOnly' | 'hidden';
 type FrameTrendDisplayMode = 'rawAndAverage' | 'averageOnly' | 'rawOnly' | 'hidden';
+type TimelineMetricKey =
+  | 'score'
+  | 'strikePercentage'
+  | 'spareConversionPercentage'
+  | 'firstBallAverage'
+  | 'openFrames'
+  | 'longestStrikeRun';
+
+type TimelineMetricDefinition = {
+  label: string;
+  shortLabel: string;
+  ariaLabel: string;
+  domain?: [number, number];
+  formatRaw: (value: number) => string;
+  formatAverage: (value: number) => string;
+  formatStdDev: (value: number) => string;
+  formatTick: (value: number) => string;
+};
+
+const oneDecimal = (value: number) => value.toFixed(1);
+const percentageMetric = (label: string, shortLabel: string): TimelineMetricDefinition => ({
+  label,
+  shortLabel,
+  ariaLabel: `${label} over time`,
+  domain: [0, 100],
+  formatRaw: (value) => `${oneDecimal(value)}%`,
+  formatAverage: (value) => `${oneDecimal(value)}%`,
+  formatStdDev: (value) => `${oneDecimal(value)} pp`,
+  formatTick: (value) => `${Math.round(value)}%`
+});
+
+const timelineMetrics: Record<TimelineMetricKey, TimelineMetricDefinition> = {
+  score: {
+    label: 'Score',
+    shortLabel: 'Score',
+    ariaLabel: 'Bowling scores over time',
+    formatRaw: (value) => String(Math.trunc(value)),
+    formatAverage: (value) => String(Math.trunc(value)),
+    formatStdDev: (value) => String(Math.round(value)),
+    formatTick: (value) => String(Math.round(value))
+  },
+  strikePercentage: percentageMetric('Strike percentage', 'Strike %'),
+  spareConversionPercentage: percentageMetric('Spare conversion', 'Spare conversion'),
+  firstBallAverage: {
+    label: 'First-ball average',
+    shortLabel: 'First-ball avg',
+    ariaLabel: 'First-ball average over time',
+    domain: [0, 10],
+    formatRaw: oneDecimal,
+    formatAverage: oneDecimal,
+    formatStdDev: oneDecimal,
+    formatTick: oneDecimal
+  },
+  openFrames: {
+    label: 'Open frames',
+    shortLabel: 'Open frames',
+    ariaLabel: 'Open frames over time',
+    domain: [0, 10],
+    formatRaw: (value) => String(Math.round(value)),
+    formatAverage: oneDecimal,
+    formatStdDev: oneDecimal,
+    formatTick: (value) => String(Math.round(value))
+  },
+  longestStrikeRun: {
+    label: 'Longest strike run',
+    shortLabel: 'Longest run',
+    ariaLabel: 'Longest strike run over time',
+    domain: [0, 12],
+    formatRaw: (value) => String(Math.round(value)),
+    formatAverage: oneDecimal,
+    formatStdDev: oneDecimal,
+    formatTick: (value) => String(Math.round(value))
+  }
+};
 
 const nextRollingAverageDisplayMode = (
   current: RollingAverageDisplayMode
@@ -603,7 +678,7 @@ const inactiveBadgeStyles: CSSProperties = {
 type ScoreTimelinePoint = {
   index: number;
   key: string;
-  score: number;
+  value: number | null;
   createdAt: string;
   label: string;
   isEstimate: boolean;
@@ -611,8 +686,9 @@ type ScoreTimelinePoint = {
 
 type ScoreTimelineProps = {
   data: ScoreTimelinePoint[];
+  metric: TimelineMetricDefinition;
   rollingAverageWindow: number;
-  showScoreLine: boolean;
+  showRawLine: boolean;
   rollingAverageDisplayMode: RollingAverageDisplayMode;
   xAxisLabel?: string;
   selectedKey: string | null;
@@ -621,8 +697,9 @@ type ScoreTimelineProps = {
 
 const ScoreTimeline = ({
   data,
+  metric,
   rollingAverageWindow,
-  showScoreLine,
+  showRawLine,
   rollingAverageDisplayMode,
   xAxisLabel = 'Games',
   selectedKey,
@@ -635,59 +712,74 @@ const ScoreTimeline = ({
   const showRollingStdDevBand = rollingAverageDisplayMode === 'averageAndStdDev';
   const dataWithAverages = data.map((item, idx) => {
     const windowStart = Math.max(0, idx - rollingAverageWindow + 1);
-    const windowScores = data.slice(windowStart, idx + 1).map((entry) => entry.score);
-    const rollingAverage =
-      windowScores.reduce((sum, score) => sum + score, 0) / windowScores.length;
-    const rollingStdDev = Math.sqrt(
-      windowScores.reduce(
-        (sum, score) => sum + Math.pow(score - rollingAverage, 2),
+    const windowValues = data
+      .slice(windowStart, idx + 1)
+      .map((entry) => entry.value)
+      .filter((value): value is number => value !== null);
+    const rollingAverage = windowValues.length
+      ? windowValues.reduce((sum, value) => sum + value, 0) / windowValues.length
+      : null;
+    const rollingStdDev = rollingAverage === null
+      ? null
+      : Math.sqrt(
+        windowValues.reduce(
+          (sum, value) => sum + Math.pow(value - rollingAverage, 2),
         0
-      ) / windowScores.length
-    );
+        ) / windowValues.length
+      );
+    const [domainMin, domainMax] = metric.domain ?? [-Infinity, Infinity];
 
     return {
       ...item,
       rollingAverage,
       rollingStdDev,
-      rollingStdDevUpper: rollingAverage + rollingStdDev,
-      rollingStdDevLower: rollingAverage - rollingStdDev
+      rollingStdDevUpper:
+        rollingAverage === null || rollingStdDev === null
+          ? null
+          : Math.min(domainMax, rollingAverage + rollingStdDev),
+      rollingStdDevLower:
+        rollingAverage === null || rollingStdDev === null
+          ? null
+          : Math.max(domainMin, rollingAverage - rollingStdDev)
     };
   });
-  const scores = dataWithAverages.flatMap((item) => [
-    item.score,
+  const plottedValues = dataWithAverages.flatMap((item) => [
+    item.value,
     item.rollingAverage,
     item.rollingStdDevUpper,
     item.rollingStdDevLower
-  ]);
-  const minScore = Math.min(...scores, 0);
-  const maxScore = Math.max(...scores, 0);
-  const range = Math.max(maxScore - minScore, 30);
+  ]).filter((value): value is number => value !== null);
+  const minScore = metric.domain?.[0] ?? Math.min(...plottedValues, 0);
+  const maxScore = metric.domain?.[1] ?? Math.max(...plottedValues, 0);
+  const range = Math.max(maxScore - minScore, metric.domain ? 1 : 30);
   const xStep = data.length > 1 ? (width - padding * 2) / (data.length - 1) : 0;
+  const toY = (value: number) =>
+    padding + (1 - (value - minScore) / range) * (height - padding * 2);
 
   const points = dataWithAverages.map((item, idx) => {
     const x = padding + xStep * idx;
-    const normalized = (item.score - minScore) / range;
-    const normalizedAverage = (item.rollingAverage - minScore) / range;
-    const normalizedStdDevUpper = (item.rollingStdDevUpper - minScore) / range;
-    const normalizedStdDevLower = (item.rollingStdDevLower - minScore) / range;
-    const y = padding + (1 - normalized) * (height - padding * 2);
-    const averageY = padding + (1 - normalizedAverage) * (height - padding * 2);
-    const stdDevUpperY =
-      padding + (1 - normalizedStdDevUpper) * (height - padding * 2);
-    const stdDevLowerY =
-      padding + (1 - normalizedStdDevLower) * (height - padding * 2);
+    const y = item.value === null ? null : toY(item.value);
+    const averageY = item.rollingAverage === null ? null : toY(item.rollingAverage);
+    const stdDevUpperY = item.rollingStdDevUpper === null ? null : toY(item.rollingStdDevUpper);
+    const stdDevLowerY = item.rollingStdDevLower === null ? null : toY(item.rollingStdDevLower);
     return { ...item, x, y, averageY, stdDevUpperY, stdDevLowerY };
   });
 
-  const polylinePoints = points.map((pt) => `${pt.x},${pt.y}`).join(' ');
-  const rollingAveragePoints = points.map((pt) => `${pt.x},${pt.averageY}`).join(' ');
-  const rollingStdDevBandPoints = [
-    ...points.map((pt) => `${pt.x},${pt.stdDevUpperY}`),
-    ...points
-      .slice()
-      .reverse()
-      .map((pt) => `${pt.x},${pt.stdDevLowerY}`)
-  ].join(' ');
+  const contiguousSegments = <T,>(items: T[], isAvailable: (item: T) => boolean) =>
+    items.reduce<T[][]>((segments, item) => {
+      if (!isAvailable(item)) {
+        segments.push([]);
+      } else {
+        const current = segments[segments.length - 1] ?? [];
+        current.push(item);
+        if (segments.length === 0) {
+          segments.push(current);
+        }
+      }
+      return segments;
+    }, []).filter((segment) => segment.length > 0);
+  const rawSegments = contiguousSegments(points, (point) => point.y !== null);
+  const averageSegments = contiguousSegments(points, (point) => point.averageY !== null);
   const yTicks = [minScore, Math.round(minScore + range / 2), maxScore].filter(
     (value, idx, arr) => arr.indexOf(value) === idx
   );
@@ -696,7 +788,7 @@ const ScoreTimeline = ({
     <svg
       viewBox={`0 0 ${width} ${height}`}
       role="img"
-      aria-label="Bowling scores over time"
+      aria-label={metric.ariaLabel}
       style={{ width: '100%', height: 'auto' }}
     >
       <defs>
@@ -727,7 +819,7 @@ const ScoreTimeline = ({
               fontSize="11"
               fill="#93c5fd"
             >
-              {Math.round(tick)}
+              {metric.formatTick(tick)}
             </text>
           </g>
         );
@@ -735,54 +827,48 @@ const ScoreTimeline = ({
 
       {points.length > 1 && (
         <>
-          {showScoreLine && (
-            <polyline
-              fill="url(#score-area)"
-              stroke="none"
-              points={`${points
-                .map((pt) => `${pt.x},${pt.y}`)
-                .join(' ')} ${points[points.length - 1].x},${height - padding} ${
-                points[0].x
-              },${height - padding}`}
-            />
-          )}
-          {showScoreLine && (
-            <polyline
-              data-testid="score-line"
-              fill="none"
-              stroke="#2563eb"
-              strokeWidth={3}
-              strokeLinejoin="round"
-              strokeLinecap="round"
-              points={polylinePoints}
-            />
-          )}
-          {showRollingStdDevBand && (
-            <polygon
-              data-testid="rolling-stddev-band"
-              fill="rgba(34, 211, 238, 0.18)"
-              stroke="rgba(34, 211, 238, 0.3)"
-              strokeWidth={1}
-              points={rollingStdDevBandPoints}
-            />
-          )}
-          {showRollingAverageLine && (
-            <polyline
-              data-testid="rolling-average-line"
-              fill="none"
-              stroke="#22d3ee"
-              strokeWidth={4}
-              strokeDasharray="10 8"
-              strokeLinejoin="round"
-              strokeLinecap="round"
-              points={rollingAveragePoints}
-            />
-          )}
+          {showRawLine && rawSegments.map((segment, index) => (
+            <polyline key={`area-${index}`} fill="url(#score-area)" stroke="none" points={`${segment
+              .map((pt) => `${pt.x},${pt.y}`)
+              .join(' ')} ${segment[segment.length - 1].x},${height - padding} ${segment[0].x},${height - padding}`} />
+          ))}
+          {showRawLine && rawSegments.map((segment, index) => (
+            <polyline key={`raw-${index}`} data-testid="score-line" fill="none" stroke="#2563eb" strokeWidth={3}
+              strokeLinejoin="round" strokeLinecap="round" points={segment.map((pt) => `${pt.x},${pt.y}`).join(' ')} />
+          ))}
+          {showRollingStdDevBand && averageSegments.map((segment, index) => (
+            <polygon key={`band-${index}`} data-testid="rolling-stddev-band" fill="rgba(34, 211, 238, 0.18)"
+              stroke="rgba(34, 211, 238, 0.3)" strokeWidth={1} points={[
+                ...segment.map((pt) => `${pt.x},${pt.stdDevUpperY}`),
+                ...segment.slice().reverse().map((pt) => `${pt.x},${pt.stdDevLowerY}`)
+              ].join(' ')} />
+          ))}
+          {showRollingAverageLine && averageSegments.map((segment, index) => (
+            <polyline key={`average-${index}`} data-testid="rolling-average-line" fill="none" stroke="#22d3ee"
+              strokeWidth={4} strokeDasharray="10 8" strokeLinejoin="round" strokeLinecap="round"
+              points={segment.map((pt) => `${pt.x},${pt.averageY}`).join(' ')} />
+          ))}
         </>
       )}
 
-      {showScoreLine &&
+      {showRawLine &&
         points.map((pt) => {
+          if (pt.y === null) {
+            return (
+              <text
+                key={pt.key}
+                x={pt.x}
+                y={height - padding - 8}
+                textAnchor="middle"
+                fontSize="10"
+                fill="#94a3b8"
+                onClick={() => onSelect(pt.key)}
+                style={{ cursor: 'pointer' }}
+              >
+                N/A<title>{pt.label} • {metric.shortLabel} N/A</title>
+              </text>
+            );
+          }
           const isSelected = selectedKey === pt.key;
           const color = isSelected ? '#f8fafc' : pt.isEstimate ? '#fb923c' : '#60a5fa';
           return (
@@ -800,11 +886,13 @@ const ScoreTimeline = ({
                 strokeWidth={2}
               />
               <title>
-                {pt.label} • Score {pt.score}
+                {pt.label} • {metric.shortLabel} {metric.formatRaw(pt.value as number)}
                 {showRollingAverageLine
-                  ? ` • ${rollingAverageWindow}-game avg ${Math.round(
-                      pt.rollingAverage
-                    )} • std dev ${Math.round(pt.rollingStdDev)}`
+                  ? ` • ${rollingAverageWindow}-game avg ${
+                      pt.rollingAverage === null ? 'N/A' : metric.formatAverage(pt.rollingAverage)
+                    } • std dev ${
+                      pt.rollingStdDev === null ? 'N/A' : metric.formatStdDev(pt.rollingStdDev)
+                    }`
                   : ''}
               </title>
             </g>
@@ -848,6 +936,7 @@ export function PlayerGamesBrowser({ mode = 'players' }: PlayerGamesBrowserProps
   const [selectedGameKey, setSelectedGameKey] = useState<string | null>(null);
   const [gameLimit, setGameLimit] = useState(0);
   const [rollingAverageWindow, setRollingAverageWindow] = useState(rollingAverageOptions[0]);
+  const [timelineMetricKey, setTimelineMetricKey] = useState<TimelineMetricKey>('score');
   const [showScoreLine, setShowScoreLine] = useState(true);
   const [rollingAverageDisplayMode, setRollingAverageDisplayMode] =
     useState<RollingAverageDisplayMode>('averageAndStdDev');
@@ -1124,7 +1213,7 @@ export function PlayerGamesBrowser({ mode = 'players' }: PlayerGamesBrowserProps
       count: visiblePlayerGames.length,
       totalCount: selectedPlayerGroup.games.length,
       best,
-      average: Math.round(average),
+      average: Math.trunc(average),
       lastPlayed
     };
   }, [selectedPlayerGroup, visiblePlayerGames]);
@@ -1425,17 +1514,30 @@ export function PlayerGamesBrowser({ mode = 'players' }: PlayerGamesBrowserProps
         (a, b) =>
           new Date(a.image.createdAt).getTime() - new Date(b.image.createdAt).getTime()
       )
-      .map((entry, index) => ({
-        index,
-        key: entry.key,
-        score: entry.score,
-        createdAt: entry.image.createdAt,
-        label:
-          entry.image.originalFileName ??
-          `Game ${index + 1} on ${formatShortDate(entry.image.createdAt)}`,
-        isEstimate: Boolean(entry.game.isEstimate)
-      }));
-  }, [selectedPlayerGroup, visiblePlayerGames]);
+      .map((entry, index) => {
+        const stats = calculatePlayerBowlingStats(entry.game);
+        const metricValues: Record<TimelineMetricKey, number | null> = {
+          score: entry.score,
+          strikePercentage: stats.strikePercentage,
+          spareConversionPercentage: stats.spareConversionPercentage,
+          firstBallAverage: stats.firstBallAverage,
+          openFrames: stats.openFrames,
+          longestStrikeRun: stats.longestStrikeRun
+        };
+        return {
+          index,
+          key: entry.key,
+          value: mode === 'teams' ? entry.score : metricValues[timelineMetricKey],
+          createdAt: entry.image.createdAt,
+          label:
+            entry.image.originalFileName ??
+            `Game ${index + 1} on ${formatShortDate(entry.image.createdAt)}`,
+          isEstimate: Boolean(entry.game.isEstimate)
+        };
+      });
+  }, [mode, selectedPlayerGroup, timelineMetricKey, visiblePlayerGames]);
+
+  const timelineMetric = mode === 'teams' ? timelineMetrics.score : timelineMetrics[timelineMetricKey];
 
   const frameTrendSeries = useMemo(() => {
     if (!selectedPlayerGroup || mode === 'teams') {
@@ -1972,6 +2074,23 @@ export function PlayerGamesBrowser({ mode = 'players' }: PlayerGamesBrowserProps
                 )}
 
                 <div style={chartCardStyles}>
+                  {mode === 'players' && (
+                    <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: '10px' }}>
+                      <label htmlFor="timeline-metric-select" style={{ ...hintTextStyles, display: 'flex', alignItems: 'center', gap: '8px' }}>
+                        Timeline metric
+                        <select
+                          id="timeline-metric-select"
+                          style={compactDropdownStyles}
+                          value={timelineMetricKey}
+                          onChange={(event) => setTimelineMetricKey(event.target.value as TimelineMetricKey)}
+                        >
+                          {(Object.entries(timelineMetrics) as Array<[TimelineMetricKey, TimelineMetricDefinition]>).map(
+                            ([key, definition]) => <option key={key} value={key}>{definition.label}</option>
+                          )}
+                        </select>
+                      </label>
+                    </div>
+                  )}
                   <div style={chartLegendStyles}>
                     <span style={lineLegendItemStyles}>
                       <button
@@ -1982,11 +2101,11 @@ export function PlayerGamesBrowser({ mode = 'players' }: PlayerGamesBrowserProps
                         }}
                         onClick={() => setShowScoreLine((isVisible) => !isVisible)}
                         aria-pressed={showScoreLine}
-                        aria-label={`${showScoreLine ? 'Hide' : 'Show'} score line`}
+                        aria-label={`${showScoreLine ? 'Hide' : 'Show'} ${timelineMetric.label.toLowerCase()} line`}
                       >
                         <span style={scoreLegendSwatchStyles} />
                       </button>
-                      <span>Scores</span>
+                      <span>{timelineMetric.label}</span>
                     </span>
                     <span style={lineLegendItemStyles}>
                       <button
@@ -2022,15 +2141,18 @@ export function PlayerGamesBrowser({ mode = 'players' }: PlayerGamesBrowserProps
                         }}
                         aria-label={`Change rolling average window. Current window is ${rollingAverageWindow} games.`}
                       >
-                        {rollingAverageWindow}-game average
+                        {rollingAverageWindow}-game{timelineMetricKey === 'score' || mode === 'teams'
+                          ? ''
+                          : ` ${timelineMetric.label.toLowerCase()}`} average
                       </button>
                     </span>
                   </div>
                   {timelineData.length > 0 ? (
                     <ScoreTimeline
                       data={timelineData}
+                      metric={timelineMetric}
                       rollingAverageWindow={rollingAverageWindow}
-                      showScoreLine={showScoreLine}
+                      showRawLine={showScoreLine}
                       rollingAverageDisplayMode={rollingAverageDisplayMode}
                       xAxisLabel={mode === 'teams' ? 'Scorecards' : 'Games'}
                       onSelect={(key) => setSelectedGameKey(key)}

@@ -399,8 +399,57 @@ describe('PlayerGamesBrowser', () => {
       screen.getByText('alice-1.jpg • Score 170 • 3-game avg 170 • std dev 0')
     ).toBeInTheDocument();
     expect(
-      screen.getByText('alice-2.jpg • Score 145 • 3-game avg 158 • std dev 13')
+      screen.getByText('alice-2.jpg • Score 145 • 3-game avg 157 • std dev 13')
     ).toBeInTheDocument();
+  });
+
+  it('switches the player timeline to roll-derived metrics', async () => {
+    render(<PlayerGamesBrowser />);
+
+    await screen.findByText(/Viewing Alice/);
+    fireEvent.change(screen.getByLabelText('Timeline metric'), {
+      target: { value: 'strikePercentage' }
+    });
+
+    expect(screen.getByRole('img', { name: 'Strike percentage over time' })).toBeVisible();
+    expect(screen.getByText('3-game strike percentage average')).toBeVisible();
+    expect(
+      screen.getByText('alice-1.jpg • Strike % 0.0% • 3-game avg 0.0% • std dev 0.0 pp')
+    ).toBeInTheDocument();
+  });
+
+  it('shows N/A when a game has no spare opportunities', async () => {
+    const perfectFrames = Array.from({ length: 9 }, () => ({
+      rolls: [{ pins: 10 }],
+      isStrike: true,
+      isSpare: false
+    }));
+    mockedLoadStoredImages.mockResolvedValue({
+      ...buildStoredImagesPage(),
+      totalImages: 1,
+      images: [{
+        ...buildStoredImagesPage().images[0],
+        originalFileName: 'perfect.jpg',
+        games: [buildGame('Alice', Array(10).fill(300), 300, {
+          frames: perfectFrames,
+          tenthFrame: {
+            rolls: [{ pins: 10 }, { pins: 10 }, { pins: 10 }],
+            isStrike: true,
+            isSpare: false,
+            score: 300
+          }
+        })]
+      }]
+    });
+    render(<PlayerGamesBrowser />);
+
+    await screen.findByText(/Viewing Alice/);
+    fireEvent.change(screen.getByLabelText('Timeline metric'), {
+      target: { value: 'spareConversionPercentage' }
+    });
+
+    expect(screen.getByText('N/A')).toBeVisible();
+    expect(screen.getByText('perfect.jpg • Spare conversion N/A')).toBeInTheDocument();
   });
 
   it('recalculates the rolling average from visible games after filtering', async () => {
@@ -416,7 +465,7 @@ describe('PlayerGamesBrowser', () => {
       ).toBeInTheDocument()
     );
     expect(
-      screen.queryByText('alice-2.jpg • Score 145 • 3-game avg 158 • std dev 13')
+      screen.queryByText('alice-2.jpg • Score 145 • 3-game avg 157 • std dev 13')
     ).not.toBeInTheDocument();
   });
 
@@ -428,7 +477,7 @@ describe('PlayerGamesBrowser', () => {
     await screen.findByText(/Viewing Alice/);
 
     expect(
-      screen.getByText('alice-history-6.jpg • Score 200 • 3-game avg 157 • std dev 31')
+      screen.getByText('alice-history-6.jpg • Score 200 • 3-game avg 156 • std dev 31')
     ).toBeInTheDocument();
 
     fireEvent.click(
@@ -446,7 +495,7 @@ describe('PlayerGamesBrowser', () => {
       screen.getByText('alice-history-6.jpg • Score 200 • 6-game avg 133 • std dev 32')
     ).toBeInTheDocument();
     expect(
-      screen.queryByText('alice-history-6.jpg • Score 200 • 3-game avg 157 • std dev 31')
+      screen.queryByText('alice-history-6.jpg • Score 200 • 3-game avg 156 • std dev 31')
     ).not.toBeInTheDocument();
   });
 
