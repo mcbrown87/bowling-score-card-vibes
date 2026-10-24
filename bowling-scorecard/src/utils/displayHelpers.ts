@@ -13,6 +13,7 @@ export function formatFrameDisplay(frame: Frame, frameNumber: number): FrameDisp
     return {
       roll1: frame.rolls[0].pins.toString(),
       roll2: '/',
+      ...(frame.rolls[0]?.isSplit ? { splitRolls: [true, false] } : {}),
       frameScore: frame.score ?? null
     };
   }
@@ -23,6 +24,7 @@ export function formatFrameDisplay(frame: Frame, frameNumber: number): FrameDisp
   return {
     roll1: roll1 === 0 ? '-' : roll1.toString(),
     roll2: roll2 === 0 ? '-' : roll2.toString(),
+    ...(frame.rolls[0]?.isSplit ? { splitRolls: [true, false] } : {}),
     frameScore: frame.score ?? null
   };
 }
@@ -69,6 +71,9 @@ export function formatTenthFrameDisplay(tenthFrame: TenthFrame): FrameDisplay {
     roll1,
     roll2,
     roll3,
+    ...(rolls.some((roll) => roll.isSplit)
+      ? { splitRolls: rolls.map((roll) => Boolean(roll.isSplit)) }
+      : {}),
     frameScore: tenthFrame.score ?? null
   };
 }

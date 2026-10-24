@@ -9,7 +9,10 @@ const clampPins = (value: unknown): number => {
 };
 
 const normalizeRegularFrame = (frame: Frame): Frame => {
-  const rolls = frame.rolls.slice(0, 2).map((roll) => ({ pins: clampPins(roll.pins) }));
+  const rolls = frame.rolls.slice(0, 2).map((roll) => ({
+    pins: clampPins(roll.pins),
+    ...(roll.isSplit ? { isSplit: true } : {})
+  }));
   while (rolls.length < 2) {
     rolls.push({ pins: 0 });
   }
@@ -27,9 +30,13 @@ const normalizeRegularFrame = (frame: Frame): Frame => {
   const secondRaw = rolls[1]?.pins ?? 0;
   const second = Math.min(10 - first, clampPins(secondRaw));
   const isSpare = first + second === 10;
+  const firstRoll = {
+    pins: first,
+    ...(rolls[0]?.isSplit && first > 0 && first < 10 ? { isSplit: true } : {})
+  };
 
   return {
-    rolls: [{ pins: first }, { pins: second }],
+    rolls: [firstRoll, { pins: second }],
     isStrike: false,
     isSpare,
     score: frame.score
@@ -37,7 +44,10 @@ const normalizeRegularFrame = (frame: Frame): Frame => {
 };
 
 const normalizeTenthFrame = (frame: TenthFrame): TenthFrame => {
-  const rolls = frame.rolls.slice(0, 3).map((roll) => ({ pins: clampPins(roll.pins) }));
+  const rolls = frame.rolls.slice(0, 3).map((roll) => ({
+    pins: clampPins(roll.pins),
+    ...(roll.isSplit ? { isSplit: true } : {})
+  }));
   while (rolls.length < 2) {
     rolls.push({ pins: 0 });
   }
@@ -46,10 +56,17 @@ const normalizeTenthFrame = (frame: TenthFrame): TenthFrame => {
   const second = rolls[1]?.pins ?? 0;
   const isStrike = first === 10;
   const isSpare = !isStrike && first + second === 10;
+  const splitRollIndex = isStrike ? 1 : 0;
+  const normalizedRolls = rolls.map((roll, index) => ({
+    pins: roll.pins,
+    ...(index === splitRollIndex && roll.isSplit && roll.pins > 0 && roll.pins < 10
+      ? { isSplit: true }
+      : {})
+  }));
 
   return {
     ...frame,
-    rolls,
+    rolls: normalizedRolls,
     isStrike,
     isSpare
   };

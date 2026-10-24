@@ -1,5 +1,6 @@
 export interface Roll {
   pins: number;
+  isSplit?: boolean;
 }
 
 export interface Frame {
@@ -25,6 +26,7 @@ export type FrameDisplay = {
   roll1: string;
   roll2: string;
   roll3?: string;
+  splitRolls?: boolean[];
   frameScore: number | null;
 };
 

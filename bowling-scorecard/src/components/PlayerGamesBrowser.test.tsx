@@ -452,6 +452,42 @@ describe('PlayerGamesBrowser', () => {
     expect(screen.getByText('perfect.jpg • Spare conversion N/A')).toBeInTheDocument();
   });
 
+  it('summarizes split conversion and exposes it as a timeline metric', async () => {
+    const page = buildStoredImagesPage();
+    page.images = page.images.slice(0, 2).map((image, index) => {
+      const game = image.games[0];
+      return {
+        ...image,
+        games: [{
+          ...game,
+          frames: game.frames.map((frame, frameIndex) =>
+            frameIndex === 0
+              ? {
+                  ...frame,
+                  rolls: [
+                    { pins: index === 0 ? 7 : 8, isSplit: true },
+                    { pins: index === 0 ? 3 : 1 }
+                  ],
+                  isSpare: index === 0
+                }
+              : frame
+          )
+        }]
+      };
+    });
+    page.totalImages = 2;
+    mockedLoadStoredImages.mockResolvedValue(page);
+
+    render(<PlayerGamesBrowser />);
+
+    expect(await screen.findByText('Splits: 1/2 (50.0%)')).toBeVisible();
+    fireEvent.change(screen.getByLabelText('Timeline metric'), {
+      target: { value: 'splitConversionPercentage' }
+    });
+    expect(screen.getByRole('img', { name: 'Split conversion over time' })).toBeVisible();
+    expect(screen.getByText('alice-1.jpg • Split conversion 100.0% • 3-game avg 100.0% • std dev 0.0 pp')).toBeInTheDocument();
+  });
+
   it('recalculates the rolling average from visible games after filtering', async () => {
     render(<PlayerGamesBrowser />);
 

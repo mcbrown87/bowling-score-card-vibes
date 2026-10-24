@@ -214,6 +214,7 @@ export const Scorecard: React.FC<ScorecardProps> = ({
           <span style={keyboardHintStyles}>
             {keyboardActive ? 'KB' : 'Focus'}{' '}
             {activeRoll === 'roll1' ? 'R1' : activeRoll === 'roll2' ? 'R2' : activeRoll === 'roll3' ? 'R3' : ''}
+            {' · S split'}
           </span>
         )}
         {content}

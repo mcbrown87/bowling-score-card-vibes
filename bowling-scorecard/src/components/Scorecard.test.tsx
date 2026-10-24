@@ -93,6 +93,16 @@ describe('Scorecard', () => {
     expect(screen.getByTestId('frame-roll-1-2')).toHaveAttribute('data-active-roll', 'true');
   });
 
+  it('renders a split leave with an accessible circled pin count', () => {
+    const splitGame = buildGame();
+    splitGame.frames[0].rolls[0] = { pins: 5, isSplit: true };
+
+    render(<Scorecard game={splitGame} compact />);
+
+    expect(screen.getByLabelText('5 split')).toBeVisible();
+    expect(screen.getByTestId('frame-roll-1-1')).toHaveTextContent('5');
+  });
+
   it('forwards keyboard events from the scorecard root', () => {
     const onKeyboardKeyDown = jest.fn();
 

@@ -87,4 +87,33 @@ describe('calculatePlayerBowlingStats', () => {
     expect(stats.spareConversions).toBe(1);
     expect(stats.openFrames).toBe(9);
   });
+
+  it('tracks converted and missed split leaves', () => {
+    const frames = [
+      { rolls: [{ pins: 7, isSplit: true }, { pins: 3 }], isStrike: false, isSpare: true },
+      { rolls: [{ pins: 8, isSplit: true }, { pins: 1 }], isStrike: false, isSpare: false },
+      ...Array.from({ length: 7 }, () => openFrame())
+    ];
+    const stats = calculatePlayerBowlingStats(buildGame({
+      rolls: [{ pins: 4 }, { pins: 4 }],
+      isStrike: false,
+      isSpare: false
+    }, frames));
+
+    expect(stats.splitLeaves).toBe(2);
+    expect(stats.splitConversions).toBe(1);
+    expect(stats.splitConversionPercentage).toBe(50);
+  });
+
+  it('tracks a tenth-frame split after an opening strike', () => {
+    const stats = calculatePlayerBowlingStats(buildGame({
+      rolls: [{ pins: 10 }, { pins: 7, isSplit: true }, { pins: 3 }],
+      isStrike: true,
+      isSpare: false
+    }));
+
+    expect(stats.splitLeaves).toBe(1);
+    expect(stats.splitConversions).toBe(1);
+    expect(stats.splitConversionPercentage).toBe(100);
+  });
 });

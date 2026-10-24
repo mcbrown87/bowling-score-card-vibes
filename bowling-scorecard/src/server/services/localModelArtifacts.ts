@@ -227,7 +227,7 @@ const frameToTrainingFrame = (
   runningTotal: number;
 } => ({
   frameNumber,
-  rolls: frame.rolls,
+  rolls: frame.rolls.map((roll) => ({ pins: roll.pins })),
   isStrike: frame.isStrike,
   isSpare: frame.isSpare,
   runningTotal: frame.score ?? 0

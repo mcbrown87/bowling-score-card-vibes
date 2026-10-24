@@ -49,3 +49,6 @@ training-runs/
 .idea/
 .vscode/
 .git/index.lock
+
+# Playwright CLI session artifacts
+/bowling-scorecard/.playwright-cli/

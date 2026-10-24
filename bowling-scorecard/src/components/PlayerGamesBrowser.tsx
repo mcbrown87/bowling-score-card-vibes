@@ -137,6 +137,7 @@ type TimelineMetricKey =
   | 'score'
   | 'strikePercentage'
   | 'spareConversionPercentage'
+  | 'splitConversionPercentage'
   | 'firstBallAverage'
   | 'openFrames'
   | 'longestStrikeRun';
@@ -176,6 +177,7 @@ const timelineMetrics: Record<TimelineMetricKey, TimelineMetricDefinition> = {
   },
   strikePercentage: percentageMetric('Strike percentage', 'Strike %'),
   spareConversionPercentage: percentageMetric('Spare conversion', 'Spare conversion'),
+  splitConversionPercentage: percentageMetric('Split conversion', 'Split conversion'),
   firstBallAverage: {
     label: 'First-ball average',
     shortLabel: 'First-ball avg',
@@ -854,6 +856,9 @@ const ScoreTimeline = ({
       {showRawLine &&
         points.map((pt) => {
           if (pt.y === null) {
+            if (points.length > 1 && selectedKey !== pt.key) {
+              return null;
+            }
             return (
               <text
                 key={pt.key}
@@ -1218,6 +1223,25 @@ export function PlayerGamesBrowser({ mode = 'players' }: PlayerGamesBrowserProps
     };
   }, [selectedPlayerGroup, visiblePlayerGames]);
 
+  const splitStats = useMemo(() => {
+    if (mode !== 'players' || !selectedPlayerGroup) {
+      return null;
+    }
+    const totals = visiblePlayerGames.reduce(
+      (result, entry) => {
+        const stats = calculatePlayerBowlingStats(entry.game);
+        result.leaves += stats.splitLeaves;
+        result.conversions += stats.splitConversions;
+        return result;
+      },
+      { leaves: 0, conversions: 0 }
+    );
+    return {
+      ...totals,
+      percentage: totals.leaves > 0 ? (totals.conversions / totals.leaves) * 100 : null
+    };
+  }, [mode, selectedPlayerGroup, visiblePlayerGames]);
+
   const selectedTeamInsights = useMemo(() => {
     if (mode !== 'teams' || !selectedPlayerGroup) {
       return null;
@@ -1520,6 +1544,7 @@ export function PlayerGamesBrowser({ mode = 'players' }: PlayerGamesBrowserProps
           score: entry.score,
           strikePercentage: stats.strikePercentage,
           spareConversionPercentage: stats.spareConversionPercentage,
+          splitConversionPercentage: stats.splitConversionPercentage,
           firstBallAverage: stats.firstBallAverage,
           openFrames: stats.openFrames,
           longestStrikeRun: stats.longestStrikeRun
@@ -1768,6 +1793,13 @@ export function PlayerGamesBrowser({ mode = 'players' }: PlayerGamesBrowserProps
                   <span style={badgeStyles}>
                     Last played: {playerStats.lastPlayed ? formatDate(playerStats.lastPlayed) : '—'}
                   </span>
+                  {splitStats && (
+                    <span style={badgeStyles}>
+                      Splits: {splitStats.conversions}/{splitStats.leaves} ({splitStats.percentage === null
+                        ? 'N/A'
+                        : `${splitStats.percentage.toFixed(1)}%`})
+                    </span>
+                  )}
                 </div>
 
                 {selectedTeamInsights && (

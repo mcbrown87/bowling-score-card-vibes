@@ -63,6 +63,29 @@ describe('FrameCorrectionModal', () => {
     expect(updated.frames[0].isSpare).toBe(true);
   });
 
+  it('tags a valid leave as a split and persists it', () => {
+    const onApply = jest.fn();
+    render(
+      <FrameCorrectionModal
+        game={buildGame()}
+        frameIndex={0}
+        onApply={onApply}
+        onClose={jest.fn()}
+      />
+    );
+
+    const splitButton = screen.getByRole('button', { name: 'Split (S)' });
+    expect(splitButton).toBeDisabled();
+    fireEvent.click(screen.getByRole('button', { name: 'Set roll1 to 7 pins' }));
+    expect(splitButton).toBeEnabled();
+    fireEvent.click(splitButton);
+    expect(splitButton).toHaveAttribute('aria-pressed', 'true');
+    fireEvent.click(screen.getByRole('button', { name: 'Save' }));
+
+    const updated = onApply.mock.calls[0][0] as Game;
+    expect(updated.frames[0].rolls[0]).toEqual({ pins: 7, isSplit: true });
+  });
+
   it('unlocks roll 3 in frame 10 after a spare and saves third roll', () => {
     const onApply = jest.fn();
     const game = buildGame();

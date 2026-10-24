@@ -21,6 +21,17 @@ export interface DesktopKeyResult {
   changed: boolean;
 }
 
+export const getSplitRollIndex = (game: Game, frameIndex: number): number | null => {
+  const frame = frameIndex === 9 ? game.tenthFrame : game.frames[frameIndex];
+  if (!frame) {
+    return null;
+  }
+
+  const splitRollIndex = frameIndex === 9 && frame.rolls[0]?.pins === 10 ? 1 : 0;
+  const pins = frame.rolls[splitRollIndex]?.pins ?? 0;
+  return pins > 0 && pins < 10 ? splitRollIndex : null;
+};
+
 export const clampPins = (value: unknown): number => {
   const num = Number(value);
   if (!Number.isFinite(num)) {
@@ -32,7 +43,10 @@ export const clampPins = (value: unknown): number => {
 const cloneGame = (game: Game): Game => JSON.parse(JSON.stringify(game)) as Game;
 
 export const normalizeRegularFrame = (frame: Frame, rolls: Roll[]): Frame => {
-  const normalizedRolls = rolls.slice(0, 2).map((roll) => ({ pins: clampPins(roll.pins) }));
+  const normalizedRolls = rolls.slice(0, 2).map((roll) => ({
+    pins: clampPins(roll.pins),
+    ...(roll.isSplit ? { isSplit: true } : {})
+  }));
   while (normalizedRolls.length < 2) {
     normalizedRolls.push({ pins: 0 });
   }
@@ -50,17 +64,24 @@ export const normalizeRegularFrame = (frame: Frame, rolls: Roll[]): Frame => {
   const secondRaw = normalizedRolls[1]?.pins ?? 0;
   const second = Math.min(10 - first, clampPins(secondRaw));
   const isSpare = first + second === 10;
+  const firstRoll = {
+    pins: first,
+    ...(normalizedRolls[0]?.isSplit && first > 0 && first < 10 ? { isSplit: true } : {})
+  };
 
   return {
     ...frame,
-    rolls: [{ pins: first }, { pins: second }],
+    rolls: [firstRoll, { pins: second }],
     isStrike: false,
     isSpare
   };
 };
 
 export const normalizeTenthFrame = (frame: Game['tenthFrame']): Game['tenthFrame'] => {
-  const rolls = frame.rolls.slice(0, 3).map((roll) => ({ pins: clampPins(roll.pins) }));
+  const rolls = frame.rolls.slice(0, 3).map((roll) => ({
+    pins: clampPins(roll.pins),
+    ...(roll.isSplit ? { isSplit: true } : {})
+  }));
   while (rolls.length < 2) {
     rolls.push({ pins: 0 });
   }
@@ -69,10 +90,17 @@ export const normalizeTenthFrame = (frame: Game['tenthFrame']): Game['tenthFrame
   const second = rolls[1]?.pins ?? 0;
   const isStrike = first === 10;
   const isSpare = !isStrike && first + second === 10;
+  const splitRollIndex = isStrike ? 1 : 0;
+  const normalizedRolls = rolls.map((roll, index) => ({
+    pins: roll.pins,
+    ...(index === splitRollIndex && roll.isSplit && roll.pins > 0 && roll.pins < 10
+      ? { isSplit: true }
+      : {})
+  }));
 
   return {
     ...frame,
-    rolls,
+    rolls: normalizedRolls,
     isStrike,
     isSpare
   };
@@ -188,12 +216,17 @@ export const setPinsForRoll = (
       const nextFrame = normalizeTenthFrame({
         ...nextGame.tenthFrame,
         rolls: [
-          { pins: activeRoll === 'roll1' ? clamped : state.roll1 },
           {
+            ...nextGame.tenthFrame.rolls[0],
+            pins: activeRoll === 'roll1' ? clamped : state.roll1
+          },
+          {
+            ...nextGame.tenthFrame.rolls[1],
             pins:
               activeRoll === 'roll2' ? Math.min(state.secondRollMax, clamped) : state.roll2
           },
           {
+            ...nextGame.tenthFrame.rolls[2],
             pins:
               activeRoll === 'roll3' && state.canEditRoll3
                 ? clamped
@@ -206,8 +239,12 @@ export const setPinsForRoll = (
     }
 
     const nextFrame = normalizeRegularFrame(nextGame.frames[frameIndex], [
-      { pins: activeRoll === 'roll1' ? clamped : state.roll1 },
       {
+        ...nextGame.frames[frameIndex]?.rolls[0],
+        pins: activeRoll === 'roll1' ? clamped : state.roll1
+      },
+      {
+        ...nextGame.frames[frameIndex]?.rolls[1],
         pins:
           activeRoll === 'roll2' ? Math.min(state.secondRollMax, clamped) : state.roll2
       }
@@ -236,6 +273,25 @@ export const applyStrikeToRoll = (
   activeRoll: ActiveRoll
 ): Game => setPinsForRoll(game, frameIndex, activeRoll, 10);
 
+export const toggleSplitForFrame = (game: Game, frameIndex: number): Game => {
+  const splitRollIndex = getSplitRollIndex(game, frameIndex);
+  if (splitRollIndex === null) {
+    return game;
+  }
+
+  return updateFrame(game, frameIndex, (nextGame) => {
+    const frame = frameIndex === 9 ? nextGame.tenthFrame : nextGame.frames[frameIndex];
+    const roll = frame?.rolls[splitRollIndex];
+    if (!roll) {
+      return;
+    }
+    frame.rolls[splitRollIndex] = {
+      pins: roll.pins,
+      ...(!roll.isSplit ? { isSplit: true } : {})
+    };
+  });
+};
+
 export const applyDesktopScoreKey = (
   game: Game,
   frameIndex: number,
@@ -262,6 +318,16 @@ export const applyDesktopScoreKey = (
       frameIndex: nextPosition.frameIndex,
       activeRoll: nextPosition.activeRoll,
       changed: false
+    };
+  }
+
+  if (key === 's' || key === 'S') {
+    const updatedGame = toggleSplitForFrame(game, frameIndex);
+    return {
+      game: updatedGame,
+      frameIndex,
+      activeRoll: nextActiveRoll,
+      changed: updatedGame !== game
     };
   }
 

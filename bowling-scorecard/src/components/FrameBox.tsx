@@ -93,6 +93,17 @@ const activeRollStyles: React.CSSProperties = {
   color: '#ffffff'
 };
 
+const splitRollStyles: React.CSSProperties = {
+  width: '1.35em',
+  height: '1.35em',
+  border: '2px solid currentColor',
+  borderRadius: '50%',
+  display: 'inline-flex',
+  alignItems: 'center',
+  justifyContent: 'center',
+  lineHeight: 1
+};
+
 const scoreBoxStyles: React.CSSProperties = {
   position: 'relative',
   zIndex: 1,
@@ -165,6 +176,15 @@ export const FrameBox: React.FC<FrameBoxProps> = ({
   frameTrendDisplayMode = 'rawAndAverage',
   trendSelectedIndex = null
 }) => {
+  const renderRollValue = (value: string | undefined, rollIndex: number) =>
+    frameDisplay.splitRolls?.[rollIndex] ? (
+      <span style={splitRollStyles} aria-label={`${value ?? ''} split`}>
+        {value}
+      </span>
+    ) : (
+      value
+    );
+
   const containerStyles = compact
     ? { ...frameBoxStyles, height: '78px' }
     : frameBoxStyles;
@@ -374,7 +394,7 @@ export const FrameBox: React.FC<FrameBoxProps> = ({
                 data-testid={`frame-roll-${frameNumber}-1`}
                 data-active-roll={visibleActiveRoll === 'roll1' ? 'true' : undefined}
               >
-                {frameDisplay.roll1}
+                {renderRollValue(frameDisplay.roll1, 0)}
               </div>
               <div
                 style={{
@@ -384,7 +404,7 @@ export const FrameBox: React.FC<FrameBoxProps> = ({
                 data-testid={`frame-roll-${frameNumber}-2`}
                 data-active-roll={visibleActiveRoll === 'roll2' ? 'true' : undefined}
               >
-                {frameDisplay.roll2}
+                {renderRollValue(frameDisplay.roll2, 1)}
               </div>
               <div
                 style={{
@@ -395,7 +415,7 @@ export const FrameBox: React.FC<FrameBoxProps> = ({
                 data-testid={`frame-roll-${frameNumber}-3`}
                 data-active-roll={visibleActiveRoll === 'roll3' ? 'true' : undefined}
               >
-                {frameDisplay.roll3}
+                {renderRollValue(frameDisplay.roll3, 2)}
               </div>
             </div>
           ) : (
@@ -408,7 +428,7 @@ export const FrameBox: React.FC<FrameBoxProps> = ({
                 data-testid={`frame-roll-${frameNumber}-1`}
                 data-active-roll={visibleActiveRoll === 'roll1' ? 'true' : undefined}
               >
-                {frameDisplay.roll1}
+                {renderRollValue(frameDisplay.roll1, 0)}
               </div>
               <div
                 style={{
@@ -418,7 +438,7 @@ export const FrameBox: React.FC<FrameBoxProps> = ({
                 data-testid={`frame-roll-${frameNumber}-2`}
                 data-active-roll={visibleActiveRoll === 'roll2' ? 'true' : undefined}
               >
-                {frameDisplay.roll2}
+                {renderRollValue(frameDisplay.roll2, 1)}
               </div>
             </>
           )}

@@ -236,6 +236,17 @@ const primaryButtonStyles: React.CSSProperties = {
 
 const pinsOptions = Array.from({ length: 11 }, (_, value) => value);
 
+const splitValueStyles: React.CSSProperties = {
+  width: '1.35em',
+  height: '1.35em',
+  border: '2px solid currentColor',
+  borderRadius: '50%',
+  display: 'inline-flex',
+  alignItems: 'center',
+  justifyContent: 'center',
+  lineHeight: 1
+};
+
 const toDisplaySymbol = (
   roll: number,
   index: number,
@@ -267,9 +278,14 @@ const buildTenthFrameRolls = (
   roll1: number,
   roll2: number,
   roll3: number | null,
-  canEditRoll3: boolean
+  canEditRoll3: boolean,
+  roll1Split: boolean,
+  roll2Split: boolean
 ) => {
-  const rolls = [{ pins: clampPins(roll1) }, { pins: clampPins(roll2) }];
+  const rolls = [
+    { pins: clampPins(roll1), ...(roll1Split ? { isSplit: true } : {}) },
+    { pins: clampPins(roll2), ...(roll2Split ? { isSplit: true } : {}) }
+  ];
 
   if (canEditRoll3 && roll3 !== null) {
     rolls.push({ pins: clampPins(roll3) });
@@ -293,6 +309,8 @@ export const FrameCorrectionModal: React.FC<FrameCorrectionModalProps> = ({
   const [roll3, setRoll3] = useState<number | null>(
     isTenthFrame ? baseFrame?.rolls[2]?.pins ?? null : null
   );
+  const [roll1Split, setRoll1Split] = useState(Boolean(baseFrame?.rolls[0]?.isSplit));
+  const [roll2Split, setRoll2Split] = useState(Boolean(baseFrame?.rolls[1]?.isSplit));
   const [activeRoll, setActiveRoll] = useState<ActiveRoll>('roll1');
 
   const frameLabel = useMemo(() => (isTenthFrame ? 'Frame 10' : `Frame ${frameIndex + 1}`), [
@@ -314,6 +332,10 @@ export const FrameCorrectionModal: React.FC<FrameCorrectionModalProps> = ({
 
   const isSecondRollDisabled = !isTenthFrame && roll1 === 10;
   const canEditRoll3 = isTenthFrame && (roll1 === 10 || roll1 + roll2 === 10);
+  const splitRollIndex = isTenthFrame && roll1 === 10 ? 1 : 0;
+  const splitPins = splitRollIndex === 0 ? roll1 : roll2;
+  const canToggleSplit = splitPins > 0 && splitPins < 10;
+  const isSplit = splitRollIndex === 0 ? roll1Split : roll2Split;
 
   const rollEnabled = useMemo(
     () => ({
@@ -369,6 +391,15 @@ export const FrameCorrectionModal: React.FC<FrameCorrectionModalProps> = ({
   }, [canEditRoll3, isTenthFrame, roll3]);
 
   useEffect(() => {
+    if (roll1 <= 0 || roll1 >= 10) {
+      setRoll1Split(false);
+    }
+    if (!isTenthFrame || roll1 !== 10 || roll2 <= 0 || roll2 >= 10) {
+      setRoll2Split(false);
+    }
+  }, [isTenthFrame, roll1, roll2]);
+
+  useEffect(() => {
     if (!rollEnabled[activeRoll]) {
       if (rollEnabled.roll1) {
         setActiveRoll('roll1');
@@ -400,6 +431,17 @@ export const FrameCorrectionModal: React.FC<FrameCorrectionModalProps> = ({
     if (isTenthFrame) {
       setActiveRoll(canEditRoll3 ? 'roll3' : 'roll2');
     }
+  };
+
+  const toggleSplit = () => {
+    if (!canToggleSplit) {
+      return;
+    }
+    if (splitRollIndex === 0) {
+      setRoll1Split((current) => !current);
+      return;
+    }
+    setRoll2Split((current) => !current);
   };
 
   const setPinsForActiveRoll = (pins: number) => {
@@ -447,11 +489,18 @@ export const FrameCorrectionModal: React.FC<FrameCorrectionModalProps> = ({
     if (isTenthFrame) {
       nextGame.tenthFrame = normalizeTenthFrame({
         ...nextGame.tenthFrame,
-        rolls: buildTenthFrameRolls(roll1, roll2, roll3, canEditRoll3)
+        rolls: buildTenthFrameRolls(
+          roll1,
+          roll2,
+          roll3,
+          canEditRoll3,
+          roll1Split,
+          roll2Split
+        )
       });
     } else {
       const nextFrame = normalizeRegularFrame(nextGame.frames[frameIndex], [
-        { pins: clampPins(roll1) },
+        { pins: clampPins(roll1), ...(roll1Split ? { isSplit: true } : {}) },
         { pins: clampPins(roll2) }
       ]);
       nextGame.frames[frameIndex] = nextFrame;
@@ -467,17 +516,34 @@ export const FrameCorrectionModal: React.FC<FrameCorrectionModalProps> = ({
     if (isTenthFrame) {
       previewGame.tenthFrame = normalizeTenthFrame({
         ...previewGame.tenthFrame,
-        rolls: buildTenthFrameRolls(roll1, roll2, roll3, canEditRoll3)
+        rolls: buildTenthFrameRolls(
+          roll1,
+          roll2,
+          roll3,
+          canEditRoll3,
+          roll1Split,
+          roll2Split
+        )
       });
       return recalculateGame(previewGame).tenthFrame.score ?? 0;
     }
 
     previewGame.frames[frameIndex] = normalizeRegularFrame(previewGame.frames[frameIndex], [
-      { pins: clampPins(roll1) },
+      { pins: clampPins(roll1), ...(roll1Split ? { isSplit: true } : {}) },
       { pins: clampPins(roll2) }
     ]);
     return recalculateGame(previewGame).frames[frameIndex]?.score ?? 0;
-  }, [canEditRoll3, frameIndex, game, isTenthFrame, roll1, roll2, roll3]);
+  }, [
+    canEditRoll3,
+    frameIndex,
+    game,
+    isTenthFrame,
+    roll1,
+    roll1Split,
+    roll2,
+    roll2Split,
+    roll3
+  ]);
 
   const displayedRolls = useMemo(
     () => [
@@ -548,7 +614,23 @@ export const FrameCorrectionModal: React.FC<FrameCorrectionModalProps> = ({
                       }}
                     >
                       <span style={rollNameStyles}>{roll.label}</span>
-                      <span style={rollValueStyles}>{roll.value}</span>
+                      <span
+                        style={{
+                          ...rollValueStyles,
+                          ...((roll.key === 'roll1' && roll1Split) ||
+                          (roll.key === 'roll2' && roll2Split)
+                            ? splitValueStyles
+                            : {})
+                        }}
+                        aria-label={
+                          (roll.key === 'roll1' && roll1Split) ||
+                          (roll.key === 'roll2' && roll2Split)
+                            ? `${roll.value} split`
+                            : undefined
+                        }
+                      >
+                        {roll.value}
+                      </span>
                     </button>
                   );
                 })}
@@ -598,6 +680,19 @@ export const FrameCorrectionModal: React.FC<FrameCorrectionModalProps> = ({
             </button>
             <button
               type="button"
+              style={{
+                ...utilityButtonStyles,
+                ...(isSplit ? pinButtonActiveStyles : {}),
+                ...(!canToggleSplit ? pinButtonDisabledStyles : {})
+              }}
+              onClick={toggleSplit}
+              disabled={isSaving || !canToggleSplit}
+              aria-pressed={isSplit}
+            >
+              Split (S)
+            </button>
+            <button
+              type="button"
               style={{ ...utilityButtonStyles, ...(roll1 >= 10 ? pinButtonDisabledStyles : {}) }}
               onClick={applySpare}
               disabled={isSaving || roll1 >= 10}
@@ -618,6 +713,7 @@ export const FrameCorrectionModal: React.FC<FrameCorrectionModalProps> = ({
             Active input: {activeRoll === 'roll1' ? 'Roll 1' : activeRoll === 'roll2' ? 'Roll 2' : 'Roll 3'}.
             {!isTenthFrame && isSecondRollDisabled ? ' Roll 2 is locked after a strike in frames 1-9.' : ''}
             {isTenthFrame && !canEditRoll3 ? ' Roll 3 unlocks after a strike or spare in frame 10.' : ''}
+            {' Mark a 1–9 pin leave as a split with Split (S).'}
           </p>
         </div>
 

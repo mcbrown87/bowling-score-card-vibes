@@ -76,4 +76,47 @@ describe('applyDesktopScoreKey', () => {
     expect(cleared.game.frames[0].rolls).toEqual([{ pins: 8 }, { pins: 0 }]);
     expect(cleared.activeRoll).toBe('roll2');
   });
+
+  it('toggles a split with s without moving the active roll', () => {
+    const afterFirst = applyDesktopScoreKey(buildGame(), 0, 'roll1', '7');
+    const tagged = applyDesktopScoreKey(afterFirst.game, 0, afterFirst.activeRoll, 's');
+
+    expect(tagged.changed).toBe(true);
+    expect(tagged.frameIndex).toBe(0);
+    expect(tagged.activeRoll).toBe('roll2');
+    expect(tagged.game.frames[0].rolls[0]).toEqual({ pins: 7, isSplit: true });
+
+    const untagged = applyDesktopScoreKey(tagged.game, 0, tagged.activeRoll, 'S');
+    expect(untagged.game.frames[0].rolls[0]).toEqual({ pins: 7 });
+  });
+
+  it('ignores split tagging for blank and strike rolls', () => {
+    const blank = applyDesktopScoreKey(buildGame(), 0, 'roll1', 's');
+    expect(blank.changed).toBe(false);
+
+    const afterStrike = applyDesktopScoreKey(buildGame(), 0, 'roll1', 'x');
+    const strike = applyDesktopScoreKey(afterStrike.game, 0, 'roll1', 's');
+    expect(strike.changed).toBe(false);
+    expect(strike.game.frames[0].rolls[0]).toEqual({ pins: 10 });
+  });
+
+  it('targets roll 2 for a tenth-frame split after an opening strike', () => {
+    const afterStrike = applyDesktopScoreKey(buildGame(), 9, 'roll1', 'x');
+    const afterSecond = applyDesktopScoreKey(
+      afterStrike.game,
+      afterStrike.frameIndex,
+      afterStrike.activeRoll,
+      '7'
+    );
+    const tagged = applyDesktopScoreKey(
+      afterSecond.game,
+      afterSecond.frameIndex,
+      afterSecond.activeRoll,
+      's'
+    );
+
+    expect(tagged.activeRoll).toBe('roll3');
+    expect(tagged.game.tenthFrame.rolls[1]).toEqual({ pins: 7, isSplit: true });
+    expect(tagged.game.tenthFrame.rolls[0]).toEqual({ pins: 10 });
+  });
 });
