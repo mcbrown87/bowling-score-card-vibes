@@ -11,14 +11,8 @@ import { logger } from '@/server/utils/logger';
 import { readStorageBodyToBuffer } from '@/server/utils/storageBody';
 import { findOrCreatePlayerForName } from '@/server/services/players';
 
-export const PROVIDER_MODELS: Record<ProviderName, string> = {
-  anthropic: process.env.ANTHROPIC_MODEL ?? 'claude-3-7-sonnet-latest',
-  local: process.env.LOCAL_MODEL_NAME ?? 'donut-bowling-v1',
-  openai: process.env.OPENAI_MODEL ?? 'gpt-4o',
-  stub: 'dev-stub'
-};
 export const INCLUDE_LLM_RAW = process.env.INCLUDE_LLM_RAW === 'true';
-export const PROMPT_VERSION = process.env.BOWLING_PROMPT_VERSION ?? 'bowling-v1';
+export const PROMPT_VERSION = process.env.BOWLING_PROMPT_VERSION ?? 'bowling-v2-splits';
 
 export type ScoreEstimatorJobPayload = {
   storedImageId: string;
@@ -157,6 +151,8 @@ export const processScoreEstimatorJob = async ({
     logger.info('Regenerated bowling scores for stored image', {
       storedImageId: storedImage.id,
       provider,
+      model: result.model ?? providerModel,
+      usage: result.usage,
       gameCount: result.games.length
     });
 

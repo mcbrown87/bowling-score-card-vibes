@@ -55,7 +55,7 @@ describe('appConfig runtime settings', () => {
 
     await expect(getRuntimeSettings()).resolves.toMatchObject({
       activeProvider: 'local',
-      openaiModel: 'gpt-4o',
+      openaiModel: 'gpt-6-astra',
       anthropicModel: 'claude-3-7-sonnet-latest',
       localModelArtifactId: 'artifact-1',
       localModelName: 'artifact-v1',

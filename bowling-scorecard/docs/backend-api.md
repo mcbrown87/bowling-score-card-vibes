@@ -18,7 +18,8 @@ Copy `.env.example` to `.env.local` (or `.env`) and set:
 - `DATABASE_URL`
 - `REDIS_URL` and optional `SCORE_ESTIMATE_QUEUE`
 - `STORAGE_ENDPOINT`, `STORAGE_BUCKET`, `STORAGE_ACCESS_KEY`, `STORAGE_SECRET_KEY`, `STORAGE_REGION`, `STORAGE_USE_SSL`
-- `OPENAI_API_KEY` / `OPENAI_MODEL`
+- `OPENAI_API_KEY` / `OPENAI_MODEL` (defaults to `gpt-6-astra`)
+- `OPENAI_REASONING_EFFORT` (`low` by default; Astra also supports `medium`, `high`, `xhigh`, and `max`)
 - `ANTHROPIC_API_KEY` / `ANTHROPIC_MODEL`
 - `DEFAULT_PROVIDER` (`openai`, `anthropic`, or `stub`)
 - `INCLUDE_LLM_RAW` (persist raw text responses when true)

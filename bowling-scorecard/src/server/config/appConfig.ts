@@ -2,6 +2,7 @@ import type { Prisma } from '@prisma/client';
 
 import { prisma } from '@/server/db/client';
 import type { ProviderName } from '@/server/providers/types';
+import { DEFAULT_OPENAI_MODEL } from '@/server/config/defaults';
 
 const APP_CONFIG_KEY = 'runtime-settings';
 
@@ -18,7 +19,7 @@ const envDefaultProvider = (process.env.DEFAULT_PROVIDER as ProviderName) ?? 'op
 
 const defaultSettings: RuntimeSettings = {
   activeProvider: envDefaultProvider,
-  openaiModel: process.env.OPENAI_MODEL ?? 'gpt-4o',
+  openaiModel: process.env.OPENAI_MODEL ?? DEFAULT_OPENAI_MODEL,
   anthropicModel: process.env.ANTHROPIC_MODEL ?? 'claude-3-7-sonnet-latest',
   localModelArtifactId: null,
   localModelName: process.env.LOCAL_MODEL_NAME ?? 'donut-bowling-v1',

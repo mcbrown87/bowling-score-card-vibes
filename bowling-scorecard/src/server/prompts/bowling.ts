@@ -8,14 +8,14 @@ export const BOWLING_EXTRACTION_PROMPT = `You are a bowling scoring expert. Anal
       "frames": [
         {
           "frameNumber": 1-9,
-          "rolls": [{"pins": number}],
+          "rolls": [{"pins": number, "isSplit": boolean}],
           "isStrike": boolean,
           "isSpare": boolean,
           "runningTotal": number
         }
       ],
       "tenthFrame": {
-        "rolls": [{"pins": number}],
+        "rolls": [{"pins": number, "isSplit": boolean}],
         "isStrike": boolean,
         "isSpare": boolean,
         "runningTotal": number
@@ -37,4 +37,9 @@ Strict instructions:
    - Running totals must be strictly increasing unless the game is mathematically forced to plateau (which is rare). A sequence like 10, 20, 30, … is almost always wrong—re-read the image if you see that pattern.
    - If a symbol is unclear, reason using surrounding frames so that totals like 29, 49, 68, 87, 107, 137, 166, 185, 194, 224 (actual running totals printed for the player labeled “M.C.B.” in this sheet) are achievable. If your transcription for “M.C.B.” does not produce that exact sequence, you have misread the rolls—fix them before responding.
 7. Extract every visible player row on the sheet. Player names often appear on the left; keep them exactly as written (handling initials such as “M.C.B.”).
-8. Return JSON only; no code fences, comments, or extra prose.`;
+8. Record split leaves on the roll that created the leave:
+   - Set \`isSplit\` to true only when the scorecard visibly marks the pin count as a split, typically with a circle or colored outline around the first-roll value. Do not infer a split from the pin count alone.
+   - In frames 1-9, only the first roll can have \`isSplit: true\`.
+   - In the 10th frame, the first roll can be a split; after an opening strike, the second roll can instead be a split because it starts a new rack.
+   - The spare-attempt roll that follows a split is not itself a split. Strikes, misses, and unmarked rolls must use \`isSplit: false\`.
+9. Return JSON only; no code fences, comments, or extra prose.`;

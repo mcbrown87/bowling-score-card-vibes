@@ -2,7 +2,7 @@ import type { ExtractionPayload, Game, Frame, TenthFrame } from '@/types/bowling
 
 type RawFrame = {
   frameNumber?: number;
-  rolls?: Array<{ pins?: number } | number>;
+  rolls?: Array<{ pins?: number; isSplit?: boolean } | number>;
   isStrike?: boolean;
   isSpare?: boolean;
   runningTotal?: number;
@@ -22,7 +22,9 @@ const clampPins = (value: unknown): number => {
   return Math.round(num);
 };
 
-const normalizeRolls = (rolls: Array<{ pins?: number } | number> | undefined): { pins: number }[] => {
+const normalizeRolls = (
+  rolls: Array<{ pins?: number; isSplit?: boolean } | number> | undefined
+): { pins: number; isSplit?: boolean }[] => {
   if (!Array.isArray(rolls)) {
     return [];
   }
@@ -33,7 +35,10 @@ const normalizeRolls = (rolls: Array<{ pins?: number } | number> | undefined): {
     }
 
     const pins = Number.isFinite(roll?.pins) ? Number(roll?.pins) : 0;
-    return { pins };
+    return {
+      pins,
+      ...(roll?.isSplit === true ? { isSplit: true } : {})
+    };
   });
 };
 
@@ -41,7 +46,13 @@ type PlayerPayload = NonNullable<ExtractionPayload['players']>[number];
 
 const sanitizeRegularFrame = (frame: Frame): Frame => {
   const rawRolls = frame.rolls ?? [];
-  const sanitizedRolls = rawRolls.map((roll) => ({ pins: clampPins(roll.pins) }));
+  const sanitizedRolls = rawRolls.map((roll) => {
+    const pins = clampPins(roll.pins);
+    return {
+      pins,
+      ...(roll.isSplit && pins > 0 && pins < 10 ? { isSplit: true } : {})
+    };
+  });
 
   const firstRollPins = sanitizedRolls[0]?.pins ?? 0;
   if (firstRollPins === 10) {
@@ -55,7 +66,10 @@ const sanitizeRegularFrame = (frame: Frame): Frame => {
 
   const secondRollPinsRaw = sanitizedRolls[1]?.pins ?? 0;
   const secondRollPins = Math.max(0, Math.min(10 - firstRollPins, clampPins(secondRollPinsRaw)));
-  const firstRoll = { pins: firstRollPins };
+  const firstRoll = {
+    pins: firstRollPins,
+    ...(sanitizedRolls[0]?.isSplit ? { isSplit: true } : {})
+  };
   const secondRoll = { pins: sanitizedRolls.length >= 2 ? secondRollPins : 0 };
   const rolls: { pins: number }[] = [firstRoll, secondRoll];
 
@@ -71,7 +85,13 @@ const sanitizeRegularFrame = (frame: Frame): Frame => {
 };
 
 const sanitizeTenthFrame = (frame: TenthFrame): TenthFrame => {
-  const rolls = (frame.rolls ?? []).slice(0, 3).map((roll) => ({ pins: clampPins(roll.pins) }));
+  const rolls = (frame.rolls ?? []).slice(0, 3).map((roll) => {
+    const pins = clampPins(roll.pins);
+    return {
+      pins,
+      ...(roll.isSplit && pins > 0 && pins < 10 ? { isSplit: true } : {})
+    };
+  });
 
   while (rolls.length < 2) {
     rolls.push({ pins: 0 });
@@ -82,6 +102,12 @@ const sanitizeTenthFrame = (frame: TenthFrame): TenthFrame => {
 
   const isStrike = first === 10;
   const isSpare = !isStrike && first + second === 10;
+  const splitRollIndex = isStrike ? 1 : 0;
+  rolls.forEach((roll, index) => {
+    if (index !== splitRollIndex) {
+      delete roll.isSplit;
+    }
+  });
 
   return {
     rolls,
