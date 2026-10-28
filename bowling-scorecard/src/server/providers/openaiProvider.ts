@@ -10,11 +10,16 @@ import { openaiExtractionSchema } from './openaiExtractionSchema';
 import type { ProviderRequest, ProviderResult } from './types';
 
 const ASTRA_MODEL = 'gpt-6-astra';
-const ASTRA_REASONING_EFFORTS = ['low', 'medium', 'high', 'xhigh', 'max'] as const;
+const SOL_MODEL = 'gpt-6.1-sol';
+const STRUCTURED_RESPONSES_MODELS = new Set([ASTRA_MODEL, SOL_MODEL]);
+const REASONING_EFFORTS = ['low', 'medium', 'high', 'xhigh', 'max'] as const;
 
-const getAstraReasoningEffort = () => {
+const getReasoningEffort = (model: string) => {
   const configuredEffort = process.env.OPENAI_REASONING_EFFORT;
-  return ASTRA_REASONING_EFFORTS.find((effort) => effort === configuredEffort) ?? 'low';
+  return (
+    REASONING_EFFORTS.find((effort) => effort === configuredEffort) ??
+    (model === SOL_MODEL ? 'medium' : 'low')
+  );
 };
 
 const getClient = () => {
@@ -43,13 +48,13 @@ const getRefusal = (response: Awaited<ReturnType<OpenAI['responses']['parse']>>)
   return null;
 };
 
-const runAstraProvider = async (
+const runStructuredResponsesProvider = async (
   client: OpenAI,
-  { imageDataUrl, prompt }: Pick<ProviderRequest, 'imageDataUrl' | 'prompt'>
+  { imageDataUrl, prompt, model }: Required<ProviderRequest>
 ): Promise<ProviderResult> => {
   const response = await client.responses.parse({
-    model: ASTRA_MODEL,
-    reasoning: { effort: getAstraReasoningEffort() },
+    model,
+    reasoning: { effort: getReasoningEffort(model) },
     max_output_tokens: 8000,
     store: false,
     input: [
@@ -97,7 +102,7 @@ const runAstraProvider = async (
   return {
     rawText: response.output_text,
     games,
-    model: response.model ?? ASTRA_MODEL,
+    model: response.model ?? model,
     usage: response.usage
       ? {
           inputTokens: response.usage.input_tokens,
@@ -182,8 +187,12 @@ export const openaiProvider = async ({
   const client = getClient();
   const configuredModel = model ?? process.env.OPENAI_MODEL ?? DEFAULT_OPENAI_MODEL;
 
-  if (configuredModel === ASTRA_MODEL) {
-    return runAstraProvider(client, { imageDataUrl, prompt });
+  if (STRUCTURED_RESPONSES_MODELS.has(configuredModel)) {
+    return runStructuredResponsesProvider(client, {
+      imageDataUrl,
+      prompt,
+      model: configuredModel
+    });
   }
 
   return runLegacyProvider(client, {

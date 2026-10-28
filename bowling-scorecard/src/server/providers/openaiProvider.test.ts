@@ -45,7 +45,7 @@ const completedResponse = {
   ],
   output_parsed: extractionPayload,
   output_text: JSON.stringify(extractionPayload),
-  model: 'gpt-6-astra',
+  model: 'gpt-6.1-sol',
   usage: {
     input_tokens: 120,
     output_tokens: 80,
@@ -68,7 +68,7 @@ describe('openaiProvider', () => {
     delete process.env.OPENAI_REASONING_EFFORT;
   });
 
-  it('uses Responses structured output with Astra-compatible parameters', async () => {
+  it('uses Responses structured output with Sol-compatible parameters', async () => {
     responsesParse.mockResolvedValue(completedResponse);
     const { openaiProvider } = await import('./openaiProvider');
 
@@ -79,8 +79,8 @@ describe('openaiProvider', () => {
 
     expect(responsesParse).toHaveBeenCalledWith(
       expect.objectContaining({
-        model: 'gpt-6-astra',
-        reasoning: { effort: 'low' },
+        model: 'gpt-6.1-sol',
+        reasoning: { effort: 'medium' },
         max_output_tokens: 8000,
         store: false,
         input: [
@@ -108,7 +108,7 @@ describe('openaiProvider', () => {
     expect(responsesParse.mock.calls[0]?.[0]).not.toHaveProperty('temperature');
     expect(JSON.stringify(responsesParse.mock.calls[0]?.[0]?.text)).toContain('isSplit');
     expect(result).toMatchObject({
-      model: 'gpt-6-astra',
+      model: 'gpt-6.1-sol',
       usage: {
         inputTokens: 120,
         outputTokens: 80,
@@ -119,7 +119,7 @@ describe('openaiProvider', () => {
     });
   });
 
-  it('surfaces an incomplete Astra response', async () => {
+  it('surfaces an incomplete structured response', async () => {
     responsesParse.mockResolvedValue({
       ...completedResponse,
       status: 'incomplete',
@@ -135,8 +135,8 @@ describe('openaiProvider', () => {
     ).rejects.toThrow('OpenAI response was not completed: max_output_tokens');
   });
 
-  it('allows Astra reasoning effort to be raised for evaluation', async () => {
-    process.env.OPENAI_REASONING_EFFORT = 'medium';
+  it('allows Sol reasoning effort to be changed for evaluation', async () => {
+    process.env.OPENAI_REASONING_EFFORT = 'low';
     responsesParse.mockResolvedValue(completedResponse);
     const { openaiProvider } = await import('./openaiProvider');
 
@@ -146,11 +146,30 @@ describe('openaiProvider', () => {
     });
 
     expect(responsesParse).toHaveBeenCalledWith(
-      expect.objectContaining({ reasoning: { effort: 'medium' } })
+      expect.objectContaining({ reasoning: { effort: 'low' } })
     );
   });
 
-  it('surfaces an Astra refusal', async () => {
+  it('keeps Astra on the Responses path with its low reasoning default', async () => {
+    responsesParse.mockResolvedValue({ ...completedResponse, model: 'gpt-6-astra' });
+    const { openaiProvider } = await import('./openaiProvider');
+
+    await openaiProvider({
+      imageDataUrl: 'data:image/jpeg;base64,abc',
+      prompt: 'extract scores',
+      model: 'gpt-6-astra'
+    });
+
+    expect(responsesParse).toHaveBeenCalledWith(
+      expect.objectContaining({
+        model: 'gpt-6-astra',
+        reasoning: { effort: 'low' }
+      })
+    );
+    expect(chatCreate).not.toHaveBeenCalled();
+  });
+
+  it('surfaces a structured response refusal', async () => {
     responsesParse.mockResolvedValue({
       ...completedResponse,
       output_parsed: null,
@@ -171,7 +190,7 @@ describe('openaiProvider', () => {
     ).rejects.toThrow('OpenAI refused the score extraction request: Unable to process this image');
   });
 
-  it('preserves Chat Completions for a non-Astra rollback model', async () => {
+  it('preserves Chat Completions for a legacy rollback model', async () => {
     chatCreate.mockResolvedValue({
       choices: [{ message: { content: JSON.stringify(extractionPayload) } }],
       model: 'gpt-5.2',
