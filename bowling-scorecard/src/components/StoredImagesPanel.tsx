@@ -37,6 +37,7 @@ interface StoredImagesPanelProps {
   initialActiveIndex?: number;
   onRequestPreviousImagePage?: () => void;
   onRequestNextImagePage?: () => void;
+  showScoreEstimateStatus?: boolean;
 }
 
 const sectionStyles: CSSProperties = {
@@ -70,7 +71,7 @@ const thumbImageStyles: CSSProperties = {
   left: 0,
   width: '100%',
   height: '100%',
-  objectFit: 'cover' as const
+  objectFit: 'contain' as const
 };
 
 const metaStyles: CSSProperties = {
@@ -764,7 +765,8 @@ export function StoredImagesPanel({
   pageSelectionKey,
   initialActiveIndex,
   onRequestPreviousImagePage,
-  onRequestNextImagePage
+  onRequestNextImagePage,
+  showScoreEstimateStatus = false
 }: StoredImagesPanelProps) {
   const [activeIndex, setActiveIndex] = useState(0);
   const [activeGameIndex, setActiveGameIndex] = useState(0);
@@ -777,8 +779,10 @@ export function StoredImagesPanel({
   const [teamError, setTeamError] = useState<string | null>(null);
   const [metaModalOpen, setMetaModalOpen] = useState(false);
   const [clearConfirmOpen, setClearConfirmOpen] = useState(false);
+  const [imageAspectRatios, setImageAspectRatios] = useState<Record<string, number>>({});
   const pressTimerRef = useRef<NodeJS.Timeout | null>(null);
   const scorecardPressTimerRef = useRef<NodeJS.Timeout | null>(null);
+  const preloadingImageIdsRef = useRef(new Set<string>());
   const initialSelectionAppliedRef = useRef(false);
   const skipNextGameResetRef = useRef(false);
   const pendingAddedGameIndexRef = useRef<number | null>(null);
@@ -803,6 +807,12 @@ export function StoredImagesPanel({
   );
 
   const activeImage = hasImages ? images[boundedImageIndex] : null;
+  const previewAspectRatio = isCompactLayout ? 16 / 9 : 4 / 3;
+  const activeImageAspectRatio = activeImage ? imageAspectRatios[activeImage.id] ?? null : null;
+  const activeImageObjectFit =
+    activeImageAspectRatio !== null && activeImageAspectRatio < previewAspectRatio
+      ? 'cover'
+      : 'contain';
   const activeImageFileSize = activeImage ? formatFileSize(activeImage.sizeBytes) : null;
   const gamesForImage = activeImage?.games ?? [];
   const hasScoreEstimates = gamesForImage.length > 0;
@@ -812,7 +822,32 @@ export function StoredImagesPanel({
   const activeGame = hasScoreEstimates ? gamesForImage[boundedGameIndex] : null;
   const isProcessingActiveImage = Boolean(activeImage?.isProcessingEstimate);
   const estimateErrorMessage = activeImage?.lastEstimateError ?? null;
-  const hasCorrections = activeGame?.isEstimate === false;
+  const hasCorrections = showScoreEstimateStatus && activeGame?.isEstimate === false;
+
+  useEffect(() => {
+    const adjacentImages = [images[boundedImageIndex - 1], images[boundedImageIndex + 1]].filter(
+      (image): image is StoredImageSummary =>
+        Boolean(
+          image &&
+            !imageAspectRatios[image.id] &&
+            !preloadingImageIdsRef.current.has(image.id)
+        )
+    );
+
+    adjacentImages.forEach((image) => {
+      preloadingImageIdsRef.current.add(image.id);
+      const preview = new window.Image();
+      preview.onload = () => {
+        if (preview.naturalWidth > 0 && preview.naturalHeight > 0) {
+          setImageAspectRatios((current) => ({
+            ...current,
+            [image.id]: preview.naturalWidth / preview.naturalHeight
+          }));
+        }
+      };
+      preview.src = image.previewUrl;
+    });
+  }, [boundedImageIndex, imageAspectRatios, images]);
 
   useEffect(() => {
     if (!initialSelectionAppliedRef.current && initialImageId) {
@@ -1222,7 +1257,16 @@ export function StoredImagesPanel({
                     ? `Uploaded scorecard ${activeImage.originalFileName}`
                     : 'Uploaded scorecard preview'
                 }
-                style={thumbImageStyles}
+                style={{ ...thumbImageStyles, objectFit: activeImageObjectFit }}
+                onLoad={(event) => {
+                  const { naturalWidth, naturalHeight } = event.currentTarget;
+                  if (naturalWidth > 0 && naturalHeight > 0) {
+                    setImageAspectRatios((current) => ({
+                      ...current,
+                      [activeImage.id]: naturalWidth / naturalHeight
+                    }));
+                  }
+                }}
                 loading="lazy"
               />
             </div>
@@ -1362,25 +1406,27 @@ export function StoredImagesPanel({
                     />
                   </div>
                 </div>
-                <div style={statusPillRowStyles}>
-                  <div
-                    style={{
-                      ...statusPillBaseStyles,
-                      ...(hasCorrections ? correctionStatusStyles : estimateStatusStyles)
-                    }}
-                  >
-                    <span
-                      aria-hidden="true"
+                {showScoreEstimateStatus && (
+                  <div style={statusPillRowStyles}>
+                    <div
                       style={{
-                        ...statusDotStyles,
-                        backgroundColor: hasCorrections ? '#60a5fa' : '#93c5fd'
+                        ...statusPillBaseStyles,
+                        ...(hasCorrections ? correctionStatusStyles : estimateStatusStyles)
                       }}
-                    />
-                    {hasCorrections
-                      ? 'Corrections saved for this game'
-                      : 'AI estimate — tap a frame to correct'}
+                    >
+                      <span
+                        aria-hidden="true"
+                        style={{
+                          ...statusDotStyles,
+                          backgroundColor: hasCorrections ? '#60a5fa' : '#93c5fd'
+                        }}
+                      />
+                      {hasCorrections
+                        ? 'Corrections saved for this game'
+                        : 'AI estimate — tap a frame to correct'}
+                    </div>
                   </div>
-                </div>
+                )}
                 {gamesForImage.length > 1 && (
                   <div style={gameControlsStyles}>
                     <button

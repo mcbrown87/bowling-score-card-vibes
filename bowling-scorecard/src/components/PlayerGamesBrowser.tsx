@@ -931,9 +931,13 @@ const ScoreTimeline = ({
 
 type PlayerGamesBrowserProps = {
   mode?: GamesBrowserMode;
+  showScoreEstimateStatus?: boolean;
 };
 
-export function PlayerGamesBrowser({ mode = 'players' }: PlayerGamesBrowserProps) {
+export function PlayerGamesBrowser({
+  mode = 'players',
+  showScoreEstimateStatus = false
+}: PlayerGamesBrowserProps) {
   const [images, setImages] = useState<StoredImageSummary[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -1557,10 +1561,10 @@ export function PlayerGamesBrowser({ mode = 'players' }: PlayerGamesBrowserProps
           label:
             entry.image.originalFileName ??
             `Game ${index + 1} on ${formatShortDate(entry.image.createdAt)}`,
-          isEstimate: Boolean(entry.game.isEstimate)
+          isEstimate: showScoreEstimateStatus && Boolean(entry.game.isEstimate)
         };
       });
-  }, [mode, selectedPlayerGroup, timelineMetricKey, visiblePlayerGames]);
+  }, [mode, selectedPlayerGroup, showScoreEstimateStatus, timelineMetricKey, visiblePlayerGames]);
 
   const timelineMetric = mode === 'teams' ? timelineMetrics.score : timelineMetrics[timelineMetricKey];
 

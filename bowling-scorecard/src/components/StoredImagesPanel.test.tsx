@@ -65,6 +65,7 @@ describe('StoredImagesPanel', () => {
         error={null}
         onRetry={jest.fn()}
         onUpdateGame={jest.fn()}
+        showScoreEstimateStatus
       />
     );
 

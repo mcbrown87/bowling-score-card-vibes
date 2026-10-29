@@ -109,8 +109,8 @@ describe('StoredImagesLibrary', () => {
     render(<StoredImagesLibrary />);
 
     await waitFor(() => expect(mockedLoadStoredImages).toHaveBeenCalled());
-    expect(await screen.findByText('Corrections saved for this game')).toBeVisible();
-    expect(screen.getByRole('button', { name: 'Edit frame 1' })).toBeVisible();
+    expect(await screen.findByRole('button', { name: 'Edit frame 1' })).toBeVisible();
+    expect(screen.queryByText('Corrections saved for this game')).not.toBeInTheDocument();
     expect(screen.getByText('Image 1 of 75')).toBeVisible();
     expect(screen.queryByRole('button', { name: 'Next Page' })).not.toBeInTheDocument();
     expect(screen.queryByRole('button', { name: 'Previous Page' })).not.toBeInTheDocument();

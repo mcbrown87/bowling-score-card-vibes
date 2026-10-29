@@ -31,7 +31,10 @@ export default async function TeamsPage() {
         canUpload={tenantAccess?.canEdit ?? false}
       />
       <div style={{ padding: '0 16px 16px', maxWidth: '1200px', margin: '0 auto' }}>
-        <PlayerGamesBrowser mode="teams" />
+        <PlayerGamesBrowser
+          mode="teams"
+          showScoreEstimateStatus={process.env.SHOW_SCORE_ESTIMATE_STATUS === 'true'}
+        />
       </div>
     </main>
   );

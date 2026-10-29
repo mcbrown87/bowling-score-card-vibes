@@ -22,6 +22,7 @@ type StoredImagesLibraryProps = {
   initialImageId?: string | null;
   initialGameIndex?: number | null;
   initialPage?: number;
+  showScoreEstimateStatus?: boolean;
 };
 
 const LIBRARY_PAGE_SIZE = 50;
@@ -29,7 +30,8 @@ const LIBRARY_PAGE_SIZE = 50;
 export function StoredImagesLibrary({
   initialImageId,
   initialGameIndex,
-  initialPage = 1
+  initialPage = 1,
+  showScoreEstimateStatus = false
 }: StoredImagesLibraryProps) {
   const [images, setImages] = useState<StoredImageSummary[]>([]);
   const [isLoading, setIsLoading] = useState(false);
@@ -300,6 +302,7 @@ export function StoredImagesLibrary({
       imageIndexOffset={(currentPage - 1) * LIBRARY_PAGE_SIZE}
       pageSelectionKey={currentPage}
       initialActiveIndex={activeImageIndexOnPage}
+      showScoreEstimateStatus={showScoreEstimateStatus}
       onRequestPreviousImagePage={
         currentPage > 1 && !isLoading
           ? () => {

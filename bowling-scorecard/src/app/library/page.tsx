@@ -60,6 +60,7 @@ export default async function LibraryPage({ searchParams }: LibraryPageProps) {
           initialImageId={initialImageId}
           initialGameIndex={initialGameIndex}
           initialPage={initialPage}
+          showScoreEstimateStatus={process.env.SHOW_SCORE_ESTIMATE_STATUS === 'true'}
         />
       </div>
     </main>

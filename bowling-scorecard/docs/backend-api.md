@@ -23,6 +23,8 @@ Copy `.env.example` to `.env.local` (or `.env`) and set:
 - `ANTHROPIC_API_KEY` / `ANTHROPIC_MODEL`
 - `DEFAULT_PROVIDER` (`openai`, `anthropic`, or `stub`)
 - `INCLUDE_LLM_RAW` (persist raw text responses when true)
+- `SHOW_SCORE_ESTIMATE_STATUS` (defaults to false; set to true to distinguish generated
+  estimates from user-corrected scores in the UI)
 - `NEXTAUTH_SECRET`, `AUTH_TRUST_HOST=true`, and `NEXTAUTH_URL`
 
 ## Running locally

@@ -31,7 +31,9 @@ export default async function PlayersPage() {
         canUpload={tenantAccess?.canEdit ?? false}
       />
       <div style={{ padding: '0 16px 16px', maxWidth: '1200px', margin: '0 auto' }}>
-        <PlayerGamesBrowser />
+        <PlayerGamesBrowser
+          showScoreEstimateStatus={process.env.SHOW_SCORE_ESTIMATE_STATUS === 'true'}
+        />
       </div>
     </main>
   );
