@@ -138,6 +138,7 @@ type TimelineMetricKey =
   | 'strikePercentage'
   | 'spareConversionPercentage'
   | 'splitConversionPercentage'
+  | 'splitCount'
   | 'firstBallAverage'
   | 'openFrames'
   | 'longestStrikeRun';
@@ -178,6 +179,16 @@ const timelineMetrics: Record<TimelineMetricKey, TimelineMetricDefinition> = {
   strikePercentage: percentageMetric('Strike percentage', 'Strike %'),
   spareConversionPercentage: percentageMetric('Spare conversion', 'Spare conversion'),
   splitConversionPercentage: percentageMetric('Split conversion', 'Split conversion'),
+  splitCount: {
+    label: 'Number of splits',
+    shortLabel: 'Splits',
+    ariaLabel: 'Number of splits over time',
+    domain: [0, 10],
+    formatRaw: (value) => String(Math.round(value)),
+    formatAverage: oneDecimal,
+    formatStdDev: oneDecimal,
+    formatTick: (value) => String(Math.round(value))
+  },
   firstBallAverage: {
     label: 'First-ball average',
     shortLabel: 'First-ball avg',
@@ -1549,6 +1560,7 @@ export function PlayerGamesBrowser({
           strikePercentage: stats.strikePercentage,
           spareConversionPercentage: stats.spareConversionPercentage,
           splitConversionPercentage: stats.splitConversionPercentage,
+          splitCount: stats.splitLeaves,
           firstBallAverage: stats.firstBallAverage,
           openFrames: stats.openFrames,
           longestStrikeRun: stats.longestStrikeRun

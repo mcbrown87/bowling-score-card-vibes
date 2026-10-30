@@ -486,6 +486,12 @@ describe('PlayerGamesBrowser', () => {
     });
     expect(screen.getByRole('img', { name: 'Split conversion over time' })).toBeVisible();
     expect(screen.getByText('alice-1.jpg • Split conversion 100.0% • 3-game avg 100.0% • std dev 0.0 pp')).toBeInTheDocument();
+
+    fireEvent.change(screen.getByLabelText('Timeline metric'), {
+      target: { value: 'splitCount' }
+    });
+    expect(screen.getByRole('img', { name: 'Number of splits over time' })).toBeVisible();
+    expect(screen.getByText('alice-1.jpg • Splits 1 • 3-game avg 1.0 • std dev 0.0')).toBeInTheDocument();
   });
 
   it('recalculates the rolling average from visible games after filtering', async () => {
