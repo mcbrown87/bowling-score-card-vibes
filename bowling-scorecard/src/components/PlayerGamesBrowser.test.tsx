@@ -276,6 +276,24 @@ describe('PlayerGamesBrowser', () => {
     expect(screen.queryByText('Alicia')).not.toBeInTheDocument();
   });
 
+  it('limits team roster statistics to the scorecards shown', async () => {
+    mockedLoadStoredImages.mockResolvedValue(buildTeamHistoryPage());
+
+    render(<PlayerGamesBrowser mode="teams" />);
+
+    const roster = await screen.findByRole('table', { name: 'Team roster' });
+    expect(within(roster).getByRole('row', { name: /Alice 2 160 170/i })).toBeVisible();
+    expect(within(roster).getByText('Charlie')).toBeVisible();
+
+    fireEvent.change(screen.getByLabelText('Scorecards shown'), { target: { value: '1' } });
+
+    await waitFor(() => {
+      expect(within(roster).getByRole('row', { name: /Alice 1 170 170/i })).toBeVisible();
+    });
+    expect(within(roster).getByRole('row', { name: /Bob 1 156 156/i })).toBeVisible();
+    expect(within(roster).queryByText('Charlie')).not.toBeInTheDocument();
+  });
+
   it('can disable and re-enable players from the team roster', async () => {
     mockedLoadStoredImages.mockResolvedValue(buildTeamHistoryPage());
     jest.spyOn(window, 'confirm').mockReturnValue(true);

@@ -1287,7 +1287,7 @@ export function PlayerGamesBrowser({
     >();
     const selectedTeamRosterStatus = teamRosterStatus[selectedPlayerGroup.playerKey] ?? {};
 
-    selectedPlayerGroup.games.forEach((entry) => {
+    visiblePlayerGames.forEach((entry) => {
       entry.games.forEach((game) => {
         const playerKey = getGamePlayerKey(game);
         const playerName = getGamePlayerName(game);
@@ -1342,7 +1342,7 @@ export function PlayerGamesBrowser({
     return {
       roster
     };
-  }, [mode, selectedPlayerGroup, teamRosterStatus]);
+  }, [mode, selectedPlayerGroup, teamRosterStatus, visiblePlayerGames]);
 
   const selectedTeamLineup = useMemo<TeamLineupEntry[]>(() => {
     if (mode !== 'teams' || !selectedGame) {
