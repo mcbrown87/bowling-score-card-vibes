@@ -53,27 +53,6 @@ type TeamLineupEntry = {
   gameIndex: number;
 };
 
-type TeamLineupSpotCell = {
-  average: number;
-  games: number;
-  isBest: boolean;
-};
-
-type TeamLineupSpotRow = {
-  playerKey: string;
-  playerName: string;
-  slots: Map<number, TeamLineupSpotCell>;
-  bestSlot: number | null;
-};
-
-type TeamSlotStrengthRow = {
-  slot: number;
-  average: number;
-  games: number;
-  bestPlayerName: string;
-  mostFrequentPlayerName: string;
-};
-
 type GamesBrowserMode = 'players' | 'teams';
 
 type GamesBrowserCopy = {
@@ -219,6 +198,71 @@ const timelineMetrics: Record<TimelineMetricKey, TimelineMetricDefinition> = {
     formatStdDev: oneDecimal,
     formatTick: (value) => String(Math.round(value))
   }
+};
+
+const teamTimelineMetrics: Record<TimelineMetricKey, TimelineMetricDefinition> = {
+  ...timelineMetrics,
+  splitCount: {
+    ...timelineMetrics.splitCount,
+    label: 'Splits per player',
+    shortLabel: 'Splits per player',
+    ariaLabel: 'Splits per player over time'
+  },
+  openFrames: {
+    ...timelineMetrics.openFrames,
+    label: 'Open frames per player',
+    shortLabel: 'Open frames per player',
+    ariaLabel: 'Open frames per player over time'
+  },
+  longestStrikeRun: {
+    ...timelineMetrics.longestStrikeRun,
+    label: 'Longest player strike run',
+    shortLabel: 'Longest player run',
+    ariaLabel: 'Longest player strike run over time'
+  }
+};
+
+const aggregateBowlingStats = (games: StoredGameSummary[]) => {
+  const stats = games.map((game) => calculatePlayerBowlingStats(game));
+  const strikeCount = stats.reduce((sum, value) => sum + value.strikeCount, 0);
+  const strikeOpportunities = stats.reduce(
+    (sum, value) => sum + value.strikeOpportunities,
+    0
+  );
+  const spareConversions = stats.reduce((sum, value) => sum + value.spareConversions, 0);
+  const spareOpportunities = stats.reduce(
+    (sum, value) => sum + value.spareOpportunities,
+    0
+  );
+  const splitConversions = stats.reduce((sum, value) => sum + value.splitConversions, 0);
+  const splitLeaves = stats.reduce((sum, value) => sum + value.splitLeaves, 0);
+  const firstBallTotal = stats.reduce(
+    (sum, value) => sum + value.firstBallAverage * value.strikeOpportunities,
+    0
+  );
+
+  return {
+    strikePercentage:
+      strikeOpportunities > 0 ? (strikeCount / strikeOpportunities) * 100 : 0,
+    spareConversionPercentage:
+      spareOpportunities > 0 ? (spareConversions / spareOpportunities) * 100 : null,
+    splitConversionPercentage:
+      splitLeaves > 0 ? (splitConversions / splitLeaves) * 100 : null,
+    splitConversions,
+    splitLeaves,
+    splitLeavesPerPlayer: games.length > 0 ? splitLeaves / games.length : 0,
+    firstBallAverage:
+      strikeOpportunities > 0 ? firstBallTotal / strikeOpportunities : 0,
+    openFrames: stats.reduce((sum, value) => sum + value.openFrames, 0),
+    openFramesPerPlayer:
+      games.length > 0
+        ? stats.reduce((sum, value) => sum + value.openFrames, 0) / games.length
+        : 0,
+    longestStrikeRun: stats.reduce(
+      (longest, value) => Math.max(longest, value.longestStrikeRun),
+      0
+    )
+  };
 };
 
 const nextRollingAverageDisplayMode = (
@@ -381,32 +425,12 @@ const badgeStyles: CSSProperties = {
   fontWeight: 700
 };
 
-const statsGridStyles: CSSProperties = {
-  display: 'grid',
-  gridTemplateColumns: 'repeat(auto-fit, minmax(120px, 1fr))',
-  gap: '8px',
-  marginBottom: '12px'
-};
-
-const statTileStyles: CSSProperties = {
-  border: '1px solid #334155',
-  borderRadius: '10px',
-  backgroundColor: '#0f172a',
-  padding: '10px'
-};
-
 const statLabelStyles: CSSProperties = {
   display: 'block',
   color: '#93c5fd',
   fontSize: '12px',
   fontWeight: 700,
   marginBottom: '4px'
-};
-
-const statValueStyles: CSSProperties = {
-  color: '#f8fafc',
-  fontSize: '20px',
-  fontWeight: 800
 };
 
 const dataTableStyles: CSSProperties = {
@@ -420,11 +444,6 @@ const scrollableTableStyles: CSSProperties = {
   maxWidth: '100%',
   overflowX: 'auto',
   WebkitOverflowScrolling: 'touch'
-};
-
-const compactTeamTableStyles: CSSProperties = {
-  ...dataTableStyles,
-  minWidth: '520px'
 };
 
 const dataTableHeaderStyles: CSSProperties = {
@@ -1239,23 +1258,18 @@ export function PlayerGamesBrowser({
   }, [selectedPlayerGroup, visiblePlayerGames]);
 
   const splitStats = useMemo(() => {
-    if (mode !== 'players' || !selectedPlayerGroup) {
+    if (!selectedPlayerGroup) {
       return null;
     }
-    const totals = visiblePlayerGames.reduce(
-      (result, entry) => {
-        const stats = calculatePlayerBowlingStats(entry.game);
-        result.leaves += stats.splitLeaves;
-        result.conversions += stats.splitConversions;
-        return result;
-      },
-      { leaves: 0, conversions: 0 }
+    const totals = aggregateBowlingStats(
+      visiblePlayerGames.flatMap((entry) => entry.games)
     );
     return {
-      ...totals,
-      percentage: totals.leaves > 0 ? (totals.conversions / totals.leaves) * 100 : null
+      leaves: totals.splitLeaves,
+      conversions: totals.splitConversions,
+      percentage: totals.splitConversionPercentage
     };
-  }, [mode, selectedPlayerGroup, visiblePlayerGames]);
+  }, [selectedPlayerGroup, visiblePlayerGames]);
 
   const selectedTeamInsights = useMemo(() => {
     if (mode !== 'teams' || !selectedPlayerGroup) {
@@ -1271,21 +1285,6 @@ export function PlayerGamesBrowser({
         lastPlayed: string;
       }
     >();
-    const playerSlotMap = new Map<
-      string,
-      {
-        playerKey: string;
-        playerName: string;
-        slots: Map<number, number[]>;
-      }
-    >();
-    const slotMap = new Map<
-      number,
-      {
-        scores: number[];
-        playerScores: Map<string, { playerName: string; scores: number[] }>;
-      }
-    >();
     const selectedTeamRosterStatus = teamRosterStatus[selectedPlayerGroup.playerKey] ?? {};
 
     selectedPlayerGroup.games.forEach((entry) => {
@@ -1293,7 +1292,6 @@ export function PlayerGamesBrowser({
         const playerKey = getGamePlayerKey(game);
         const playerName = getGamePlayerName(game);
         const score = getGameScore(game);
-        const slot = game.gameIndex + 1;
         const existing =
           rosterMap.get(playerKey) ?? {
             playerKey,
@@ -1307,33 +1305,6 @@ export function PlayerGamesBrowser({
         }
         rosterMap.set(playerKey, existing);
 
-        if (selectedTeamRosterStatus[playerKey]) {
-          return;
-        }
-
-        const playerSlots =
-          playerSlotMap.get(playerKey) ?? {
-            playerKey,
-            playerName,
-            slots: new Map<number, number[]>()
-          };
-        playerSlots.slots.set(slot, [...(playerSlots.slots.get(slot) ?? []), score]);
-        playerSlotMap.set(playerKey, playerSlots);
-
-        const slotEntry =
-          slotMap.get(slot) ?? {
-            scores: [],
-            playerScores: new Map<string, { playerName: string; scores: number[] }>()
-          };
-        slotEntry.scores.push(score);
-        const playerSlotScores =
-          slotEntry.playerScores.get(playerKey) ?? {
-            playerName,
-            scores: []
-          };
-        playerSlotScores.scores.push(score);
-        slotEntry.playerScores.set(playerKey, playerSlotScores);
-        slotMap.set(slot, slotEntry);
       });
     });
 
@@ -1368,114 +1339,10 @@ export function PlayerGamesBrowser({
         return a.playerName.localeCompare(b.playerName);
       });
 
-    const lineupSpotRows: TeamLineupSpotRow[] = Array.from(playerSlotMap.values())
-      .map((entry) => {
-        const slotEntries = Array.from(entry.slots.entries()).map(([slot, scores]) => ({
-          slot,
-          average: Math.round(scores.reduce((sum, score) => sum + score, 0) / scores.length),
-          games: scores.length
-        }));
-        const bestAverage = slotEntries.length
-          ? Math.max(...slotEntries.map((slotEntry) => slotEntry.average))
-          : 0;
-        const bestSlot =
-          slotEntries
-            .slice()
-            .sort((a, b) => {
-              if (b.average !== a.average) {
-                return b.average - a.average;
-              }
-              if (b.games !== a.games) {
-                return b.games - a.games;
-              }
-              return a.slot - b.slot;
-            })[0]?.slot ?? null;
-        const slots = new Map<number, TeamLineupSpotCell>(
-          slotEntries.map((slotEntry) => [
-            slotEntry.slot,
-            {
-              average: slotEntry.average,
-              games: slotEntry.games,
-              isBest: slotEntry.average === bestAverage
-            }
-          ])
-        );
-        return {
-          playerKey: entry.playerKey,
-          playerName: entry.playerName,
-          slots,
-          bestSlot
-        };
-      })
-      .sort((a, b) => a.playerName.localeCompare(b.playerName));
-
-    const lineupSlots = Array.from(slotMap.keys()).sort((a, b) => a - b);
-    const slotStrengthRows: TeamSlotStrengthRow[] = lineupSlots.map((slot) => {
-      const slotEntry = slotMap.get(slot);
-      const scores = slotEntry?.scores ?? [];
-      const playerSummaries = Array.from(slotEntry?.playerScores.values() ?? []).map((entry) => {
-        const average = Math.round(entry.scores.reduce((sum, score) => sum + score, 0) / entry.scores.length);
-        return {
-          playerName: entry.playerName,
-          average,
-          games: entry.scores.length
-        };
-      });
-      const bestPlayerName =
-        playerSummaries
-          .slice()
-          .sort((a, b) => {
-            if (b.average !== a.average) {
-              return b.average - a.average;
-            }
-            if (b.games !== a.games) {
-              return b.games - a.games;
-            }
-            return a.playerName.localeCompare(b.playerName);
-          })[0]?.playerName ?? '—';
-      const mostFrequentPlayerName =
-        playerSummaries
-          .slice()
-          .sort((a, b) => {
-            if (b.games !== a.games) {
-              return b.games - a.games;
-            }
-            if (b.average !== a.average) {
-              return b.average - a.average;
-            }
-            return a.playerName.localeCompare(b.playerName);
-          })[0]?.playerName ?? '—';
-
-      return {
-        slot,
-        average: scores.length
-          ? Math.round(scores.reduce((sum, score) => sum + score, 0) / scores.length)
-          : 0,
-        games: scores.length,
-        bestPlayerName,
-        mostFrequentPlayerName
-      };
-    });
-
-    const latestScore = visiblePlayerGames[0]?.score ?? 0;
-    const totalPlayerGames = selectedPlayerGroup.games.reduce(
-      (count, entry) => count + entry.games.length,
-      0
-    );
-
     return {
-      scorecardsShown: visiblePlayerGames.length,
-      totalScorecards: selectedPlayerGroup.games.length,
-      totalPlayerGames,
-      averageTeamScore: playerStats?.average ?? 0,
-      bestTeamScore: playerStats?.best ?? 0,
-      latestTeamScore: latestScore,
-      roster,
-      lineupSlots,
-      lineupSpotRows,
-      slotStrengthRows
+      roster
     };
-  }, [mode, playerStats, selectedPlayerGroup, teamRosterStatus, visiblePlayerGames]);
+  }, [mode, selectedPlayerGroup, teamRosterStatus]);
 
   const selectedTeamLineup = useMemo<TeamLineupEntry[]>(() => {
     if (mode !== 'teams' || !selectedGame) {
@@ -1554,21 +1421,21 @@ export function PlayerGamesBrowser({
           new Date(a.image.createdAt).getTime() - new Date(b.image.createdAt).getTime()
       )
       .map((entry, index) => {
-        const stats = calculatePlayerBowlingStats(entry.game);
+        const stats = aggregateBowlingStats(entry.games);
         const metricValues: Record<TimelineMetricKey, number | null> = {
           score: entry.score,
           strikePercentage: stats.strikePercentage,
           spareConversionPercentage: stats.spareConversionPercentage,
           splitConversionPercentage: stats.splitConversionPercentage,
-          splitCount: stats.splitLeaves,
+          splitCount: mode === 'teams' ? stats.splitLeavesPerPlayer : stats.splitLeaves,
           firstBallAverage: stats.firstBallAverage,
-          openFrames: stats.openFrames,
+          openFrames: mode === 'teams' ? stats.openFramesPerPlayer : stats.openFrames,
           longestStrikeRun: stats.longestStrikeRun
         };
         return {
           index,
           key: entry.key,
-          value: mode === 'teams' ? entry.score : metricValues[timelineMetricKey],
+          value: metricValues[timelineMetricKey],
           createdAt: entry.image.createdAt,
           label:
             entry.image.originalFileName ??
@@ -1578,7 +1445,8 @@ export function PlayerGamesBrowser({
       });
   }, [mode, selectedPlayerGroup, showScoreEstimateStatus, timelineMetricKey, visiblePlayerGames]);
 
-  const timelineMetric = mode === 'teams' ? timelineMetrics.score : timelineMetrics[timelineMetricKey];
+  const activeTimelineMetrics = mode === 'teams' ? teamTimelineMetrics : timelineMetrics;
+  const timelineMetric = activeTimelineMetrics[timelineMetricKey];
 
   const frameTrendSeries = useMemo(() => {
     if (!selectedPlayerGroup || mode === 'teams') {
@@ -1820,34 +1688,6 @@ export function PlayerGamesBrowser({
 
                 {selectedTeamInsights && (
                   <>
-                    <div style={statsGridStyles} aria-label="Team analytics">
-                      <div style={statTileStyles}>
-                        <span style={statLabelStyles}>Scorecards</span>
-                        <span style={statValueStyles}>
-                          {selectedTeamInsights.scorecardsShown}
-                          {selectedTeamInsights.scorecardsShown !== selectedTeamInsights.totalScorecards
-                            ? ` / ${selectedTeamInsights.totalScorecards}`
-                            : ''}
-                        </span>
-                      </div>
-                      <div style={statTileStyles}>
-                        <span style={statLabelStyles}>Player games</span>
-                        <span style={statValueStyles}>{selectedTeamInsights.totalPlayerGames}</span>
-                      </div>
-                      <div style={statTileStyles}>
-                        <span style={statLabelStyles}>Team average</span>
-                        <span style={statValueStyles}>{selectedTeamInsights.averageTeamScore}</span>
-                      </div>
-                      <div style={statTileStyles}>
-                        <span style={statLabelStyles}>Best team score</span>
-                        <span style={statValueStyles}>{selectedTeamInsights.bestTeamScore}</span>
-                      </div>
-                      <div style={statTileStyles}>
-                        <span style={statLabelStyles}>Latest team score</span>
-                        <span style={statValueStyles}>{selectedTeamInsights.latestTeamScore}</span>
-                      </div>
-                    </div>
-
                     <div style={subsectionStyles}>
                       <div style={rosterHeaderStyles}>
                         <h4 style={sectionTitleStyles}>Team roster</h4>
@@ -2015,130 +1855,25 @@ export function PlayerGamesBrowser({
                       )}
                     </div>
 
-                    {selectedTeamInsights.lineupSlots.length > 0 && (
-                      <>
-                        <div style={subsectionStyles}>
-                          <h4 style={sectionTitleStyles}>Lineup spot performance</h4>
-                          <div style={scrollableTableStyles}>
-                            <table style={compactTeamTableStyles} aria-label="Lineup spot performance">
-                              <thead>
-                                <tr>
-                                  <th scope="col" style={dataTableHeaderStyles}>
-                                    Player
-                                  </th>
-                                  {selectedTeamInsights.lineupSlots.map((slot) => (
-                                    <th
-                                      key={slot}
-                                      scope="col"
-                                      style={{ ...dataTableHeaderStyles, textAlign: 'right' }}
-                                    >
-                                      Slot {slot}
-                                    </th>
-                                  ))}
-                                  <th scope="col" style={{ ...dataTableHeaderStyles, textAlign: 'right' }}>
-                                    Best slot
-                                  </th>
-                                </tr>
-                              </thead>
-                              <tbody>
-                                {selectedTeamInsights.lineupSpotRows.map((player) => (
-                                  <tr key={player.playerKey}>
-                                    <td style={{ ...dataTableCellStyles, fontWeight: 800 }}>
-                                      {player.playerName}
-                                    </td>
-                                    {selectedTeamInsights.lineupSlots.map((slot) => {
-                                      const cell = player.slots.get(slot);
-                                      return (
-                                        <td
-                                          key={slot}
-                                          style={{
-                                            ...dataTableNumberCellStyles,
-                                            color: cell?.isBest ? '#f8fafc' : '#e2e8f0',
-                                            fontWeight: cell?.isBest ? 800 : 500,
-                                            backgroundColor: cell?.isBest
-                                              ? 'rgba(37, 99, 235, 0.18)'
-                                              : 'transparent'
-                                          }}
-                                        >
-                                          {cell ? `${cell.average} (${cell.games})` : '—'}
-                                        </td>
-                                      );
-                                    })}
-                                    <td style={dataTableNumberCellStyles}>
-                                      {player.bestSlot ? `Slot ${player.bestSlot}` : '—'}
-                                    </td>
-                                  </tr>
-                                ))}
-                              </tbody>
-                            </table>
-                          </div>
-                          <p style={{ ...hintTextStyles, marginTop: '6px' }}>
-                            Values show average score with games in parentheses.
-                          </p>
-                        </div>
-
-                        <div style={subsectionStyles}>
-                          <h4 style={sectionTitleStyles}>Slot strength</h4>
-                          <div style={scrollableTableStyles}>
-                            <table style={compactTeamTableStyles} aria-label="Slot strength">
-                              <thead>
-                                <tr>
-                                  <th scope="col" style={dataTableHeaderStyles}>
-                                    Slot
-                                  </th>
-                                  <th scope="col" style={{ ...dataTableHeaderStyles, textAlign: 'right' }}>
-                                    Average
-                                  </th>
-                                  <th scope="col" style={{ ...dataTableHeaderStyles, textAlign: 'right' }}>
-                                    Games
-                                  </th>
-                                  <th scope="col" style={dataTableHeaderStyles}>
-                                    Best player
-                                  </th>
-                                  <th scope="col" style={dataTableHeaderStyles}>
-                                    Most frequent
-                                  </th>
-                                </tr>
-                              </thead>
-                              <tbody>
-                                {selectedTeamInsights.slotStrengthRows.map((slot) => (
-                                  <tr key={slot.slot}>
-                                    <td style={{ ...dataTableCellStyles, fontWeight: 800 }}>
-                                      Slot {slot.slot}
-                                    </td>
-                                    <td style={dataTableNumberCellStyles}>{slot.average}</td>
-                                    <td style={dataTableNumberCellStyles}>{slot.games}</td>
-                                    <td style={dataTableCellStyles}>{slot.bestPlayerName}</td>
-                                    <td style={dataTableCellStyles}>{slot.mostFrequentPlayerName}</td>
-                                  </tr>
-                                ))}
-                              </tbody>
-                            </table>
-                          </div>
-                        </div>
-                      </>
-                    )}
                   </>
                 )}
 
                 <div style={chartCardStyles}>
-                  {mode === 'players' && (
-                    <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: '10px' }}>
-                      <label htmlFor="timeline-metric-select" style={{ ...hintTextStyles, display: 'flex', alignItems: 'center', gap: '8px' }}>
-                        Timeline metric
-                        <select
-                          id="timeline-metric-select"
-                          style={compactDropdownStyles}
-                          value={timelineMetricKey}
-                          onChange={(event) => setTimelineMetricKey(event.target.value as TimelineMetricKey)}
-                        >
-                          {(Object.entries(timelineMetrics) as Array<[TimelineMetricKey, TimelineMetricDefinition]>).map(
-                            ([key, definition]) => <option key={key} value={key}>{definition.label}</option>
-                          )}
-                        </select>
-                      </label>
-                    </div>
-                  )}
+                  <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: '10px' }}>
+                    <label htmlFor="timeline-metric-select" style={{ ...hintTextStyles, display: 'flex', alignItems: 'center', gap: '8px' }}>
+                      Timeline metric
+                      <select
+                        id="timeline-metric-select"
+                        style={compactDropdownStyles}
+                        value={timelineMetricKey}
+                        onChange={(event) => setTimelineMetricKey(event.target.value as TimelineMetricKey)}
+                      >
+                        {(Object.entries(activeTimelineMetrics) as Array<[TimelineMetricKey, TimelineMetricDefinition]>).map(
+                          ([key, definition]) => <option key={key} value={key}>{definition.label}</option>
+                        )}
+                      </select>
+                    </label>
+                  </div>
                   <div style={chartLegendStyles}>
                     <span style={lineLegendItemStyles}>
                       <button
@@ -2189,7 +1924,7 @@ export function PlayerGamesBrowser({
                         }}
                         aria-label={`Change rolling average window. Current window is ${rollingAverageWindow} games.`}
                       >
-                        {rollingAverageWindow}-game{timelineMetricKey === 'score' || mode === 'teams'
+                        {rollingAverageWindow}-game{timelineMetricKey === 'score'
                           ? ''
                           : ` ${timelineMetric.label.toLowerCase()}`} average
                       </button>

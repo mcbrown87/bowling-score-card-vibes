@@ -254,23 +254,18 @@ describe('PlayerGamesBrowser', () => {
     expect(screen.queryByText('Frame heatmap')).not.toBeInTheDocument();
   });
 
-  it('shows roster and analytics for the selected team', async () => {
+  it('shows the selected team as an aggregate of its players', async () => {
     mockedLoadStoredImages.mockResolvedValue(buildTeamHistoryPage());
 
     render(<PlayerGamesBrowser mode="teams" />);
 
     expect(await screen.findByText('Team roster')).toBeVisible();
 
-    const analytics = screen.getByLabelText('Team analytics');
-    expect(within(analytics).getByText('Scorecards')).toBeVisible();
-    expect(within(analytics).getByText('2')).toBeVisible();
-    expect(within(analytics).getByText('Player games')).toBeVisible();
-    expect(within(analytics).getByText('4')).toBeVisible();
-    expect(within(analytics).getByText('Team average')).toBeVisible();
-    expect(within(analytics).getByText('298')).toBeVisible();
-    expect(within(analytics).getByText('Best team score')).toBeVisible();
-    expect(within(analytics).getAllByText('326')[0]).toBeVisible();
-    expect(within(analytics).getByText('Latest team score')).toBeVisible();
+    expect(screen.getByText('Showing: 2')).toBeVisible();
+    expect(screen.getAllByText('Best: 326')).toHaveLength(2);
+    expect(screen.getByText('Average: 298')).toBeVisible();
+    expect(screen.getByText('Splits: 0/0 (N/A)')).toBeVisible();
+    expect(screen.getByLabelText('Timeline metric')).toHaveValue('score');
 
     const roster = screen.getByRole('table', { name: 'Team roster' });
     expect(within(roster).getByText('Alice')).toBeVisible();
@@ -325,41 +320,43 @@ describe('PlayerGamesBrowser', () => {
     expect(within(lineup).queryByText('Bob')).not.toBeInTheDocument();
   });
 
-  it('summarizes team member performance by lineup spot', async () => {
+  it('charts the same roll-derived statistics as the players view', async () => {
     mockedLoadStoredImages.mockResolvedValue(buildTeamHistoryPage());
 
     render(<PlayerGamesBrowser mode="teams" />);
 
-    expect(await screen.findByText('Lineup spot performance')).toBeVisible();
+    const metricSelect = await screen.findByLabelText('Timeline metric');
+    expect(screen.queryByText('Lineup spot performance')).not.toBeInTheDocument();
+    expect(screen.queryByText('Slot strength')).not.toBeInTheDocument();
 
-    const spotTable = screen.getByRole('table', { name: 'Lineup spot performance' });
-    const aliceRow = within(spotTable).getByRole('row', { name: /Alice 160 \(2\) — Slot 1/i });
-    expect(aliceRow).toBeVisible();
-    expect(within(spotTable).getByRole('row', { name: /Bob — 156 \(1\) Slot 2/i })).toBeVisible();
-    expect(within(spotTable).getByRole('row', { name: /Charlie — 120 \(1\) Slot 2/i })).toBeVisible();
-    expect(screen.getByText('Values show average score with games in parentheses.')).toBeVisible();
+    fireEvent.change(metricSelect, { target: { value: 'strikePercentage' } });
+    expect(screen.getByRole('img', { name: 'Strike percentage over time' })).toBeVisible();
+    expect(screen.getByText('3-game strike percentage average')).toBeVisible();
 
-    const strengthTable = screen.getByRole('table', { name: 'Slot strength' });
-    expect(within(strengthTable).getByRole('row', { name: /Slot 1 160 2 Alice Alice/i })).toBeVisible();
-    expect(within(strengthTable).getByRole('row', { name: /Slot 2 138 2 Bob Bob/i })).toBeVisible();
+    fireEvent.change(metricSelect, { target: { value: 'openFrames' } });
+    expect(screen.getByRole('img', { name: 'Open frames per player over time' })).toBeVisible();
+    expect(screen.getByText('3-game open frames per player average')).toBeVisible();
+
+    fireEvent.change(metricSelect, { target: { value: 'splitCount' } });
+    expect(screen.getByRole('img', { name: 'Splits per player over time' })).toBeVisible();
+
+    fireEvent.change(metricSelect, { target: { value: 'longestStrikeRun' } });
+    expect(screen.getByRole('img', { name: 'Longest player strike run over time' })).toBeVisible();
   });
 
-  it('excludes disabled players from lineup spot and slot strength analytics', async () => {
+  it('keeps disabled players out of the active team roster without slot analytics', async () => {
     mockedLoadStoredImages.mockResolvedValue(buildTeamHistoryPage());
     mockedLoadTeamRosterStatus.mockResolvedValue({ 'player-bob': true });
 
     render(<PlayerGamesBrowser mode="teams" />);
 
-    expect(await screen.findByText('Lineup spot performance')).toBeVisible();
+    expect(await screen.findByText('Team roster')).toBeVisible();
     await waitFor(() => expect(screen.getByText('Show all (1 disabled)')).toBeVisible());
 
-    const spotTable = screen.getByRole('table', { name: 'Lineup spot performance' });
-    expect(within(spotTable).queryByRole('row', { name: /Bob/i })).not.toBeInTheDocument();
-    expect(within(spotTable).getByRole('row', { name: /Charlie — 120 \(1\) Slot 2/i })).toBeVisible();
-
-    const strengthTable = screen.getByRole('table', { name: 'Slot strength' });
-    expect(within(strengthTable).getByRole('row', { name: /Slot 2 120 1 Charlie Charlie/i })).toBeVisible();
-    expect(within(strengthTable).queryByRole('row', { name: /Bob/i })).not.toBeInTheDocument();
+    const roster = screen.getByRole('table', { name: 'Team roster' });
+    expect(within(roster).queryByText('Bob')).not.toBeInTheDocument();
+    expect(screen.queryByText('Lineup spot performance')).not.toBeInTheDocument();
+    expect(screen.queryByText('Slot strength')).not.toBeInTheDocument();
   });
 
   it('recomputes the heatmap when a different player is selected', async () => {
