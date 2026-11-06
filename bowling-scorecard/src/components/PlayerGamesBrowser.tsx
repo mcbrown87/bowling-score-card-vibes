@@ -309,8 +309,21 @@ const getGameScore = (game: StoredGameSummary) => {
   return Math.max(totalScore, finalFrameScore);
 };
 
-const getImageTeamScore = (image: StoredImageSummary) =>
-  image.games.reduce((sum, game) => sum + getGameScore(game), 0);
+const getImageTeamGames = (image: StoredImageSummary, teamId: string) =>
+  image.games.filter((game, index) => {
+    if (game.team) {
+      return game.team.id === teamId;
+    }
+
+    if (image.isLeagueGame && image.opponentTeam) {
+      return index < 4 ? image.team?.id === teamId : image.opponentTeam.id === teamId;
+    }
+
+    return image.team?.id === teamId;
+  });
+
+const getImageTeamScore = (games: StoredGameSummary[]) =>
+  games.reduce((sum, game) => sum + getGameScore(game), 0);
 
 const normalizePlayerLookupName = (name: string) => name.trim().replace(/\s+/gu, ' ').toLowerCase();
 
@@ -1043,17 +1056,31 @@ export function PlayerGamesBrowser({
           return;
         }
 
-        const playerName = image.team.name;
-        const playerKey = image.team.id;
-        const entry = map.get(playerKey) ?? { playerKey, playerName, games: [] };
-        entry.games.push({
-          key: image.id,
-          game: image.games[0],
-          games: image.games,
-          image,
-          score: getImageTeamScore(image)
+        const imageTeams = [
+          image.team,
+          ...(image.isLeagueGame && image.opponentTeam ? [image.opponentTeam] : [])
+        ];
+
+        imageTeams.forEach((team) => {
+          const teamGames = getImageTeamGames(image, team.id);
+          if (teamGames.length === 0) {
+            return;
+          }
+
+          const entry = map.get(team.id) ?? {
+            playerKey: team.id,
+            playerName: team.name,
+            games: []
+          };
+          entry.games.push({
+            key: `${image.id}-${team.id}`,
+            game: teamGames[0],
+            games: teamGames,
+            image,
+            score: getImageTeamScore(teamGames)
+          });
+          map.set(team.id, entry);
         });
-        map.set(playerKey, entry);
         return;
       }
 

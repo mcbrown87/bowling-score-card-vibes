@@ -7,6 +7,14 @@ export type BowlingTeamSummary = {
 
 export type TeamRosterStatusMap = Record<string, Record<string, boolean>>;
 
+export type StoredImageTeamUpdate = {
+  teamId?: string | null;
+  teamName?: string;
+  opponentTeamId?: string | null;
+  opponentTeamName?: string;
+  isLeagueGame?: boolean;
+};
+
 export type StoredGamePayload = {
   id?: string;
   gameIndex?: number;
@@ -16,6 +24,8 @@ export type StoredGamePayload = {
     name: string;
   } | null;
   playerName?: string | null;
+  team?: BowlingTeamSummary | null;
+  teamId?: string | null;
   totalScore?: number | null;
   frames?: unknown;
   tenthFrame?: unknown;
@@ -29,6 +39,7 @@ export type StoredGameSummary = Game & {
     id: string;
     name: string;
   } | null;
+  team: BowlingTeamSummary | null;
 };
 
 export type StoredImagePayload = {
@@ -36,6 +47,8 @@ export type StoredImagePayload = {
   bucket?: string;
   objectKey?: string;
   team?: BowlingTeamSummary | null;
+  opponentTeam?: BowlingTeamSummary | null;
+  isLeagueGame?: boolean;
   originalFileName?: string | null;
   contentType?: string | null;
   sizeBytes?: number | null;
@@ -50,6 +63,8 @@ export type StoredImageSummary = {
   id: string;
   previewUrl: string;
   team: BowlingTeamSummary | null;
+  opponentTeam: BowlingTeamSummary | null;
+  isLeagueGame: boolean;
   originalFileName: string | null;
   contentType: string | null;
   sizeBytes: number | null;

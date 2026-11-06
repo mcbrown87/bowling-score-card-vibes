@@ -11,6 +11,7 @@ export const dynamic = 'force-dynamic';
 
 const gameSchema = z.object({
   playerName: z.string().optional(),
+  teamId: z.string().nullable().optional(),
   totalScore: z.number().nullable().optional(),
   frames: z.any(),
   tenthFrame: z.any()
@@ -50,7 +51,13 @@ export async function PUT(request: Request, context: RouteContext) {
 
     const storedImage = await prisma.storedImage.findUnique({
       where: { id: storedImageId },
-      select: { id: true, tenantId: true }
+      select: {
+        id: true,
+        tenantId: true,
+        isLeagueGame: true,
+        teamId: true,
+        opponentTeamId: true
+      }
     });
 
     if (!storedImage || storedImage.tenantId !== tenantAccess.tenantId) {
@@ -59,6 +66,21 @@ export async function PUT(request: Request, context: RouteContext) {
 
     const body = await request.json();
     const parsed = gameSchema.parse(body.game ?? body);
+    const positionalTeamId = storedImage.isLeagueGame
+      ? gameIndex < 4
+        ? storedImage.teamId
+        : storedImage.opponentTeamId
+      : null;
+
+    if (
+      parsed.teamId &&
+      ![storedImage.teamId, storedImage.opponentTeamId].includes(parsed.teamId)
+    ) {
+      return NextResponse.json(
+        { success: false, error: 'Score team must be assigned to this image' },
+        { status: 400 }
+      );
+    }
 
     const existing = await prisma.bowlingScore.findFirst({
       where: {
@@ -78,6 +100,7 @@ export async function PUT(request: Request, context: RouteContext) {
       const data = {
         playerId: player?.id ?? null,
         playerName: player?.name ?? parsed.playerName ?? null,
+        teamId: positionalTeamId ?? parsed.teamId ?? null,
         totalScore: parsed.totalScore ?? null,
         frames: parsed.frames as Prisma.InputJsonValue,
         tenthFrame: parsed.tenthFrame as Prisma.InputJsonValue,
@@ -94,7 +117,8 @@ export async function PUT(request: Request, context: RouteContext) {
                 id: true,
                 name: true
               }
-            }
+            },
+            team: { select: { id: true, name: true } }
           }
         });
       }
@@ -112,7 +136,8 @@ export async function PUT(request: Request, context: RouteContext) {
               id: true,
               name: true
             }
-          }
+          },
+          team: { select: { id: true, name: true } }
         }
       });
     });
@@ -124,6 +149,8 @@ export async function PUT(request: Request, context: RouteContext) {
         gameIndex: correction.gameIndex,
         isEstimate: correction.isEstimate,
         player: correction.player,
+        team: correction.team,
+        teamId: correction.team?.id ?? null,
         playerName: correction.playerName,
         totalScore: correction.totalScore,
         frames: correction.frames,

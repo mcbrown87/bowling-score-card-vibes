@@ -3,6 +3,8 @@ const getTenantAccessForSession = jest.fn();
 const storedImageFindUnique = jest.fn();
 const storedImageUpdate = jest.fn();
 const bowlingTeamFindUnique = jest.fn();
+const bowlingScoreUpdateMany = jest.fn();
+const transaction = jest.fn(async (operations: unknown[]) => Promise.all(operations));
 const findOrCreateTeamForName = jest.fn();
 const serializeStoredImage = jest.fn();
 const deleteObject = jest.fn();
@@ -68,7 +70,11 @@ jest.mock('@/server/db/client', () => ({
     },
     bowlingTeam: {
       findUnique: bowlingTeamFindUnique
-    }
+    },
+    bowlingScore: {
+      updateMany: bowlingScoreUpdateMany
+    },
+    $transaction: transaction
   }
 }));
 
@@ -181,6 +187,72 @@ describe('/api/stored-images/[id] team assignment', () => {
         data: { teamId: null }
       })
     );
+  });
+
+  it('marks an image as a league game and assigns a second tenant team', async () => {
+    bowlingTeamFindUnique.mockResolvedValue({ id: 'team-2', tenantId: 'tenant-1' });
+
+    const { PATCH } = await import('./route');
+    const response = await PATCH(
+      buildRequest({ isLeagueGame: true, opponentTeamId: 'team-2' }),
+      context
+    );
+
+    expect(response.status).toBe(200);
+    expect(storedImageUpdate).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: { isLeagueGame: true, opponentTeamId: 'team-2' }
+      })
+    );
+  });
+
+  it('rejects assigning the same team to both sides of a league game', async () => {
+    storedImageFindUnique.mockResolvedValue({
+      id: 'image-1',
+      tenantId: 'tenant-1',
+      teamId: 'team-1',
+      opponentTeamId: null
+    });
+    bowlingTeamFindUnique.mockResolvedValue({ id: 'team-1', tenantId: 'tenant-1' });
+
+    const { PATCH } = await import('./route');
+    const response = await PATCH(buildRequest({ opponentTeamId: 'team-1' }), context);
+
+    expect(response.status).toBe(400);
+    expect(storedImageUpdate).not.toHaveBeenCalled();
+    await expect(response.json()).resolves.toEqual({
+      success: false,
+      error: 'League games require two different teams'
+    });
+  });
+
+  it('assigns the first four scores to team 1 and the last four to team 2', async () => {
+    storedImageFindUnique.mockResolvedValue({
+      id: 'image-1',
+      tenantId: 'tenant-1',
+      teamId: 'team-1',
+      opponentTeamId: null
+    });
+    bowlingTeamFindUnique.mockResolvedValue({ id: 'team-2', tenantId: 'tenant-1' });
+    storedImageUpdate.mockResolvedValue({
+      id: 'image-1',
+      isLeagueGame: true,
+      teamId: 'team-1',
+      opponentTeamId: 'team-2'
+    });
+
+    const { PATCH } = await import('./route');
+    const response = await PATCH(buildRequest({ opponentTeamId: 'team-2' }), context);
+
+    expect(response.status).toBe(200);
+    expect(bowlingScoreUpdateMany).toHaveBeenNthCalledWith(1, {
+      where: { storedImageId: 'image-1', gameIndex: { lt: 4 } },
+      data: { teamId: 'team-1' }
+    });
+    expect(bowlingScoreUpdateMany).toHaveBeenNthCalledWith(2, {
+      where: { storedImageId: 'image-1', gameIndex: { gte: 4 } },
+      data: { teamId: 'team-2' }
+    });
   });
 
   it('rejects missing team assignment payloads', async () => {

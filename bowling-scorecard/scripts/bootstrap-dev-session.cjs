@@ -21,7 +21,8 @@ const databaseUrl = normalizeServiceUrl(process.env.DATABASE_URL, {
   db: 'localhost'
 });
 const storageEndpoint = normalizeServiceUrl(process.env.STORAGE_ENDPOINT, {
-  minio: 'localhost'
+  minio: 'localhost',
+  rustfs: 'localhost'
 });
 const storageBucket = process.env.STORAGE_BUCKET;
 const storageAccessKey = process.env.STORAGE_ACCESS_KEY;
@@ -89,11 +90,13 @@ const randomGamePlayerName =
   getFlagValue('--random-player-name') ||
   process.env.BOOTSTRAP_RANDOM_PLAYER_NAME ||
   bootstrapUser.name;
-const randomGamePlayerNames = (process.env.BOOTSTRAP_RANDOM_PLAYER_NAMES || 'M.C.B.,G.M.,K.K.,G.P.')
+const randomGamePlayerNames = (
+  process.env.BOOTSTRAP_RANDOM_PLAYER_NAMES || 'M.C.B.,G.M.,K.K.,G.P.,A.R.,D.S.,L.T.,R.W.'
+)
   .split(',')
   .map((name) => name.trim())
   .filter(Boolean)
-  .slice(0, 4);
+  .slice(0, 8);
 const effectiveRandomGamePlayerNames =
   randomGamePlayerNames.length > 0 ? randomGamePlayerNames : [randomGamePlayerName];
 const randomTeamNames = (
@@ -306,12 +309,13 @@ function generateRandomGame(playerName, gameIndex) {
   };
 }
 
-function buildGamesForImage(imageIndex) {
+function buildGamesForImage(imageIndex, isLeagueGame) {
   if (!useRandomGames) {
     return sampleGames;
   }
 
-  return effectiveRandomGamePlayerNames.map((playerName, playerIndex) =>
+  const playerCount = isLeagueGame ? 8 : 4;
+  return effectiveRandomGamePlayerNames.slice(0, playerCount).map((playerName, playerIndex) =>
     generateRandomGame(playerName, playerIndex)
   );
 }
@@ -389,8 +393,8 @@ async function ensureAppIsRunning() {
       '--build',
       'db',
       'redis',
-      'minio',
-      'minio-setup',
+      'rustfs',
+      'storage-setup',
       'app-migrate',
       'app',
       'queue-worker',
@@ -508,6 +512,9 @@ async function seedBootstrapData() {
         )
       : [];
   const playersByName = new Map();
+  let seededGameCount = 0;
+  let seededLeagueImageCount = 0;
+  let seededStandardImageCount = 0;
 
   for (let index = 0; index < bootstrapImageCount; index += 1) {
     const sequence = String(index + 1).padStart(3, '0');
@@ -515,6 +522,8 @@ async function seedBootstrapData() {
     const originalFileName =
       bootstrapImageCount === 1 ? fixtureBaseName : `bootstrap-${sequence}-${fixtureBaseName}`;
     const team = teams.length > 0 ? teams[index % teams.length] : null;
+    const isLeagueGame = teams.length > 1 && index % 3 === 0;
+    const opponentTeam = isLeagueGame ? teams[(index + 1) % teams.length] : null;
 
     await storageClient.send(
       new PutObjectCommand({
@@ -530,6 +539,8 @@ async function seedBootstrapData() {
         userId: user.id,
         tenantId,
         teamId: team?.id,
+        opponentTeamId: opponentTeam?.id,
+        isLeagueGame,
         bucket: storageBucket,
         objectKey,
         originalFileName,
@@ -539,7 +550,13 @@ async function seedBootstrapData() {
       }
     });
 
-    const gamesForImage = buildGamesForImage(index);
+    const gamesForImage = buildGamesForImage(index, isLeagueGame);
+    seededGameCount += gamesForImage.length;
+    if (isLeagueGame) {
+      seededLeagueImageCount += 1;
+    } else {
+      seededStandardImageCount += 1;
+    }
 
     for (const game of gamesForImage) {
       const normalizedName = normalizePlayerLookupName(game.playerName);
@@ -568,9 +585,15 @@ async function seedBootstrapData() {
     }
 
     await prisma.bowlingScore.createMany({
-      data: gamesForImage.map((game) => ({
+      data: gamesForImage.map((game, gameOffset) => ({
         storedImageId: storedImage.id,
         playerId: playersByName.get(normalizePlayerLookupName(game.playerName))?.id,
+        teamId:
+          isLeagueGame && opponentTeam
+            ? gameOffset < 4
+              ? team?.id
+              : opponentTeam.id
+            : team?.id,
         gameIndex: game.gameIndex,
         playerName: game.playerName,
         totalScore: game.totalScore,
@@ -625,9 +648,10 @@ async function seedBootstrapData() {
     `Seeded ${extraUsers.length} additional bootstrap user${extraUsers.length === 1 ? '' : 's'} (${extraUsers.map((extraUser) => extraUser.email).join(', ') || 'none'}).`
   );
   if (useRandomGames) {
-    const seededGameCount = bootstrapImageCount * effectiveRandomGamePlayerNames.length;
+    const leagueScoresPerImage = Math.min(8, effectiveRandomGamePlayerNames.length);
+    const standardScoresPerImage = Math.min(4, effectiveRandomGamePlayerNames.length);
     console.log(
-      `Random mode enabled: seeded ${seededGameCount} varied game${seededGameCount === 1 ? '' : 's'} across ${effectiveRandomGamePlayerNames.length} player${effectiveRandomGamePlayerNames.length === 1 ? '' : 's'}.`
+      `Random mode enabled: seeded ${seededGameCount} varied game${seededGameCount === 1 ? '' : 's'} across ${effectiveRandomGamePlayerNames.length} player${effectiveRandomGamePlayerNames.length === 1 ? '' : 's'} (${seededLeagueImageCount} league image${seededLeagueImageCount === 1 ? '' : 's'} with ${leagueScoresPerImage} scores; ${seededStandardImageCount} standard image${seededStandardImageCount === 1 ? '' : 's'} with ${standardScoresPerImage}).`
     );
     if (teams.length > 0) {
       console.log(

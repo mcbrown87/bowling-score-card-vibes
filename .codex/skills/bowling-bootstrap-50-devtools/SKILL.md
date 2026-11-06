@@ -1,13 +1,13 @@
 ---
 name: bowling-bootstrap-50-devtools
-description: Use for BowlingScoreCardVibes when the user wants to bootstrap the local app with enough seeded random games to exercise pagination and connect Chrome DevTools MCP for browser verification or UI work.
+description: Use for BowlingScoreCardVibes when the user wants mixed league and standard seeded scorecards, enough images to exercise pagination, and Chrome DevTools MCP connected for browser verification or UI work.
 ---
 
 # Bowling Bootstrap Pagination DevTools
 
 ## Purpose
 
-Seed the local BowlingScoreCardVibes app with random bootstrap player/team history that crosses the 50-image pagination boundary, then connect the Chrome DevTools MCP browser to the running app and log in as the bootstrap admin user.
+Seed the local BowlingScoreCardVibes app with mixed random scorecards that cross the 50-image pagination boundary: league images have two teams and eight scores, while standard images have one team and four scores. Then connect the Chrome DevTools MCP browser to the running app and log in as the bootstrap admin user.
 
 ## Workflow
 
@@ -36,7 +36,7 @@ Use this workdir:
 ```text
 Seeded 60 bootstrap images for dev+bootstrap@example.com.
 Seeded 9 additional bootstrap users (dev+user01@example.com, ...).
-Random mode enabled: seeded 240 varied games across 4 players.
+Random mode enabled: seeded 320 varied games across 8 players (20 league images with 8 scores; 40 standard images with 4).
 Team mode enabled: assigned bootstrap images across 4 teams (...).
 Roster status enabled: seeded 4 disabled player statuses (...).
 Logged in as dev+bootstrap@example.com.
@@ -74,7 +74,7 @@ Password: devpassword123
 
 - The bootstrap script deletes and replaces prior bootstrap fixture images for the bootstrap user before seeding.
 - `BOOTSTRAP_RANDOM_GAMES=true` defaults to 60 images so pagination is exercised; override with `BOOTSTRAP_IMAGE_COUNT` or `--image-count`.
-- Random mode creates one varied random game per configured player per seeded image and assigns images round-robin across teams. Override players with `BOOTSTRAP_RANDOM_PLAYER_NAMES` and teams with `BOOTSTRAP_RANDOM_TEAM_NAMES` or `--random-team-names`.
+- Random mode marks every third seeded image as a league game. With the default eight-player fixture, league images contain eight scores split first-four/last-four across two teams; all other images contain four scores for one team. Override players with `BOOTSTRAP_RANDOM_PLAYER_NAMES` and teams with `BOOTSTRAP_RANDOM_TEAM_NAMES` or `--random-team-names`. Configure eight player names when complete league fixtures are required.
 - Random team mode seeds one disabled roster-player status per team by default so the Teams tab can exercise persisted roster status. Override the count with `BOOTSTRAP_DISABLED_ROSTER_PLAYER_COUNT` or `--disabled-roster-player-count`.
 - The bootstrap user is expected to be an admin. If `/admin` is forbidden, run this from `bowling-scorecard`:
 - The bootstrap script also creates 9 ordinary users by default so admin tenancy flows can add existing users. Override with `BOOTSTRAP_EXTRA_USER_COUNT`, `BOOTSTRAP_EXTRA_USER_PASSWORD`, `BOOTSTRAP_EXTRA_USER_EMAIL_PREFIX`, or `BOOTSTRAP_EXTRA_USER_EMAIL_DOMAIN`.

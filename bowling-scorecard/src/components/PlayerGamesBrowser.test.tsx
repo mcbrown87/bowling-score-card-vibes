@@ -198,6 +198,37 @@ const buildTeamHistoryPage = () => ({
   ]
 });
 
+const buildLeagueTeamHistoryPage = () => ({
+  page: 1,
+  pageSize: 50,
+  totalImages: 1,
+  totalPages: 1,
+  canEdit: true,
+  images: [
+    {
+      id: 'img-league',
+      previewUrl: '/league.jpg',
+      team: { id: 'team-1', name: 'Home Team' },
+      opponentTeam: { id: 'team-2', name: 'Away Team' },
+      isLeagueGame: true,
+      originalFileName: 'league.jpg',
+      contentType: 'image/jpeg',
+      sizeBytes: 1000,
+      createdAt: '2026-04-04T12:00:00.000Z',
+      isProcessingEstimate: false,
+      lastEstimateError: null,
+      games: Array.from({ length: 8 }, (_, index) =>
+        buildGame(
+          index < 4 ? `Home Player ${index + 1}` : `Away Player ${index - 3}`,
+          [8, 18, 30, 44, 60, 78, 98, 120, 144, 100 + index],
+          100 + index,
+          { gameIndex: index }
+        )
+      )
+    }
+  ]
+});
+
 beforeEach(() => {
   mockedLoadStoredImages.mockResolvedValue(buildStoredImagesPage());
   mockedLoadTeamRosterStatus.mockResolvedValue({});
@@ -252,6 +283,29 @@ describe('PlayerGamesBrowser', () => {
     expect(screen.queryByRole('button', { name: /Unassigned/i })).not.toBeInTheDocument();
     expect(await screen.findByText(/Viewing Wednesday League — score 326/)).toBeVisible();
     expect(screen.queryByText('Frame heatmap')).not.toBeInTheDocument();
+  });
+
+  it('splits a league scorecard between its two teams', async () => {
+    mockedLoadStoredImages.mockResolvedValue(buildLeagueTeamHistoryPage());
+
+    render(<PlayerGamesBrowser mode="teams" />);
+
+    expect(await screen.findByText('2 teams · 2 scorecards')).toBeVisible();
+    const homeTeamButton = screen.getByRole('button', { name: /Home Team 1 scorecard/i });
+    const awayTeamButton = screen.getByRole('button', { name: /Away Team 1 scorecard/i });
+    expect(homeTeamButton).toBeVisible();
+    expect(awayTeamButton).toBeVisible();
+
+    fireEvent.click(homeTeamButton);
+
+    const homeRoster = await screen.findByRole('table', { name: 'Team roster' });
+    await waitFor(() => expect(within(homeRoster).getByText('Home Player 1')).toBeVisible());
+    expect(within(homeRoster).queryByText('Away Player 1')).not.toBeInTheDocument();
+
+    fireEvent.click(awayTeamButton);
+
+    await waitFor(() => expect(within(homeRoster).getByText('Away Player 1')).toBeVisible());
+    expect(within(homeRoster).queryByText('Home Player 1')).not.toBeInTheDocument();
   });
 
   it('shows the selected team as an aggregate of its players', async () => {

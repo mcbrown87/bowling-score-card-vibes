@@ -1,6 +1,9 @@
 import type { Prisma } from '@prisma/client';
 
-import { BOWLING_EXTRACTION_PROMPT } from '@/server/prompts/bowling';
+import {
+  getBowlingExtractionPrompt,
+  LEAGUE_GAME_PLAYER_COUNT
+} from '@/server/prompts/bowling';
 import { prisma } from '@/server/db/client';
 import { getProviderModel, getRuntimeSettings } from '@/server/config/appConfig';
 import { runProvider } from '@/server/providers';
@@ -12,7 +15,9 @@ import { readStorageBodyToBuffer } from '@/server/utils/storageBody';
 import { findOrCreatePlayerForName } from '@/server/services/players';
 
 export const INCLUDE_LLM_RAW = process.env.INCLUDE_LLM_RAW === 'true';
-export const PROMPT_VERSION = process.env.BOWLING_PROMPT_VERSION ?? 'bowling-v2-splits';
+const BASE_PROMPT_VERSION = process.env.BOWLING_PROMPT_VERSION ?? 'bowling-v3-exhaustive';
+export const PROMPT_VERSION = (isLeagueGame: boolean) =>
+  isLeagueGame ? `${BASE_PROMPT_VERSION}-league-8` : BASE_PROMPT_VERSION;
 
 export type ScoreEstimatorJobPayload = {
   storedImageId: string;
@@ -37,7 +42,10 @@ export const processScoreEstimatorJob = async ({
         originalFileName: true,
         contentType: true,
         sizeBytes: true,
-        createdAt: true
+        createdAt: true,
+        isLeagueGame: true,
+        teamId: true,
+        opponentTeamId: true
       }
     });
 
@@ -74,8 +82,9 @@ export const processScoreEstimatorJob = async ({
     const dataUrl = `data:${mediaType};base64,${bodyBuffer.toString('base64')}`;
     const normalizedImage = await normalizeImageDataUrl(dataUrl);
 
+    const extractionPrompt = getBowlingExtractionPrompt(storedImage.isLeagueGame);
     const rawRequestData: Prisma.JsonObject = {
-      prompt: BOWLING_EXTRACTION_PROMPT,
+      prompt: extractionPrompt,
       providerModel,
       existingStoredImage: storedImage.id,
       convertedImage: normalizedImage.converted
@@ -93,7 +102,7 @@ export const processScoreEstimatorJob = async ({
 
     const result = await runProvider(provider, {
       imageDataUrl: normalizedImage.dataUrl,
-      prompt: BOWLING_EXTRACTION_PROMPT,
+      prompt: extractionPrompt,
       model: providerModel
     });
 
@@ -103,6 +112,12 @@ export const processScoreEstimatorJob = async ({
 
     if (result.games.length === 0) {
       throw new Error('Provider returned no score games');
+    }
+
+    if (storedImage.isLeagueGame && result.games.length !== LEAGUE_GAME_PLAYER_COUNT) {
+      throw new Error(
+        `League extraction returned ${result.games.length} of ${LEAGUE_GAME_PLAYER_COUNT} expected player scores`
+      );
     }
 
     await prisma.lLMRequest.update({
@@ -135,6 +150,12 @@ export const processScoreEstimatorJob = async ({
             storedImageId: storedImage.id,
             llmRequestId,
             playerId: player?.id ?? null,
+            teamId:
+              storedImage.isLeagueGame && storedImage.teamId && storedImage.opponentTeamId
+                ? index < LEAGUE_GAME_PLAYER_COUNT / 2
+                  ? storedImage.teamId
+                  : storedImage.opponentTeamId
+                : null,
             gameIndex: index,
             playerName: player?.name ?? game.playerName,
             totalScore: game.totalScore,

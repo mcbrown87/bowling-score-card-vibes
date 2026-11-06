@@ -25,8 +25,8 @@
   },
   "scripts": {
     "dev": "next dev",
-    "deps:up": "docker compose -f ../docker-compose.yml up -d --wait db redis minio ml-service && docker compose -f ../docker-compose.yml up minio-setup",
-    "deps:down": "docker compose -f ../docker-compose.yml stop db redis minio ml-service",
+    "deps:up": "docker compose -f ../docker-compose.yml up -d --wait db redis rustfs ml-service && docker compose -f ../docker-compose.yml up storage-setup",
+    "deps:down": "docker compose -f ../docker-compose.yml stop db redis rustfs ml-service",
     "dev:prepare": "npm run prisma:deploy && npm run prisma:generate",
     "dev:full": "npm run deps:up && npm run dev:prepare && concurrently --kill-others --names app,worker \"npm run dev\" \"npm run queue:worker\"",
     "dev:prod-data": "dotenv -e .env.production-proxy.local -- next dev",

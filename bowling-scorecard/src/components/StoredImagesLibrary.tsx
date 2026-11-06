@@ -4,6 +4,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { StoredImagesPanel } from './StoredImagesPanel';
 import type {
   BowlingTeamSummary,
+  StoredImageTeamUpdate,
   StoredImagePayload,
   StoredImageSummary,
   StoredImagesPage
@@ -48,6 +49,7 @@ export function StoredImagesLibrary({
   const [activeImageIndexOnPage, setActiveImageIndexOnPage] = useState(0);
   const [teams, setTeams] = useState<BowlingTeamSummary[]>([]);
   const pollAbortRef = useRef(false);
+  const imageMutationVersionRef = useRef(0);
   const pendingPageTargetRef = useRef<'start' | 'end' | null>(null);
 
   useEffect(() => {
@@ -72,11 +74,14 @@ export function StoredImagesLibrary({
   }, []);
 
   const fetchImages = useCallback(async (page: number) => {
+    const mutationVersionAtStart = imageMutationVersionRef.current;
     setIsLoading(true);
     setError(null);
     try {
       const parsed = await loadStoredImages(page, LIBRARY_PAGE_SIZE);
-      applyPageData(parsed);
+      if (mutationVersionAtStart === imageMutationVersionRef.current) {
+        applyPageData(parsed);
+      }
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to load your uploads');
     } finally {
@@ -109,9 +114,13 @@ export function StoredImagesLibrary({
   }, []);
 
   const refreshImagesSilently = useCallback(async () => {
+    const mutationVersionAtStart = imageMutationVersionRef.current;
     try {
       const parsed = await loadStoredImages(currentPage, LIBRARY_PAGE_SIZE);
-      if (!pollAbortRef.current) {
+      if (
+        !pollAbortRef.current &&
+        mutationVersionAtStart === imageMutationVersionRef.current
+      ) {
         applyPageData(parsed);
       }
       return parsed;
@@ -233,16 +242,24 @@ export function StoredImagesLibrary({
   }, []);
 
   const handleUpdateImageTeam = useCallback(
-    async (imageId: string, assignment: { teamId: string | null } | { teamName: string }) => {
+    async (imageId: string, assignment: StoredImageTeamUpdate) => {
+      imageMutationVersionRef.current += 1;
       try {
         const updatedImage = await saveStoredImageTeam(imageId, assignment);
         setImages((prev) =>
           prev.map((image) => (image.id === imageId ? updatedImage : image))
         );
-        if (updatedImage.team) {
+        if (updatedImage.team || updatedImage.opponentTeam) {
           setTeams((prev) => {
-            const exists = prev.some((team) => team.id === updatedImage.team?.id);
-            const next = exists ? prev : [...prev, updatedImage.team as BowlingTeamSummary];
+            const assignedTeams = [updatedImage.team, updatedImage.opponentTeam].filter(
+              (team): team is BowlingTeamSummary => Boolean(team)
+            );
+            const next = [...prev];
+            assignedTeams.forEach((assignedTeam) => {
+              if (!next.some((team) => team.id === assignedTeam.id)) {
+                next.push(assignedTeam);
+              }
+            });
             return [...next].sort((a, b) => a.name.localeCompare(b.name));
           });
         }

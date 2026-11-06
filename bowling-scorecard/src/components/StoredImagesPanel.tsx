@@ -1,14 +1,20 @@
 /* eslint-disable @next/next/no-img-element */
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { CSSProperties, ReactNode } from 'react';
-import type { BowlingTeamSummary, StoredImageSummary } from '@/types/stored-image';
+import type {
+  BowlingTeamSummary,
+  StoredImageSummary,
+  StoredImageTeamUpdate
+} from '@/types/stored-image';
 import type { Game } from '@/types/bowling';
 import { Scorecard } from './Scorecard';
 import { FrameCorrectionModal } from './FrameCorrectionModal';
 import { PlayerNameModal } from './PlayerNameModal';
+import { LeagueGameSwitch } from './LeagueGameSwitch';
 import { useDesktopKeyboardMode } from '../utils/useDesktopKeyboardMode';
 import { useDesktopScoreCorrection } from '../utils/useDesktopScoreCorrection';
 import { createEmptyGame, getNextGameIndex } from '../utils/gameCreation';
+import { calculateLeaguePoints } from '../utils/leaguePoints';
 
 interface StoredImagesPanelProps {
   images: StoredImageSummary[];
@@ -21,7 +27,7 @@ interface StoredImagesPanelProps {
   onDeleteImage?: (imageId: string) => void;
   onUpdateImageTeam?: (
     imageId: string,
-    assignment: { teamId: string | null } | { teamName: string }
+    assignment: StoredImageTeamUpdate
   ) => Promise<void> | void;
   generatingImageId?: string | null;
   clearingImageId?: string | null;
@@ -100,6 +106,62 @@ const imageFileMetaStyles: CSSProperties = {
   ...metaStyles,
   minWidth: 0
 };
+
+const leaguePointsStyles: CSSProperties = {
+  maxWidth: '720px',
+  margin: '12px auto 0',
+  padding: '14px',
+  border: '1px solid #334155',
+  borderRadius: '12px',
+  background: 'rgba(15, 23, 42, 0.72)',
+  color: '#dbeafe'
+};
+
+const leaguePointsGridStyles: CSSProperties = {
+  display: 'grid',
+  gridTemplateColumns: 'repeat(2, minmax(0, 1fr))',
+  gap: '12px',
+  alignItems: 'center',
+  textAlign: 'right'
+};
+
+const leaguePointsWinnerStyles: CSSProperties = { color: '#86efac', fontWeight: 800 };
+
+function LeaguePoints({ image, inline = false }: { image: StoredImageSummary; inline?: boolean }) {
+  const breakdown = calculateLeaguePoints(image);
+  if (!breakdown || !image.team || !image.opponentTeam) return null;
+
+  return (
+    <section
+      style={{
+        ...leaguePointsStyles,
+        ...(inline ? { maxWidth: 'none', width: '100%', margin: 0, alignSelf: 'stretch' } : {})
+      }}
+      aria-label="League score breakdown"
+    >
+      <div style={{ ...leaguePointsGridStyles, paddingBottom: '9px', borderBottom: '1px solid #334155' }}>
+        <strong><small style={{ color: '#94a3b8' }}>TEAM 1</small><br />{image.team.name}<br /><span style={{ color: '#93c5fd' }}>{breakdown.homePoints} pts</span></strong>
+        <strong><small style={{ color: '#94a3b8' }}>TEAM 2</small><br />{image.opponentTeam.name}<br /><span style={{ color: '#93c5fd' }}>{breakdown.awayPoints} pts</span></strong>
+      </div>
+      <div role="table" aria-label={`${image.team.name} versus ${image.opponentTeam.name} point breakdown`}>
+        {breakdown.points.map((point) => (
+          <div role="row" key={point.label} style={{ ...leaguePointsGridStyles, paddingTop: '8px', fontSize: '13px' }}>
+            <span role="cell" aria-label={`Team 1 ${point.label}`} style={point.homePoints > point.awayPoints ? leaguePointsWinnerStyles : undefined}>
+              {point.label === 'Team total' && <small style={{ color: '#94a3b8', fontWeight: 600 }}>Team total · </small>}
+              {point.homePlayerName && <small style={{ color: '#94a3b8', fontWeight: 600 }}>{point.homePlayerName} · </small>}
+              {point.homeScore} <small>({point.homePoints})</small>
+            </span>
+            <span role="cell" aria-label={`Team 2 ${point.label}`} style={point.awayPoints > point.homePoints ? leaguePointsWinnerStyles : undefined}>
+              {point.label === 'Team total' && <small style={{ color: '#94a3b8', fontWeight: 600 }}>Team total · </small>}
+              {point.awayPlayerName && <small style={{ color: '#94a3b8', fontWeight: 600 }}>{point.awayPlayerName} · </small>}
+              {point.awayScore} <small>({point.awayPoints})</small>
+            </span>
+          </div>
+        ))}
+      </div>
+    </section>
+  );
+}
 
 const teamControlStyles: CSSProperties = {
   position: 'relative',
@@ -495,15 +557,8 @@ const modalTitleStyles: CSSProperties = {
 
 const compactLayoutQuery = '(max-width: 640px), (pointer: coarse)';
 
-const getCompactLayoutMatches = () => {
-  if (typeof window === 'undefined' || typeof window.matchMedia !== 'function') {
-    return false;
-  }
-  return window.matchMedia(compactLayoutQuery).matches;
-};
-
 const useCompactLibraryLayout = () => {
-  const [isCompact, setIsCompact] = useState(getCompactLayoutMatches);
+  const [isCompact, setIsCompact] = useState(false);
 
   useEffect(() => {
     if (typeof window === 'undefined' || typeof window.matchMedia !== 'function') {
@@ -555,6 +610,8 @@ type TeamComboboxProps = {
   disabled: boolean;
   error: string | null;
   compact?: boolean;
+  label?: string;
+  inputId?: string;
   onSelectTeam: (teamId: string) => void;
   onCreateTeam: (teamName: string) => void;
   onClearTeam: () => void;
@@ -566,6 +623,8 @@ function TeamCombobox({
   disabled,
   error,
   compact = false,
+  label = 'Team',
+  inputId = 'image-team-combobox',
   onSelectTeam,
   onCreateTeam,
   onClearTeam
@@ -634,12 +693,12 @@ function TeamCombobox({
   return (
     <div style={compact ? teamControlCompactStyles : teamControlStyles}>
       <div style={compact ? teamCompactEditorStyles : undefined}>
-        <label htmlFor="image-team-combobox" style={teamLabelStyles}>
-          Team
+        <label htmlFor={inputId} style={teamLabelStyles}>
+          {label}
         </label>
         <div style={teamInputRowStyles}>
           <input
-            id="image-team-combobox"
+            id={inputId}
             type="text"
             role="combobox"
             aria-expanded={isOpen}
@@ -931,7 +990,7 @@ export function StoredImagesPanel({
   }, [activeImage?.id]);
 
   const handleUpdateTeam = useCallback(
-    async (assignment: { teamId: string | null } | { teamName: string }) => {
+    async (assignment: StoredImageTeamUpdate) => {
       if (!activeImage || !onUpdateImageTeam || isSavingTeam) {
         return;
       }
@@ -1288,14 +1347,24 @@ export function StoredImagesPanel({
                 ...(isCompactLayout
                   ? {
                       marginTop: '8px',
-                      gridTemplateColumns: 'minmax(0, 1fr) auto',
+                      gridTemplateColumns: activeImage.isLeagueGame ? 'minmax(0, 1fr)' : 'minmax(0, 1fr) auto',
                       gap: '8px',
                       alignItems: 'center'
                     }
-                  : {})
+                  : activeImage.isLeagueGame
+                    ? {
+                        gridTemplateColumns: 'minmax(220px, 280px) minmax(0, 1fr)',
+                        alignItems: 'start'
+                      }
+                    : {})
               }}
             >
-              <div style={imageFileMetaStyles}>
+              <div
+                style={{
+                  ...imageFileMetaStyles,
+                  ...(activeImage.isLeagueGame ? { gridColumn: '1 / -1' } : {})
+                }}
+              >
                 <div
                   style={{
                     overflow: 'hidden',
@@ -1311,22 +1380,62 @@ export function StoredImagesPanel({
                 <div>Uploaded {formatDate(activeImage.createdAt)}</div>
               </div>
               {canEdit && onUpdateImageTeam && (
-                <TeamCombobox
-                  teams={teams}
-                  value={activeImage.team}
-                  disabled={isSavingTeam || isDeletingActiveImage}
-                  error={teamError}
-                  compact={isCompactLayout}
-                  onSelectTeam={(teamId) => {
-                    void handleUpdateTeam({ teamId });
-                  }}
-                  onCreateTeam={(teamName) => {
-                    void handleUpdateTeam({ teamName });
-                  }}
-                  onClearTeam={() => {
-                    void handleUpdateTeam({ teamId: null });
-                  }}
-                />
+                <div style={{ display: 'grid', gap: '8px', alignContent: 'start' }}>
+                  <LeagueGameSwitch
+                    checked={activeImage.isLeagueGame}
+                    disabled={isSavingTeam || isDeletingActiveImage}
+                    compact={isCompactLayout}
+                    onChange={(isLeagueGame) => {
+                      void handleUpdateTeam({ isLeagueGame });
+                    }}
+                  />
+                  <TeamCombobox
+                    teams={teams}
+                    value={activeImage.team}
+                    disabled={isSavingTeam || isDeletingActiveImage}
+                    error={teamError}
+                    compact={isCompactLayout}
+                    label={activeImage.isLeagueGame ? 'Team 1' : 'Team'}
+                    inputId="image-primary-team-combobox"
+                    onSelectTeam={(teamId) => {
+                      void handleUpdateTeam({ teamId });
+                    }}
+                    onCreateTeam={(teamName) => {
+                      void handleUpdateTeam({ teamName });
+                    }}
+                    onClearTeam={() => {
+                      void handleUpdateTeam({ teamId: null });
+                    }}
+                  />
+                  {activeImage.isLeagueGame && (
+                    <TeamCombobox
+                      teams={teams.filter((team) => team.id !== activeImage.team?.id)}
+                      value={activeImage.opponentTeam}
+                      disabled={isSavingTeam || isDeletingActiveImage}
+                      error={teamError}
+                      compact={isCompactLayout}
+                      label="Team 2"
+                      inputId="image-opponent-team-combobox"
+                      onSelectTeam={(opponentTeamId) => {
+                        void handleUpdateTeam({ opponentTeamId });
+                      }}
+                      onCreateTeam={(opponentTeamName) => {
+                        void handleUpdateTeam({ opponentTeamName });
+                      }}
+                      onClearTeam={() => {
+                        void handleUpdateTeam({ opponentTeamId: null });
+                      }}
+                    />
+                  )}
+                  {activeImage.isLeagueGame && (!activeImage.team || !activeImage.opponentTeam) && (
+                    <div style={teamErrorStyles}>Select two teams to complete this league game.</div>
+                  )}
+                </div>
+              )}
+              {activeImage.isLeagueGame && (
+                <div style={canEdit && onUpdateImageTeam ? undefined : { gridColumn: '1 / -1' }}>
+                  <LeaguePoints image={activeImage} inline />
+                </div>
               )}
             </div>
             {totalImagesForDisplay > 1 && (

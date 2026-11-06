@@ -3,6 +3,7 @@ import type {
   StoredGamePayload,
   StoredImagePayload,
   StoredImageSummary,
+  StoredImageTeamUpdate,
   StoredGameSummary,
   StoredImagesPage,
   TeamRosterStatusMap
@@ -66,6 +67,11 @@ const normalizeStoredGame = (
     tenthFrame,
     totalScore,
     player: (game as StoredGamePayload)?.player ?? null,
+    team: normalizeTeam((game as StoredGamePayload)?.team ?? null),
+    teamId:
+      typeof (game as StoredGamePayload)?.teamId === 'string'
+        ? (game as StoredGamePayload).teamId ?? null
+        : normalizeTeam((game as StoredGamePayload)?.team ?? null)?.id ?? null,
     playerName
   };
 };
@@ -96,6 +102,8 @@ export const normalizeStoredImage = (
     id: image.id,
     previewUrl: image.previewUrl ?? `/api/stored-images/${image.id}/content`,
     team: normalizeTeam(image.team ?? null),
+    opponentTeam: normalizeTeam(image.opponentTeam ?? null),
+    isLeagueGame: Boolean(image.isLeagueGame),
     originalFileName: image.originalFileName ?? null,
     contentType: image.contentType ?? null,
     sizeBytes:
@@ -217,7 +225,7 @@ export async function saveTeamRosterPlayerStatus(
 
 export async function saveStoredImageTeam(
   storedImageId: string,
-  assignment: { teamId: string | null } | { teamName: string }
+  assignment: StoredImageTeamUpdate
 ): Promise<StoredImageSummary> {
   const response = await fetch(`/api/stored-images/${storedImageId}`, {
     method: 'PATCH',

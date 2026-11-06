@@ -12,7 +12,7 @@ services:
         condition: service_completed_successfully
       db:
         condition: service_healthy
-      minio-setup:
+      storage-setup:
         condition: service_completed_successfully
       redis:
         condition: service_healthy
@@ -22,6 +22,7 @@ services:
       CHOKIDAR_USEPOLLING: 'true'
       ML_SERVICE_URL: http://ml-service:8000
       REDIS_URL: redis://redis:6379
+      STORAGE_ENDPOINT: http://rustfs:9000
     volumes:
       - ./bowling-scorecard:/app
       - /app/node_modules
@@ -38,7 +39,7 @@ services:
     depends_on:
       db:
         condition: service_healthy
-      minio-setup:
+      storage-setup:
         condition: service_completed_successfully
     volumes:
       - ./bowling-scorecard:/app
@@ -62,35 +63,36 @@ services:
       interval: 5s
       timeout: 5s
       retries: 5
-  minio:
-    image: minio/minio:RELEASE.2024-10-13T13-34-11Z
-    command: server /data --console-address ":9001"
+  rustfs:
+    image: rustfs/rustfs:1.0.4
     restart: unless-stopped
     environment:
-      MINIO_ROOT_USER: ${MINIO_ROOT_USER:-minioadmin}
-      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD:-minioadmin}
+      RUSTFS_ACCESS_KEY: ${RUSTFS_ACCESS_KEY:-rustfsadmin}
+      RUSTFS_SECRET_KEY: ${RUSTFS_SECRET_KEY:-rustfsadmin}
     ports:
       - '9000:9000'
       - '9001:9001'
     volumes:
-      - minio-data:/data
-  minio-setup:
-    image: minio/mc:latest
+      - rustfs-data:/data
+  storage-setup:
+    build:
+      context: .
+      dockerfile: bowling-scorecard/Dockerfile
+      target: dev
+    command: node scripts/ensure-storage-bucket.cjs
     depends_on:
-      minio:
+      rustfs:
         condition: service_started
     environment:
-      MINIO_ROOT_USER: ${MINIO_ROOT_USER:-minioadmin}
-      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD:-minioadmin}
-      MINIO_BUCKET: ${MINIO_BUCKET:-bowling-scorecards}
-    entrypoint: >
-      /bin/sh -c "
-        until mc alias set local http://minio:9000 $${MINIO_ROOT_USER} $${MINIO_ROOT_PASSWORD}; do
-          echo 'Waiting for MinIO to be ready...'; sleep 2;
-        done;
-        mc mb -p local/$${MINIO_BUCKET} || true;
-        mc anonymous set download local/$${MINIO_BUCKET};
-      "
+      STORAGE_ENDPOINT: http://rustfs:9000
+      STORAGE_BUCKET: ${STORAGE_BUCKET:-bowling-scorecards}
+      STORAGE_ACCESS_KEY: ${RUSTFS_ACCESS_KEY:-rustfsadmin}
+      STORAGE_SECRET_KEY: ${RUSTFS_SECRET_KEY:-rustfsadmin}
+      STORAGE_REGION: ${STORAGE_REGION:-us-east-1}
+      STORAGE_USE_SSL: 'false'
+    volumes:
+      - ./bowling-scorecard:/app
+      - /app/node_modules
     restart: 'no'
   redis:
     image: redis:7-alpine
@@ -126,7 +128,7 @@ services:
         condition: service_completed_successfully
       db:
         condition: service_healthy
-      minio-setup:
+      storage-setup:
         condition: service_completed_successfully
       redis:
         condition: service_healthy
@@ -134,6 +136,7 @@ services:
       ML_SERVICE_URL: http://ml-service:8000
       NODE_ENV: development
       REDIS_URL: redis://redis:6379
+      STORAGE_ENDPOINT: http://rustfs:9000
     env_file:
       - ./bowling-scorecard/.env
     volumes:
@@ -157,6 +160,6 @@ services:
 
 volumes:
   postgres-data:
-  minio-data:
+  rustfs-data:
   redis-data:
   ml-model-data:

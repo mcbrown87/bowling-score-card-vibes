@@ -22,10 +22,13 @@ export interface ExtractionResult {
   queued?: boolean;
 }
 
-export const extractScoresFromImage = async (imageFile: string | File): Promise<ExtractionResult> => {
+export const extractScoresFromImage = async (
+  imageFile: string | File,
+  options: { fileName?: string; isLeagueGame?: boolean } = {}
+): Promise<ExtractionResult> => {
   // Convert File to base64 data URL if needed
   let imageDataUrl: string;
-  let fileName: string | undefined;
+  let fileName: string | undefined = options.fileName;
   
   if (typeof imageFile === 'string') {
     imageDataUrl = imageFile;
@@ -57,7 +60,8 @@ export const extractScoresFromImage = async (imageFile: string | File): Promise<
       },
       body: JSON.stringify({
         imageDataUrl,
-        fileName
+        fileName,
+        isLeagueGame: Boolean(options.isLeagueGame)
       })
     });
 

@@ -2,7 +2,7 @@ import { randomUUID } from 'node:crypto';
 import { NextResponse } from 'next/server';
 import type { Prisma } from '@prisma/client';
 import { z } from 'zod';
-import { BOWLING_EXTRACTION_PROMPT } from '@/server/prompts/bowling';
+import { getBowlingExtractionPrompt } from '@/server/prompts/bowling';
 import { auth } from '@/server/auth';
 import { getTenantAccessForSession } from '@/server/auth/tenant';
 import { prisma } from '@/server/db/client';
@@ -23,7 +23,8 @@ const requestSchema = z.object({
     .string()
     .regex(/^data:.*;base64,/u, 'imageDataUrl must be a base64 data URL'),
   prompt: z.string().optional(),
-  fileName: z.string().optional()
+  fileName: z.string().optional(),
+  isLeagueGame: z.boolean().optional().default(false)
 });
 
 export const dynamic = 'force-dynamic';
@@ -116,12 +117,13 @@ export async function POST(request: Request) {
         objectKey,
         originalFileName: parsed.fileName ?? null,
         contentType: mediaType,
-        sizeBytes: imageBuffer.length
+        sizeBytes: imageBuffer.length,
+        isLeagueGame: parsed.isLeagueGame
       }
     });
 
     const providerModel = await getProviderModel(provider);
-    const requestPrompt = parsed.prompt ?? BOWLING_EXTRACTION_PROMPT;
+    const requestPrompt = getBowlingExtractionPrompt(parsed.isLeagueGame, parsed.prompt);
 
     const rawRequestData: Prisma.JsonObject = {
       prompt: requestPrompt,
@@ -132,9 +134,9 @@ export async function POST(request: Request) {
 
     const [promptRecord] = await prisma.$transaction([
       prisma.prompt.upsert({
-        where: { version: PROMPT_VERSION },
+        where: { version: PROMPT_VERSION(parsed.isLeagueGame) },
         update: { content: requestPrompt },
-        create: { version: PROMPT_VERSION, content: requestPrompt }
+        create: { version: PROMPT_VERSION(parsed.isLeagueGame), content: requestPrompt }
       })
     ]);
 

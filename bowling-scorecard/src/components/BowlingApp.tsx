@@ -7,6 +7,7 @@ import type { CSSProperties } from 'react';
 import { Scorecard } from './Scorecard';
 import { FrameCorrectionModal } from './FrameCorrectionModal';
 import { PlayerNameModal } from './PlayerNameModal';
+import { LeagueGameSwitch } from './LeagueGameSwitch';
 import { Game } from '../types/bowling';
 import type { StoredImageSummary, StoredImagePayload, StoredGameSummary } from '@/types/stored-image';
 import { extractScoresFromImage } from '../utils/scoreExtractor';
@@ -289,6 +290,7 @@ function BowlingApp({ initialCanEditTenant = true }: BowlingAppProps) {
   const [activeStoredImageId, setActiveStoredImageId] = useState<string | null>(null);
   const [correctionError, setCorrectionError] = useState<string | null>(null);
   const [canEditTenant, setCanEditTenant] = useState(initialCanEditTenant);
+  const [isLeagueGameUpload, setIsLeagueGameUpload] = useState(false);
   const isDesktopKeyboardMode = useDesktopKeyboardMode();
 
   const tagGamesAsEstimates = useCallback((items: Game[]) => {
@@ -476,7 +478,10 @@ function BowlingApp({ initialCanEditTenant = true }: BowlingAppProps) {
         setIsProcessing(true);
         
         try {
-          const result = await extractScoresFromImage(imageData);
+          const result = await extractScoresFromImage(imageData, {
+            fileName: file.name,
+            isLeagueGame: isLeagueGameUpload
+          });
           
           if (result.success && result.games && result.games.length > 0) {
             setGames(tagGamesAsEstimates(result.games));
@@ -862,6 +867,12 @@ function BowlingApp({ initialCanEditTenant = true }: BowlingAppProps) {
       </div>
 
       <div id="upload" style={responsiveButtonContainerStyles}>
+        <LeagueGameSwitch
+          checked={isLeagueGameUpload}
+          onChange={setIsLeagueGameUpload}
+          disabled={uploadControlsLocked}
+          compact={isMobile}
+        />
         <input
           type="file"
           accept="image/*"

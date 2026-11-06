@@ -84,7 +84,9 @@ model BowlingTeam {
 
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
   tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-  storedImages StoredImage[]
+  storedImages StoredImage[] @relation("StoredImagePrimaryTeam")
+  opponentStoredImages StoredImage[] @relation("StoredImageOpponentTeam")
+  scores BowlingScore[]
   rosterPlayerStatuses TeamRosterPlayerStatus[]
 
   @@unique([tenantId, normalizedName])
@@ -176,6 +178,8 @@ model StoredImage {
   userId           String
   tenantId         String
   teamId           String?
+  opponentTeamId   String?
+  isLeagueGame     Boolean  @default(false)
   bucket           String
   objectKey        String
   originalFileName String?
@@ -186,7 +190,8 @@ model StoredImage {
 
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
   tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-  team BowlingTeam? @relation(fields: [teamId], references: [id], onDelete: SetNull)
+  team BowlingTeam? @relation("StoredImagePrimaryTeam", fields: [teamId], references: [id], onDelete: SetNull)
+  opponentTeam BowlingTeam? @relation("StoredImageOpponentTeam", fields: [opponentTeamId], references: [id], onDelete: SetNull)
   scores BowlingScore[]
   llmRequests LLMRequest[]
 
@@ -194,6 +199,7 @@ model StoredImage {
   @@index([userId])
   @@index([tenantId])
   @@index([teamId])
+  @@index([opponentTeamId])
   @@map("stored_images")
 }
 
@@ -202,6 +208,7 @@ model BowlingScore {
   storedImageId String
   llmRequestId  String?
   playerId      String?
+  teamId        String?
   gameIndex     Int
   playerName    String?
   totalScore    Int?
@@ -216,10 +223,12 @@ model BowlingScore {
   storedImage StoredImage @relation(fields: [storedImageId], references: [id], onDelete: Cascade)
   llmRequest LLMRequest? @relation(fields: [llmRequestId], references: [id], onDelete: SetNull)
   player Player? @relation(fields: [playerId], references: [id], onDelete: SetNull)
+  team BowlingTeam? @relation(fields: [teamId], references: [id], onDelete: SetNull)
 
   @@index([storedImageId])
   @@index([llmRequestId])
   @@index([playerId])
+  @@index([teamId])
   @@unique([storedImageId, gameIndex, isEstimate])
   @@map("bowling_scores")
 }

@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 
-import { BOWLING_EXTRACTION_PROMPT } from '@/server/prompts/bowling';
+import { getBowlingExtractionPrompt } from '@/server/prompts/bowling';
 import { auth } from '@/server/auth';
 import { getTenantAccessForSession } from '@/server/auth/tenant';
 import { prisma } from '@/server/db/client';
@@ -80,11 +80,13 @@ export async function POST(_request: Request, context: RouteContext) {
     const settings = await getRuntimeSettings();
     const provider = settings.activeProvider;
     const providerModel = await getProviderModel(provider);
+    const extractionPrompt = getBowlingExtractionPrompt(storedImage.isLeagueGame);
+    const promptVersion = PROMPT_VERSION(storedImage.isLeagueGame);
     const [promptRecord] = await prisma.$transaction([
       prisma.prompt.upsert({
-        where: { version: PROMPT_VERSION },
-        update: { content: BOWLING_EXTRACTION_PROMPT },
-        create: { version: PROMPT_VERSION, content: BOWLING_EXTRACTION_PROMPT }
+        where: { version: promptVersion },
+        update: { content: extractionPrompt },
+        create: { version: promptVersion, content: extractionPrompt }
       })
     ]);
 
@@ -96,7 +98,7 @@ export async function POST(_request: Request, context: RouteContext) {
         promptId: promptRecord.id,
         status: 'queued',
         rawRequest: {
-          promptVersion: PROMPT_VERSION,
+          promptVersion,
           providerModel,
           existingStoredImage: storedImage.id
         }

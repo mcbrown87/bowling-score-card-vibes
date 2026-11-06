@@ -18,6 +18,12 @@ export const storedImageInclude = {
           name: true
         }
       },
+      team: {
+        select: {
+          id: true,
+          name: true
+        }
+      },
       totalScore: true,
       frames: true,
       tenthFrame: true,
@@ -26,6 +32,12 @@ export const storedImageInclude = {
     }
   },
   team: {
+    select: {
+      id: true,
+      name: true
+    }
+  },
+  opponentTeam: {
     select: {
       id: true,
       name: true
@@ -79,6 +91,8 @@ export const serializeStoredImage = (image: StoredImageWithRelations) => {
     bucket: image.bucket,
     objectKey: image.objectKey,
     team: image.team,
+    opponentTeam: image.opponentTeam,
+    isLeagueGame: image.isLeagueGame,
     originalFileName: image.originalFileName,
     contentType: image.contentType,
     sizeBytes: image.sizeBytes,
@@ -89,6 +103,8 @@ export const serializeStoredImage = (image: StoredImageWithRelations) => {
       gameIndex: score.gameIndex,
       isEstimate: score.isEstimate,
       player: score.player,
+      team: score.team,
+      teamId: score.team?.id ?? null,
       playerName: score.playerName,
       totalScore: score.totalScore,
       frames: score.frames,

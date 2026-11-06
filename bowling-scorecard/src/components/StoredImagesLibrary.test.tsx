@@ -30,6 +30,8 @@ const buildImage = (page: number, index: number) => ({
   id: `image-page-${page}-${index + 1}`,
   previewUrl: '/test-preview.jpg',
   team: null,
+  opponentTeam: null,
+  isLeagueGame: false,
   originalFileName: `score-page-${page}-${index + 1}.jpg`,
   contentType: 'image/jpeg',
   sizeBytes: 1024,
@@ -80,6 +82,8 @@ beforeEach(() => {
   mockedSaveStoredImageTeam.mockImplementation(async (imageId, assignment) => ({
     ...buildImage(1, 0),
     id: imageId,
+    isLeagueGame: assignment.isLeagueGame ?? false,
+    opponentTeam: null,
     team:
       'teamName' in assignment
         ? { id: 'created-team', name: assignment.teamName }
@@ -204,5 +208,28 @@ describe('StoredImagesLibrary', () => {
       })
     );
     expect(await screen.findByDisplayValue('Wednesday League')).toBeVisible();
+  });
+
+  it('persists the league-game toggle in the selected image', async () => {
+    mockedLoadStoredImages.mockResolvedValueOnce({
+      ...buildPage(1, 1, 1),
+      totalImages: 1
+    });
+
+    render(<StoredImagesLibrary />);
+
+    const leagueSwitch = await screen.findByRole('switch', { name: 'League game' });
+    expect(leagueSwitch).toHaveAttribute('aria-checked', 'false');
+
+    fireEvent.click(leagueSwitch);
+
+    await waitFor(() =>
+      expect(mockedSaveStoredImageTeam).toHaveBeenCalledWith('image-page-1-1', {
+        isLeagueGame: true
+      })
+    );
+    expect(await screen.findByRole('combobox', { name: 'Team 1' })).toBeVisible();
+    expect(screen.getByRole('combobox', { name: 'Team 2' })).toBeVisible();
+    expect(leagueSwitch).toHaveAttribute('aria-checked', 'true');
   });
 });

@@ -57,6 +57,42 @@ afterAll(() => {
 });
 
 describe('StoredImagesPanel', () => {
+  it('shows the five-point breakdown for a complete league image', () => {
+    const leagueImage = {
+      ...buildImageSummary(),
+      isLeagueGame: true,
+      team: { id: 'home', name: 'Pin Pushers' },
+      opponentTeam: { id: 'away', name: 'Spare Change' },
+      games: [
+        ...[210, 180, 160, 150].map((totalScore, gameIndex) => ({
+          ...buildImageSummary().games[0], gameIndex, totalScore, playerName: `Home Player ${gameIndex + 1}`, team: { id: 'home', name: 'Pin Pushers' },
+          tenthFrame: { ...buildImageSummary().games[0].tenthFrame, score: totalScore }
+        })),
+        ...[200, 190, 160, 140].map((totalScore, index) => ({
+          ...buildImageSummary().games[0], gameIndex: index + 4, totalScore, playerName: `Away Player ${index + 1}`, team: { id: 'away', name: 'Spare Change' },
+          tenthFrame: { ...buildImageSummary().games[0].tenthFrame, score: totalScore }
+        }))
+      ]
+    } as StoredImageSummary;
+
+    render(
+      <StoredImagesPanel images={[leagueImage]} isLoading={false} error={null} onRetry={jest.fn()} />
+    );
+
+    expect(screen.queryByText('League points')).not.toBeInTheDocument();
+    expect(screen.getByText('3.5 pts')).toBeVisible();
+    expect(screen.getByText('1.5 pts')).toBeVisible();
+    expect(screen.getByRole('table', { name: 'Pin Pushers versus Spare Change point breakdown' })).toBeVisible();
+    expect(screen.queryByText('League game')).not.toBeInTheDocument();
+    expect(screen.getByText('TEAM 1')).toBeVisible();
+    expect(screen.getByText('TEAM 2')).toBeVisible();
+    expect(screen.queryByText('High game')).not.toBeInTheDocument();
+    expect(screen.queryByText('2nd game')).not.toBeInTheDocument();
+    expect(screen.getAllByText(/Team total ·/)).toHaveLength(2);
+    expect(screen.getByText(/Home Player 1 ·/)).toBeVisible();
+    expect(screen.getByText(/Away Player 1 ·/)).toBeVisible();
+  });
+
   it('renders stored games on the desktop correction path without crashing', () => {
     render(
       <StoredImagesPanel

@@ -20,6 +20,7 @@ export interface Game {
   totalScore: number;
   playerName: string;
   isEstimate?: boolean;
+  teamId?: string | null;
 }
 
 export type FrameDisplay = {

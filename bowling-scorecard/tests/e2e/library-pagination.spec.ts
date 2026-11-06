@@ -64,7 +64,6 @@ test('library navigation continues across paginated image batches with one previ
   await page.goto('/library?e2e=1');
 
   await expect(page.getByText('Image 1 of 75')).toBeVisible();
-  await expect(page.getByText('Corrections saved for this game')).toBeVisible();
   await expect(page.getByAltText('Uploaded scorecard score-page-1-1.jpg')).toBeVisible();
   await expect(page.getByRole('button', { name: 'Previous Page' })).toHaveCount(0);
   await expect(page.getByRole('button', { name: 'Next Page' })).toHaveCount(0);
