@@ -243,6 +243,7 @@ const teamErrorStyles: CSSProperties = {
 };
 
 const teamPillButtonStyles: CSSProperties = {
+  width: '100%',
   maxWidth: '158px',
   minHeight: '34px',
   padding: '7px 10px',
@@ -1362,7 +1363,7 @@ export function StoredImagesPanel({
               <div
                 style={{
                   ...imageFileMetaStyles,
-                  ...(activeImage.isLeagueGame ? { gridColumn: '1 / -1' } : {})
+                  gridColumn: '1 / -1'
                 }}
               >
                 <div
@@ -1380,7 +1381,19 @@ export function StoredImagesPanel({
                 <div>Uploaded {formatDate(activeImage.createdAt)}</div>
               </div>
               {canEdit && onUpdateImageTeam && (
-                <div style={{ display: 'grid', gap: '8px', alignContent: 'start' }}>
+                <div
+                  style={{
+                    display: 'grid',
+                    gridColumn: '1 / -1',
+                    gridTemplateColumns:
+                      isCompactLayout
+                        ? '72px repeat(2, minmax(0, 1fr))'
+                        : 'minmax(220px, 260px) repeat(2, minmax(0, 1fr))',
+                    gap: '8px',
+                    alignItems: 'end',
+                    alignContent: 'start'
+                  }}
+                >
                   <LeagueGameSwitch
                     checked={activeImage.isLeagueGame}
                     disabled={isSavingTeam || isDeletingActiveImage}
@@ -1428,12 +1441,19 @@ export function StoredImagesPanel({
                     />
                   )}
                   {activeImage.isLeagueGame && (!activeImage.team || !activeImage.opponentTeam) && (
-                    <div style={teamErrorStyles}>Select two teams to complete this league game.</div>
+                    <div
+                      style={{
+                        ...teamErrorStyles,
+                        gridColumn: isCompactLayout ? '1 / -1' : '2 / -1'
+                      }}
+                    >
+                      Select two teams to complete this league game.
+                    </div>
                   )}
                 </div>
               )}
               {activeImage.isLeagueGame && (
-                <div style={canEdit && onUpdateImageTeam ? undefined : { gridColumn: '1 / -1' }}>
+                <div style={{ gridColumn: '1 / -1' }}>
                   <LeaguePoints image={activeImage} inline />
                 </div>
               )}

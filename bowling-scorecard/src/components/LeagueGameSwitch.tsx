@@ -69,7 +69,11 @@ export function LeagueGameSwitch({
       onClick={() => onChange(!checked)}
       style={{
         ...controlStyles,
-        maxWidth: compact ? '260px' : '320px',
+        width: compact ? '72px' : '100%',
+        minHeight: compact ? '44px' : controlStyles.minHeight,
+        padding: compact ? '6px' : controlStyles.padding,
+        gap: compact ? '6px' : controlStyles.gap,
+        maxWidth: compact ? '72px' : '320px',
         backgroundColor: checked ? 'rgba(30, 64, 175, 0.35)' : 'rgba(15, 23, 42, 0.75)',
         borderColor: checked ? '#60a5fa' : '#475569',
         cursor: disabled ? 'not-allowed' : 'pointer',
@@ -80,13 +84,14 @@ export function LeagueGameSwitch({
         aria-hidden="true"
         style={{
           ...iconStyles,
+          ...(compact ? { width: '30px', height: '30px', flexBasis: '30px' } : {}),
           color: checked ? '#dbeafe' : '#94a3b8',
           backgroundColor: checked ? '#1d4ed8' : '#1e293b'
         }}
       >
         <Trophy size={18} strokeWidth={2.25} />
       </span>
-      <span style={{ minWidth: 0, flex: 1 }}>
+      <span style={{ minWidth: 0, flex: 1, display: compact ? 'none' : undefined }}>
         <span style={{ display: 'block', fontSize: '14px', fontWeight: 800 }}>League game</span>
         <span style={{ display: 'block', marginTop: '1px', fontSize: '11px', color: '#93c5fd' }}>
           2 teams · 8 scores
@@ -96,13 +101,22 @@ export function LeagueGameSwitch({
         aria-hidden="true"
         style={{
           ...trackStyles,
+          ...(compact
+            ? {
+                width: '20px',
+                height: '20px',
+                padding: '2px',
+                flexBasis: '20px'
+              }
+            : {}),
           backgroundColor: checked ? '#2563eb' : '#475569'
         }}
       >
         <span
           style={{
             ...thumbStyles,
-            transform: checked ? 'translateX(18px)' : 'translateX(0)'
+            ...(compact ? { width: '16px', height: '16px' } : {}),
+            transform: compact ? 'none' : checked ? 'translateX(18px)' : 'translateX(0)'
           }}
         />
       </span>
