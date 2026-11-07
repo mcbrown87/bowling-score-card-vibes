@@ -34,6 +34,7 @@
     "start": "next start",
     "lint": "next lint",
     "test": "jest",
+    "test:integration": "cross-env NODE_OPTIONS= VSCODE_INSPECTOR_OPTIONS= jest --config jest.integration.config.mjs --runInBand",
     "test:coverage": "cross-env NODE_OPTIONS= VSCODE_INSPECTOR_OPTIONS= jest --runInBand --coverage --coverageProvider=v8 --coverageReporters=text --coverageReporters=text-summary --coverageReporters=html",
     "test:e2e": "playwright test",
     "test:e2e:headed": "playwright test --headed",
@@ -49,6 +50,8 @@
   },
   "devDependencies": {
     "@playwright/test": "^1.56.1",
+    "@testcontainers/postgresql": "^10.13.2",
+    "@testcontainers/redis": "^10.13.2",
     "@testing-library/dom": "^10.4.1",
     "@testing-library/jest-dom": "^6.6.4",
     "@testing-library/react": "^16.3.0",
@@ -67,6 +70,7 @@
     "jest-environment-jsdom": "^30.2.0",
     "postcss": "^8.5.6",
     "tailwindcss": "^4.1.11",
+    "testcontainers": "^10.13.2",
     "typescript": "^5.4.5"
   },
   "overrides": {

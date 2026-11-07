@@ -6,8 +6,14 @@ import {
   processScoreEstimatorJob
 } from '@/server/services/scoreEstimator';
 
-const queueName = process.env.SCORE_ESTIMATE_QUEUE ?? 'score-estimates';
-const redisUrl = process.env.REDIS_URL ?? 'redis://127.0.0.1:6379';
+type ScoreEstimatorQueueOptions = {
+  queueName?: string;
+  redisUrl?: string;
+};
+
+type ScoreEstimatorWorkerOptions = ScoreEstimatorQueueOptions & {
+  processor?: (payload: ScoreEstimatorJobPayload) => Promise<unknown>;
+};
 
 type QueueGlobals = typeof globalThis & {
   scoreEstimatorQueue?: Queue<ScoreEstimatorJobPayload>;
@@ -15,18 +21,25 @@ type QueueGlobals = typeof globalThis & {
 
 const globalQueue = globalThis as QueueGlobals;
 
-const getConnectionOptions = () => ({
+const resolveOptions = (options: ScoreEstimatorQueueOptions = {}) => ({
+  queueName: options.queueName ?? process.env.SCORE_ESTIMATE_QUEUE ?? 'score-estimates',
+  redisUrl: options.redisUrl ?? process.env.REDIS_URL ?? 'redis://127.0.0.1:6379'
+});
+
+const getConnectionOptions = (redisUrl: string) => ({
   connection: {
     url: redisUrl
   }
 });
 
+export const createScoreEstimatorQueue = (options: ScoreEstimatorQueueOptions = {}) => {
+  const { queueName, redisUrl } = resolveOptions(options);
+  return new Queue<ScoreEstimatorJobPayload>(queueName, getConnectionOptions(redisUrl));
+};
+
 export const getScoreEstimatorQueue = () => {
   if (!globalQueue.scoreEstimatorQueue) {
-    globalQueue.scoreEstimatorQueue = new Queue<ScoreEstimatorJobPayload>(
-      queueName,
-      getConnectionOptions()
-    );
+    globalQueue.scoreEstimatorQueue = createScoreEstimatorQueue();
   }
 
   return globalQueue.scoreEstimatorQueue;
@@ -40,7 +53,8 @@ export const enqueueScoreEstimatorJob = async (payload: ScoreEstimatorJobPayload
   });
 };
 
-export const createScoreEstimatorWorker = () => {
+export const createScoreEstimatorWorker = (options: ScoreEstimatorWorkerOptions = {}) => {
+  const { queueName, redisUrl } = resolveOptions(options);
   const worker = new Worker<ScoreEstimatorJobPayload>(
     queueName,
     async (job) => {
@@ -48,9 +62,9 @@ export const createScoreEstimatorWorker = () => {
         jobId: job.id,
         storedImageId: job.data.storedImageId
       });
-      await processScoreEstimatorJob(job.data);
+      await (options.processor ?? processScoreEstimatorJob)(job.data);
     },
-    getConnectionOptions()
+    getConnectionOptions(redisUrl)
   );
 
   worker.on('active', (job) => {
